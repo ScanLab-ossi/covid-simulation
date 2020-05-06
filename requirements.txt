@@ -2,3 +2,4 @@ google-cloud-storage
 google-cloud-datastore
 psycopg2
 pandas
+jsonschema
