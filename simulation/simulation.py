@@ -41,11 +41,12 @@ class BasicConfiguration(object):
         conf_file = Path("secrets.conf")
         conf = configparser.ConfigParser()
         if not conf_file.exists():
-            pg = conf["postgres"]
-            pg["dbname"] = os.environ["POSTGRES_DATABASE_NAME"]
-            pg["user"] = os.environ["POSTGRES_USER_NAME"]
-            pg["password"] = os.environ["POSTGRES_USER_PASSWORD"]
-            pg["host"] = os.environ["POSTGRES_DATABASE_HOST"]
+            conf["postgres"] = {
+                "dbname": os.environ["POSTGRES_DATABASE_NAME"],
+                "user": os.environ["POSTGRES_USER_NAME"],
+                "password": os.environ["POSTGRES_USER_PASSWORD"],
+                "host": os.environ["POSTGRES_DATABASE_HOST"],
+            }
         else:
             conf.read(conf_file)
         return conf
