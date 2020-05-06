@@ -28,7 +28,7 @@ jobs:
     - name: Format with black
       run: |
         black .
-    - name: Test with pytest
+    - name: Test with unittest
       run: |
         python -m unittest test.covid_simulation_test
         
