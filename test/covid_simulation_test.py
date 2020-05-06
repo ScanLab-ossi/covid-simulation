@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 from unittest.mock import MagicMock
 import numpy as np
 from random import seed
@@ -7,6 +8,7 @@ import pandas as pd
 import os, configparser
 from google.cloud import storage
 from google.cloud import datastore
+from pathlib import Path
 
 import simulation.simulation as sim
 
@@ -107,25 +109,30 @@ class SpreadOfTheDisease(unittest.TestCase):
 
 
 class TestBasicConfiguration(unittest.TestCase):
-    def test_conf_file_read(self):
+    # def setUp(self):
+    #     os.path.exists = MockPathExists(True)
+
+    def test_get_config(self):
+        pass
         conf = sim.BasicConfiguration()
         self.assertIsInstance(conf.get_config(), configparser.ConfigParser)
 
-    def test_postgres_conf(self):
+    @mock.patch.dict(
+        os.environ,
+        {
+            "POSTGRES_DATABASE_NAME": "test",
+            "POSTGRES_USER_NAME": "test",
+            "POSTGRES_USER_PASSWORD": "test",
+            "POSTGRES_DATABASE_HOST": "test",
+        },
+    )
+    def test_conf(self):
         conf = sim.BasicConfiguration()
         self.assertSetEqual(
-            set(conf.config["postgres"].keys()),
-            set(["dbname", "user", "password", "host"]),
+            set(conf.config["postgres"].keys()), {"dbname", "user", "password", "host"},
         )
-
-    def test_google_credentials(self):
-        conf = sim.BasicConfiguration()
-        self.assertTrue(os.path.exists(conf.config["google"]["credentials"]))
-
-    def test_setting_env(self):
-        conf = sim.BasicConfiguration()
-        conf.set_env()
         self.assertIsNotNone(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", None))
+        self.assertTrue(Path(os.environ["GOOGLE_APPLICATION_CREDENTIALS"]).exists())
 
 
 class TestTaskConfig(unittest.TestCase):
