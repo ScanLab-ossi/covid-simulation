@@ -5,30 +5,34 @@ name: Python application
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.8
-      uses: actions/setup-python@v1
-      with:
-        python-version: 3.8
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install black
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Format with black
-      run: |
-        black .
-    - name: Test with unittest
-      run: |
-        python -m unittest test.covid_simulation_test
-        
+      - uses: actions/checkout@v2
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Format with black
+        run: |
+          black .
+      - name: Test with unittest
+        env: # Or as an environment variable
+          POSTGRES_DATABASE_NAME: ${{ secrets.POSTGRES_DATABASE_NAME }}
+          POSTGRES_USER_NAME: ${{ secrets.POSTGRES_USER_NAME }}
+          POSTGRES_USER_PASSWORD: ${{ secrets.POSTGRES_USER_PASSWORD }}
+          POSTGRES_DATABASE_HOST: ${{ secrets.POSTGRES_DATABASE_HOST }}
+          KEYFILE: ${{ secrets.KEYFILE }}
+        run: |
+          python -m unittest test.covid_simulation_test

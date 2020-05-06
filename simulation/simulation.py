@@ -33,20 +33,28 @@ class BasicConfiguration(object):
     This is not the configuration for the simulation run (called that task_conf)
     """
 
-    def __init__(self, config_file: Path = Path("secrets.conf")):
-        self.config_file = config_file
+    def __init__(self):
+        self.add_keyfile()
         self.config = self.get_config()
-        self.set_env()
 
     def get_config(self):
+        conf_file = Path("secrets.conf")
         conf = configparser.ConfigParser()
-        conf.read(self.config_file)
+        if not conf_file.exists():
+            pg = conf["postgres"]
+            pg["dbname"] = os.environ["POSTGRES_DATABASE_NAME"]
+            pg["user"] = os.environ["POSTGRES_USER_NAME"]
+            pg["password"] = os.environ["POSTGRES_USER_PASSWORD"]
+            pg["host"] = os.environ["POSTGRES_DATABASE_HOST"]
+        else:
+            conf.read(conf_file)
         return conf
 
-    def set_env(self):
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.config["google"][
-            "credentials"
-        ]
+    def add_keyfile(self):
+        if not Path("./keyfile.json").exists():
+            with open("keyfile.json", "w") as fp:
+                json.dump(json.loads(os.environ["KEYFILE"]), fp)
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "keyfile.json"
 
 
 class TaskConfig(UserDict):
