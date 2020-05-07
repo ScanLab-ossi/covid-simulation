@@ -10,6 +10,8 @@ from pathlib import Path
 from jsonschema import Draft7Validator, validators
 from typing import Union
 from collections import UserDict
+from datetime import datetime
+import multiprocessing as mp
 
 test_conf = {
     "age_dist": np.array([0.15, 0.6, 0.25]),  # [youngs, adults, olds]
@@ -300,35 +302,56 @@ def contagion_in_csv(data_as_csv_file, infected_list, date):
     return contagion_set
 
 
-def contagion_in_sql(infected_set, basic_conf, date):
-    if len(infected_set) == 0:  # empty set
-        return set()
+def query_sql_server(subset_of_infected_set, date, basic_conf):
     # data format is "YYYY-MM-DD"
     conn = psycopg2.connect(**basic_conf.config["postgres"])
     # Open a cursor to perform database operations
     cur = conn.cursor()
-    infected_tuple = str(tuple(infected_set))
+    infected_tuple = str(tuple(subset_of_infected_set))
+    infected_tuple_in_postrgers_format = infected_tuple.replace("(", "{").replace(")", "}").replace("'", "")
+    # for the next query the postgres is awaiting to {a, b, c, d} such that a,...,d are id's.
     date_as_str = "'" + str(date) + "'"
     # Query the database and obtain data as Python objects
-    query = f"""select  destination as a
+    query = f"""select  distinct destination as a
                    from h3g.call
                    where date between {date_as_str} and {date_as_str}
                    AND
-                   source in {infected_tuple}
+                   source = any('{infected_tuple_in_postrgers_format}'::text[])
+                    AND
+                   destination != any('{infected_tuple_in_postrgers_format}'::text[])
                    Union
-                   select source as a
+                   select distinct source as a
                    from h3g.call
                    where date between {date_as_str} and {date_as_str}
                    AND
-                   destination in {infected_tuple};"""
-    print(len(query))
+                   destination = any('{infected_tuple_in_postrgers_format}'::text[])
+                    AND
+                   source != any('{infected_tuple_in_postrgers_format}'::text[]);"""
+    # print(f"Query length is {len(query)}, over 1GB could be problem")
     cur.execute(query)
-    cur_out_as_arr = np.asarray(cur.fetchall())
-    contagion_set = set(cur_out_as_arr.flatten())
+    cur_out_as_arr = np.asarray(cur.fetchall()).flatten()
     # Close communication with the database
+    contagion_list = list(cur_out_as_arr)
     cur.close()
     conn.close()
-    return contagion_set
+    return contagion_list
+
+
+def contagion_in_sql(infected_set, basic_conf, date):
+    if len(infected_set) == 0:  # empty set
+        return set()
+    # data format is "YYYY-MM-DD"
+
+    infected_list = list(infected_set)
+    batch_size = 2000
+    sub_infected_list = [infected_list[x:x + batch_size] for x in range(0, len(infected_list), batch_size)]
+
+    pool = mp.Pool(processes=4)
+    results = [pool.apply(query_sql_server, args=(sub_infected_list[x], date, basic_conf)) for x in
+               range(len(sub_infected_list))]
+
+    flat_results = [item for sublist in results for item in sublist]
+    return set(flat_results)
 
 
 def daily_duration_in_sql(id, date):
@@ -377,11 +400,16 @@ def contagion_runner(data, basic_conf, task_conf):
 
     set_of_infected = set(zero_patients)
     for day in range(period):
+        print(f"Status of {day}:")
+        start_time = datetime.now()
         curr_date = first_date + timedelta(days=day)
         curr_date_as_str = curr_date.strftime("%Y-%m-%d")
         set_of_contact_with_patient = contagion_in_sql(
             set_of_infected, basic_conf, curr_date_as_str
         )
+        print(f"set_of_contact_with_patient: {len(set_of_contact_with_patient)}")
+        print(f"SQL query time: {(datetime.now() - start_time)}")
+        start_time = datetime.now()
         for id in set_of_contact_with_patient:
             daily_duration = daily_duration_in_sql(id, curr_date_as_str)  # = D_i
             P_gb = (
@@ -400,9 +428,10 @@ def contagion_runner(data, basic_conf, task_conf):
             data.df[(data.df["expiration_date"] > curr_date_as_str)]["id"].values
         )
         # patients that doesn't recovered or died yet
+        print(f"local calculation time: {(datetime.now() - start_time)}")
 
-        print(f"Status of {day}:")
-        data.display()
+        print(data.shape())
+        # data.display()
 
     data.export()
 
