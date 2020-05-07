@@ -217,7 +217,7 @@ class DataSturcture(unittest.TestCase):
 
 class ContangionViaSQL(unittest.TestCase):
     skip_sql_tests = (
-        False  # There is tests that required connection to the server in Milan
+        True  # There is tests that required connection to the server in Milan
     )
 
     @unittest.skipIf(skip_sql_tests, "Skip SQL tests")
