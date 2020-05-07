@@ -146,7 +146,7 @@ class Data(object):
         )
         aggravation_duration = int(np.around(np.random.normal(mu, sigma)))
         if (
-            aggravation_duration <= 1
+                aggravation_duration <= 1
         ):  # Avoid the paradox of negative recovery duration.
             aggravation_duration = 1
         expiration_date = datetime.strptime(infection_date, "%Y-%m-%d") + timedelta(
@@ -182,7 +182,7 @@ class Data(object):
 
 class GoogleCloud(object):
     def __init__(
-        self, config: BasicConfiguration, bucket_name: str = "simulation_runs"
+            self, config: BasicConfiguration, bucket_name: str = "simulation_runs"
     ):
         self.config = config
         self.s_client = storage.Client()
@@ -202,7 +202,8 @@ class GoogleCloud(object):
         then = datetime.now()
         blob = self.bucket.blob(f"{new_name}.csv")
         with open(filename, "rb") as f:
-            if file_size := os.path.getsize(filename) < 10_485_760:  # 10MB
+            file_size = os.path.getsize(filename)
+            if file_size < 10_485_760:  # 10MB
                 blob.upload_from_file(f, content_type="text/csv")
             else:
                 url = blob.create_resumable_upload_session(
@@ -258,11 +259,11 @@ class GoogleCloud(object):
 
 
 def pick_patient_zero(
-    set_of_potential_patients,
-    num_of_patients=1,
-    random_seed=1,
-    arbitrary=False,
-    arbitrary_patient_zero=["MJviZSTPuYw1v0W0cURthY"],
+        set_of_potential_patients,
+        num_of_patients=1,
+        random_seed=1,
+        arbitrary=False,
+        arbitrary_patient_zero=["MJviZSTPuYw1v0W0cURthY"],
 ):
     # return set of zero patients
     if arbitrary:
@@ -276,7 +277,7 @@ def pick_patient_zero(
 
 
 def get_active_ids(
-    data,
+        data,
 ):  # return all the people who make contact in the given dataset (data is csv or sql query)
     active_ids = set()
     with open(data) as fp:
