@@ -222,6 +222,7 @@ class ContangionViaSQL(unittest.TestCase):
 
     @unittest.skipIf(skip_sql_tests, "Skip SQL tests")
     def test_sql_query_contagion(self):
+        default_config = sim.test_conf
         set_of_mock_potential_patients = {
             ".QP/64EdoTcdkMnmXGVO0A",
             "BP51jL2myIMRqfYseLbGfM,D8hZWX/ycJMmF4qg1uGkZc",
@@ -234,8 +235,8 @@ class ContangionViaSQL(unittest.TestCase):
             "xDK0mIGasmAilJrvnFS3Pw",
         }
         self.assertEqual(
-            len(sim.contagion_in_sql(set_of_mock_potential_patients, "2012-03-29")),
-            7942,
+            len(sim.contagion_in_sql(set_of_mock_potential_patients, default_config,"2012-03-29")),
+            7942
         )
 
 
