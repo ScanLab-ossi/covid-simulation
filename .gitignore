@@ -1,7 +1,7 @@
 # Specific
 keyfile.json
 secrets.conf
-
+*.ipynb
 .idea/
 
 # Byte-compiled / optimized / DLL files

@@ -3,7 +3,7 @@ from unittest import mock
 from unittest.mock import MagicMock
 import numpy as np
 from random import seed
-from datetime import datetime
+from datetime import datetime, date
 import pandas as pd
 import os, configparser
 from google.cloud import storage
@@ -73,39 +73,30 @@ class ReadingDataFromMock(unittest.TestCase):
 
 class SpreadOfTheDisease(unittest.TestCase):
     def test_first_circle_of_patient_in_specific_date(self):
-        self.assertEqual(
-            sim.contagion_in_csv(
-                "./data/mock_data.csv", {"FNGiD7T4cpkOIM3mq.YdMY"}, "2012-03-26"
-            ),
-            {"ODOkY9pchzsDHj.23UGQoc"},
+        result = sim.contagion_in_csv(
+            "./data/mock_data.csv", {"FNGiD7T4cpkOIM3mq.YdMY"}, date(2012, 3, 26)
         )
+        self.assertEqual(result.iloc[0].name, "ODOkY9pchzsDHj.23UGQoc")
 
     def test_first_circle_of_2_patient_in_specific_date(self):
-        self.assertEqual(
-            sim.contagion_in_csv(
-                "./data/mock_data.csv",
-                {"..7cyMMPqV.bMVjsN7Rcns", "..cvdr3nnY2eZmwko9evCQ"},
-                "2012-03-26",
-            ),
-            {"cMvEW1y.DLUsMgtP951/f."},
+        result = sim.contagion_in_csv(
+            "./data/mock_data.csv",
+            {"..7cyMMPqV.bMVjsN7Rcns", "..cvdr3nnY2eZmwko9evCQ"},
+            date(2012, 3, 26),
         )
 
+        self.assertEqual(result.iloc[0].name, "cMvEW1y.DLUsMgtP951/f.")
+
     def test_virus_spread_over_some_days(self):
-        self.assertEqual(
-            len(
-                sim.virus_spread(
-                    "./data/mock_data.csv",
-                    {
-                        "FNGiD7T4cpkOIM3mq.YdMY",
-                        "Sq1s6KEGp1Qm8MN1o1paM.",
-                        "HhulO23UWA2BVHqsECvjJY",
-                    },
-                    "2012-04-02",
-                    2,
-                )
-            ),
-            12,
+        patient_set = {
+            "FNGiD7T4cpkOIM3mq.YdMY",
+            "Sq1s6KEGp1Qm8MN1o1paM.",
+            "HhulO23UWA2BVHqsECvjJY",
+        }
+        result = sim.virus_spread(
+            "./data/mock_data.csv", patient_set, date(2012, 4, 2), 2
         )
+        self.assertEqual(len(result), 12)
 
 
 class TestBasicConfiguration(unittest.TestCase):
@@ -170,55 +161,52 @@ class DefaultTaskConfig(unittest.TestCase):
         self.assertEqual(default_config.get("D_max"), 70)
 
 
-class DataSturcture(unittest.TestCase):
+class DataStructure(unittest.TestCase):
     def test_create_empty_dataframe(self):
         d = sim.Data()
+        self.assertListEqual(
+            d.df.columns.tolist(),
+            ["age_group", "color", "infection_date", "expiration_date"],
+        )
+        self.assertEqual(d.df.index.name, "id")
         # d.display()
 
-    def test_time_to_recovery(self):
-        default_config = sim.test_conf
-        np.random.seed(seed=1)
-        self.assertEqual(
-            sim.Data.time_to_recovery("2012-04-02", default_config), "2012-05-08"
-        )
+    # def test_time_to_recovery(self):
+    #     default_config = sim.test_conf
+    #     np.random.seed(seed=1)
+    #     self.assertEqual(
+    #         sim.Data.time_to_recovery("2012-04-02", default_config), "2012-05-08"
+    #     )
 
-    def test_time_to_aggravation(self):
-        default_config = sim.test_conf
-        np.random.seed(seed=2)
-        self.assertEqual(
-            sim.Data.time_to_aggravation("2012-04-02", default_config), "2012-04-06"
-        )
+    # def test_time_to_aggravation(self):
+    #     default_config = sim.test_conf
+    #     np.random.seed(seed=2)
+    #     self.assertEqual(
+    #         sim.Data.time_to_aggravation("2012-04-02", default_config), "2012-04-06"
+    #     )
 
     def test_check_if_aggravation(self):
-        default_config = sim.test_conf
+        pass
+        d = sim.Data()
         np.random.seed(seed=2)  # prob = 0.4
-        self.assertEqual(sim.Data.check_if_aggravate(), False)
-        np.random.seed(seed=2)  # prob = 0.4
-        self.assertEqual(sim.Data.check_if_aggravate(s_i=0.1), True)
+        # self.assertEqual(d.check_if_aggravate(np.arange(10)).all(), False)
+        # self.assertEqual(d.check_if_aggravate(np.arange(10), s_i=0.1).all(), True)
 
     def test_append_row_to_df(self):
         d = sim.Data()
-        default_config = sim.test_conf
-        for i in range(15):
-            age_group, color, expiration_date = d.infection_state_transition(
-                default_config, "2012-03-29"
-            )
-            d.append(
-                id="a" + str(i),
-                age_group=age_group,
-                infection_date="2012-03-29",
-                expiration_date=expiration_date,
-                color=color,
-            )
-        d.display()
-
-        print(set(d.df[(d.df["expiration_date"] > "2012-04-16")]["id"].values))
+        self.assertEqual(len(d.df), 0)
+        sample_df = pd.DataFrame(
+            [range(len(d.df.columns))], columns=d.df.columns, index=["sample_id"]
+        )
+        d.append(sample_df)
+        self.assertEqual(len(d.df), 1)
+        with self.assertRaises(ValueError):
+            d.append(sample_df)
 
 
 class ContangionViaSQL(unittest.TestCase):
-    skip_sql_tests = (
-        True  # There is tests that required connection to the server in Milan
-    )
+    # Tests that require connection to the server in Milan
+    skip_sql_tests = True
 
     @unittest.skipIf(skip_sql_tests, "Skip SQL tests")
     def test_sql_query_contagion(self):
@@ -235,8 +223,12 @@ class ContangionViaSQL(unittest.TestCase):
             "xDK0mIGasmAilJrvnFS3Pw",
         }
         self.assertEqual(
-            len(sim.contagion_in_sql(set_of_mock_potential_patients, default_config,"2012-03-29")),
-            7942
+            len(
+                sim.contagion_in_sql(
+                    set_of_mock_potential_patients, default_config, "2012-03-29"
+                )
+            ),
+            7942,
         )
 
 
@@ -249,34 +241,53 @@ class PickleToSet(unittest.TestCase):
 
 
 class Infection(unittest.TestCase):
-    def test_check_if_infected(self):
-        self.assertTrue(sim.Data.check_if_infected(1, 1))
-        self.assertTrue(sim.Data.check_if_infected(0.5, 0.5))
-        self.assertTrue(sim.Data.check_if_infected(0.1, 1) is True)
-        self.assertTrue(sim.Data.check_if_infected(0.1, 1, 0.05))
-
-    def test_infection_state_transition_age_group(self):
-        default_config = sim.test_conf
-        self.assertTrue(
-            sim.Data.infection_state_transition(default_config, "2012-03-29")[0]
-            in np.arange(len(default_config.get("age_dist")))
-        )
+    # def test_check_if_infected(self):
+    #     self.assertTrue(sim.Data.check_if_infected(1, 1))
+    #     self.assertTrue(sim.Data.check_if_infected(0.5, 0.5))
+    #     self.assertTrue(sim.Data.check_if_infected(0.1, 1) is True)
+    #     self.assertTrue(sim.Data.check_if_infected(0.1, 1, 0.05))
 
     def test_infection_state_transition_return_values(self):
-        default_config = sim.test_conf
-        self.assertTrue(
-            sim.Data.infection_state_transition(default_config, "2012-03-29")[0]
-            in np.arange(len(default_config.get("age_dist")))
+        d = sim.Data()
+        infected = pd.DataFrame(
+            [[50]], columns=["daily_duration"], index=[".QP/64EdoTcdkMnmXGVO0A"]
         )
-        self.assertTrue(
-            sim.Data.infection_state_transition(default_config, "2012-03-29")[1]
-            in ["blue", "purple"]
+        df = d.infection_state_transition(infected, date(2012, 3, 26))
+        self.assertEqual(
+            set(df["age_group"]) - set(range(len(sim.test_conf["age_dist"]))), set()
         )
-        expiration_date = datetime.strptime(
-            sim.Data.infection_state_transition(default_config, "2012-03-29")[2],
-            "%Y-%m-%d",
+        self.assertTrue(df["color"].isin(np.array([True, False])).all())
+        self.assertTrue((df["expiration_date"].values > date(2012, 3, 26)).all())
+
+    def test_is_enough_duration(self):
+        d = sim.Data()
+        df_50 = pd.DataFrame([50], columns=["daily_duration"])
+        df_10 = pd.DataFrame([10], columns=["daily_duration"])
+        self.assertEqual(
+            d.is_enough_duration(df_50["daily_duration"]), np.array([True])
         )
-        self.assertTrue(expiration_date > datetime.strptime("2012-03-29", "%Y-%m-%d"))
+        self.assertEqual(
+            d.is_enough_duration(df_10["daily_duration"]), np.array([False])
+        )
+
+    def test_get_trajectory(self):
+        d = sim.Data()
+        curr_date = date(2012, 3, 26)
+        infected = sim.contagion_in_csv(
+            "./data/mock_data.csv", {"FNGiD7T4cpkOIM3mq.YdMY"}, curr_date
+        )
+        sim.get_trajectory(infected, d, curr_date, add_duration=False)
+        self.assertListEqual(
+            d.df.columns.tolist(),
+            [
+                "age_group",
+                "color",
+                "infection_date",
+                "expiration_date",
+                "daily_duration",
+            ],
+        )
+        self.assertEqual(d.df.index.name, "id")
 
 
 class GoogleCloudTest(unittest.TestCase):
