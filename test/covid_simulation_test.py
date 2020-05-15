@@ -6,11 +6,13 @@ from random import seed
 from datetime import datetime, date
 import pandas as pd
 import os, configparser
-from google.cloud import storage
-from google.cloud import datastore
+from google.cloud import storage, datastore
+from google.cloud import exceptions as gcloud_exceptions
 from pathlib import Path
 
 import simulation.simulation as sim
+
+SKIP_TESTS = os.environ.get("CI_SKIP_TESTS", False)
 
 
 class PickZeroPatients(unittest.TestCase):
@@ -206,9 +208,8 @@ class DataStructure(unittest.TestCase):
 
 class ContangionViaSQL(unittest.TestCase):
     # Tests that require connection to the server in Milan
-    skip_sql_tests = True
 
-    @unittest.skipIf(skip_sql_tests, "Skip SQL tests")
+    @unittest.skipIf(SKIP_TESTS, "Skip SQL tests")
     def test_sql_query_contagion(self):
         default_config = sim.test_conf
         set_of_mock_potential_patients = {
@@ -304,8 +305,28 @@ class GoogleCloudTest(unittest.TestCase):
         bucket = self.gcloud.s_client.lookup_bucket("simulation_runs")
         self.assertIsInstance(bucket, storage.Bucket)
 
+    @unittest.skipIf(SKIP_TESTS, "Skip Google Storage Tests")
+    def test_download(self):
+        self.gcloud.download("test.csv")
+        self.assertTrue(Path("./data/test.csv").exists())
+
+    @unittest.skipIf(SKIP_TESTS, "Skip Google Storage Tests")
     def test_upload(self):
-        pass
+        bucket = self.gcloud.s_client.bucket("simulation_datasets")
+        blob = bucket.blob("test.csv")
+        try:
+            blob.delete()
+            print("deleted")
+        except gcloud_exceptions.NotFound:
+            pass
+        url = self.gcloud.upload(
+            Path("./data/test.csv"), bucket_name="simulation_datasets"
+        )
+        self.assertEqual(
+            url,
+            "https://www.googleapis.com/storage/v1/b/simulation_datasets/o/test.csv",
+        )
+        self.assertTrue(blob.exists())
 
     def test_connection_to_google_cloud_datastore(self):
         pass
