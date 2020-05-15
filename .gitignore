@@ -1,6 +1,10 @@
 # Specific
 keyfile.json
 secrets.conf
+*.csv
+!mock_data.csv
+!output.csv
+
 *.ipynb
 .idea/
 

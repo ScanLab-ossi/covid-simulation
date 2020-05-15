@@ -170,12 +170,9 @@ class Data(object):
 
 
 class GoogleCloud(object):
-    def __init__(
-        self, config: BasicConfiguration, bucket_name: str = "simulation_runs"
-    ):
+    def __init__(self, config: BasicConfiguration):
         self.config = config
         self.s_client = storage.Client()
-        self.bucket = self.s_client.bucket(bucket_name)
         self.ds_client = datastore.Client()
         self.todo = []
         self.done = []
@@ -187,9 +184,13 @@ class GoogleCloud(object):
             }
         )
 
-    def upload(self, filename: Path, new_name: str):
+    def upload(
+        self, filename: Path, new_name: str = None, bucket_name: str = "simulation_runs"
+    ):
         then = datetime.now()
-        blob = self.bucket.blob(f"{new_name}.csv")
+        bucket = self.s_client.bucket(bucket_name)
+        blob_name = f"{new_name}.csv" if new_name else filename.name
+        blob = bucket.blob(blob_name)
         with open(filename, "rb") as f:
             file_size = os.path.getsize(filename)
             if file_size < 10_485_760:  # 10MB
@@ -200,10 +201,19 @@ class GoogleCloud(object):
                 )
                 res = requests.put(url, data=f)
                 res.raise_for_status()
-        print(
-            f"uploaded {new_name} to {self.bucket.name}. took {datetime.now() - then}"
-        )
+        print(f"uploaded {blob_name} to {bucket.name}. took {datetime.now() - then}")
         return blob.self_link
+
+    def download(self, blob_name: str):
+        destination_path = Path(f"./data/{blob_name}")
+        if not destination_path.exists():
+            bucket = self.s_client.bucket("simulation_datasets")
+            blob = bucket.blob(blob_name)
+            print(f"downloading {blob_name}. this might take a while.")
+            blob.download_to_filename(destination_path)
+            print(f"finished downloading {blob_name}. thank you for your patience :)")
+        else:
+            print(f"{destination_path.name} already exists")
 
     def get_tasklist(self, done=False):
         query = self.ds_client.query(kind="task")
