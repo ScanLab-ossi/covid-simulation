@@ -13,6 +13,11 @@ from collections import UserDict
 from datetime import datetime
 import multiprocessing as mp
 
+try:
+    from helpers import timing
+except ModuleNotFoundError:
+    from simulation.helpers import timing
+
 test_conf = {
     "age_dist": np.array([0.15, 0.6, 0.25]),  # [youngs, adults, olds]
     "recovery_time_dist": np.array(
@@ -99,11 +104,14 @@ class TaskConfig(UserDict):
 
 
 class Data(object):
-    def __init__(self, output_filename="output"):
+    def __init__(self, output_filename="output", task_conf=test_conf):
         self.df = pd.DataFrame(
-            columns=["id", "age_group", "color", "infection_date", "expiration_date"]
+            columns=["age_group", "color", "infection_date", "expiration_date"]
         )
+        self.df.index.name = "id"
         self.output_path = Path(f"./data/{output_filename}.csv")
+        self.task_conf = task_conf
+        self.first_date = date(2012, 3, 26)
 
     def display(self):
         print(self.df.to_string())
@@ -112,83 +120,59 @@ class Data(object):
         print(self.df.shape)
 
     def export(self):
-        self.df.to_csv(self.output_path, index=False)
+        self.df.to_csv(self.output_path)
 
-    def append(self, id, age_group, infection_date, expiration_date, color):
-        self.df = self.df.append(
-            {
-                "id": id,
-                "age_group": age_group,
-                "infection_date": infection_date,
-                "expiration_date": expiration_date,
-                "color": color,
-            },
-            ignore_index=True,
-        )
+    def append(self, new_df):
+        self.df = self.df.append(new_df, verify_integrity=True)
 
-    @staticmethod
-    def time_to_recovery(infection_date, task_conf):
-        mu, sigma = (
-            task_conf.get("recovery_time_dist")[0],
-            task_conf.get("recovery_time_dist")[1],
-        )
-        recovery_duration = int(np.around(np.random.normal(mu, sigma)))
-        if recovery_duration <= 1:  # Avoid the paradox of negative recovery duration.
-            recovery_duration = 1
-        expiration_date = datetime.strptime(infection_date, "%Y-%m-%d") + timedelta(
-            recovery_duration
-        )
-        return expiration_date.strftime("%Y-%m-%d")
+    def expiration_date(self, color, infection_date):
+        time_dist = "recovery_time_dist" if color else "aggravation_time_dist"
+        duration = int(np.around(np.random.normal(*self.task_conf.get(time_dist))))
+        if duration <= 1:  # Avoid the paradox of negative recovery duration.
+            duration = 1
+        expiration_date = infection_date + timedelta(duration)
+        return expiration_date
 
-    @staticmethod
-    def time_to_aggravation(infection_date, task_conf):
-        mu, sigma = (
-            task_conf.get("aggravation_time_dist")[0],
-            task_conf.get("aggravation_time_dist")[1],
-        )
-        aggravation_duration = int(np.around(np.random.normal(mu, sigma)))
-        if (
-                aggravation_duration <= 1
-        ):  # Avoid the paradox of negative recovery duration.
-            aggravation_duration = 1
-        expiration_date = datetime.strptime(infection_date, "%Y-%m-%d") + timedelta(
-            aggravation_duration
-        )
-        return expiration_date.strftime("%Y-%m-%d")
-
-    @staticmethod
-    def check_if_aggravate(age_group=None, s_i=0.7):
+    @timing
+    def check_if_aggravate(self, age_group, s_i=0.7):
         # TO BE MORE COMPETABILE TO THE MODEL
-        threshold = s_i
-        prob = np.random.rand(1)
-        return prob > threshold
+        return np.random.rand(len(age_group)) > s_i
 
-    @staticmethod
-    def check_if_infected(P_max, P_gb, threshold=0.05):
-        return P_max * P_gb > threshold
+    @timing
+    def is_enough_duration(self, daily_duration):
+        return (
+            np.where(
+                daily_duration.values >= self.task_conf.get("D_min"),
+                daily_duration.values / self.task_conf.get("D_max"),
+                0,
+            )
+            * self.task_conf.get("P_max")
+            > 0.05
+        )
 
-    @staticmethod
-    def infection_state_transition(task_conf, infection_date):
+    @timing
+    def infection_state_transition(self, infected, infection_date):
         # get info about an infected person and return relevant data for dataframe
-        age_dist = task_conf.get("age_dist")
-        age_group = choices(np.arange(len(age_dist)), age_dist)
-        # print(age_dist, np.arange(len(age_dist)), age_group)
-        if Data.check_if_aggravate(age_group=age_group):
-            color = "purple"
-            expiration_date = Data.time_to_aggravation(infection_date, task_conf)
-        else:
-            color = "blue"
-            expiration_date = Data.time_to_recovery(infection_date, task_conf)
-        return age_group, color, expiration_date
+        df = pd.DataFrame(
+            np.random.choice(
+                len(self.task_conf.get("age_dist")),
+                len(infected.index),
+                p=self.task_conf.get("age_dist").tolist(),
+            ),
+            columns=["age_group"],
+            index=infected.index,
+        )
+        df["color"] = self.check_if_aggravate(df["age_group"].values)
+        df["expiration_date"] = df["color"].apply(
+            self.expiration_date, args=(infection_date,)
+        )
+        return df
 
 
 class GoogleCloud(object):
-    def __init__(
-            self, config: BasicConfiguration, bucket_name: str = "simulation_runs"
-    ):
+    def __init__(self, config: BasicConfiguration):
         self.config = config
         self.s_client = storage.Client()
-        self.bucket = self.s_client.bucket(bucket_name)
         self.ds_client = datastore.Client()
         self.todo = []
         self.done = []
@@ -200,9 +184,13 @@ class GoogleCloud(object):
             }
         )
 
-    def upload(self, filename: Path, new_name: str):
+    def upload(
+        self, filename: Path, new_name: str = None, bucket_name: str = "simulation_runs"
+    ):
         then = datetime.now()
-        blob = self.bucket.blob(f"{new_name}.csv")
+        bucket = self.s_client.bucket(bucket_name)
+        blob_name = f"{new_name}.csv" if new_name else filename.name
+        blob = bucket.blob(blob_name)
         with open(filename, "rb") as f:
             file_size = os.path.getsize(filename)
             if file_size < 10_485_760:  # 10MB
@@ -213,10 +201,19 @@ class GoogleCloud(object):
                 )
                 res = requests.put(url, data=f)
                 res.raise_for_status()
-        print(
-            f"uploaded {new_name} to {self.bucket.name}. took {datetime.now() - then}"
-        )
+        print(f"uploaded {blob_name} to {bucket.name}. took {datetime.now() - then}")
         return blob.self_link
+
+    def download(self, blob_name: str):
+        destination_path = Path(f"./data/{blob_name}")
+        if not destination_path.exists():
+            bucket = self.s_client.bucket("simulation_datasets")
+            blob = bucket.blob(blob_name)
+            print(f"downloading {blob_name}. this might take a while.")
+            blob.download_to_filename(destination_path)
+            print(f"finished downloading {blob_name}. thank you for your patience :)")
+        else:
+            print(f"{destination_path.name} already exists")
 
     def get_tasklist(self, done=False):
         query = self.ds_client.query(kind="task")
@@ -260,12 +257,13 @@ class GoogleCloud(object):
             self.ds_client.put(task)
 
 
+@timing
 def pick_patient_zero(
-        set_of_potential_patients,
-        num_of_patients=1,
-        random_seed=1,
-        arbitrary=False,
-        arbitrary_patient_zero=["MJviZSTPuYw1v0W0cURthY"],
+    set_of_potential_patients,
+    num_of_patients=1,
+    random_seed=1,
+    arbitrary=False,
+    arbitrary_patient_zero=["MJviZSTPuYw1v0W0cURthY"],
 ):
     # return set of zero patients
     if arbitrary:
@@ -278,8 +276,9 @@ def pick_patient_zero(
         return randomly_patient_zero
 
 
+@timing
 def get_active_ids(
-        data,
+    data,
 ):  # return all the people who make contact in the given dataset (data is csv or sql query)
     active_ids = set()
     with open(data) as fp:
@@ -289,26 +288,37 @@ def get_active_ids(
     return active_ids
 
 
-def contagion_in_csv(data_as_csv_file, infected_list, date):
-    contagion_set = set()
-    with open(data_as_csv_file) as fp:
-        for line in fp:
-            if line.split(",")[2] == date:
-                if line.split(",")[0] in infected_list:
-                    contagion_set.add(line.split(",")[5])
-                if line.split(",")[5] in infected_list:
-                    contagion_set.add(line.split(",")[0])
+@timing
+def contagion_in_csv(data_path, infected_set, date=None):
+    df = pd.read_csv(data_path, header=None, parse_dates=[2])
+    contagion_df = (
+        df[
+            (df[0].isin(infected_set) | df[5].isin(infected_set))
+            & (df[2] == np.datetime64(date))
+        ][[0, 1, 2, 3, 5]]
+        .melt(id_vars=[1, 2, 3])
+        .drop(columns=["variable"])
+        .drop_duplicates()
+        .groupby("value")[1]
+        .sum()
+        .to_frame(name="daily_duration")
+        .reset_index()
+        .rename(columns={"value": "id"})
+    )
+    contagion_df = contagion_df[~contagion_df["id"].isin(infected_set)].set_index("id")
+    return contagion_df
 
-    return contagion_set
 
-
+@timing
 def query_sql_server(subset_of_infected_set, date, basic_conf):
     # data format is "YYYY-MM-DD"
     conn = psycopg2.connect(**basic_conf.config["postgres"])
     # Open a cursor to perform database operations
     cur = conn.cursor()
     infected_tuple = str(tuple(subset_of_infected_set))
-    infected_tuple_in_postrgers_format = infected_tuple.replace("(", "{").replace(")", "}").replace("'", "")
+    infected_tuple_in_postrgers_format = (
+        infected_tuple.replace("(", "{").replace(")", "}").replace("'", "")
+    )
     # for the next query the postgres is awaiting to {a, b, c, d} such that a,...,d are id's.
     date_as_str = "'" + str(date) + "'"
     # Query the database and obtain data as Python objects
@@ -337,6 +347,7 @@ def query_sql_server(subset_of_infected_set, date, basic_conf):
     return contagion_list
 
 
+@timing
 def contagion_in_sql(infected_set, basic_conf, date):
     if len(infected_set) == 0:  # empty set
         return set()
@@ -344,34 +355,38 @@ def contagion_in_sql(infected_set, basic_conf, date):
 
     infected_list = list(infected_set)
     batch_size = 2000
-    sub_infected_list = [infected_list[x:x + batch_size] for x in range(0, len(infected_list), batch_size)]
+    sub_infected_list = [
+        infected_list[x : x + batch_size]
+        for x in range(0, len(infected_list), batch_size)
+    ]
 
     pool = mp.Pool(processes=4)
-    results = [pool.apply(query_sql_server, args=(sub_infected_list[x], date, basic_conf)) for x in
-               range(len(sub_infected_list))]
+    results = [
+        pool.apply(query_sql_server, args=(sub_infected_list[x], date, basic_conf))
+        for x in range(len(sub_infected_list))
+    ]
 
     flat_results = [item for sublist in results for item in sublist]
     return set(flat_results)
 
 
-def daily_duration_in_sql(id, date):
+@timing
+def daily_duration_in_sql(id=None, date=None):
     # to be completed
-    return 50
+    return 90
 
 
-def virus_spread(data, set_of_patients, start_date, days):
-    date_str = start_date
-    date_object = datetime.strptime(date_str, "%Y-%m-%d")
-    patients = set_of_patients
+@timing
+def virus_spread(data_path, set_of_patients, start_date, days):
+    patients = pd.DataFrame(index=set_of_patients)
     for i in range(days):
-        new_patients = contagion_in_csv(
-            data, patients, date_object.strftime("%Y-%m-%d")
-        )
-        patients = patients.union(new_patients)
-        date_object += timedelta(days=1)
+        new_patients = contagion_in_csv(data_path, patients.index.tolist(), start_date)
+        patients = patients.append(new_patients, verify_integrity=True)
+        start_date += timedelta(days=1)
     return patients
 
 
+@timing
 def one_array_pickle_to_set(pickle_file_name):
     # open a file, where you stored the pickled data
     with open(pickle_file_name, "rb") as f:
@@ -380,58 +395,60 @@ def one_array_pickle_to_set(pickle_file_name):
     return set_from_arr
 
 
-def contagion_runner(data, basic_conf, task_conf):
-    period = 10  # max is 65
-    first_date = date(2012, 3, 26)  #
-    pickle_of_ids = one_array_pickle_to_set(
-        Path("./data/destination_ids_first_3days.pickle")
-    )
-    zero_patients = pick_patient_zero(
-        pickle_of_ids, num_of_patients=task_conf.get("number_of_patient_zero")
-    )
-    # -- TO DO -- append the zero patients into dataframe
-    for id in zero_patients:
-        age_group, color, expiration_date = data.infection_state_transition(
-            task_conf, first_date.strftime("%Y-%m-%d")
-        )
-        data.append(
-            id, age_group, first_date.strftime("%Y-%m-%d"), expiration_date, color
-        )
+@timing
+def get_trajectory(infected, data, curr_date, add_duration=True):
+    if isinstance(infected, set):
+        infected = pd.DataFrame(index=infected)
+        infected.index.name = "id"
+        if add_duration:
+            infected["daily_duration"] = daily_duration_in_sql()  # = D_i
+    infected = infected.loc[
+        ~infected.index.isin(data.df.index)
+    ]  # remove newly infected if they've already been infected in the past
+    if "daily_duration" in infected.columns:
+        infected = infected[data.is_enough_duration(infected["daily_duration"])]
+    infected = infected.join(data.infection_state_transition(infected, curr_date))
+    infected["infection_date"] = curr_date
+    data.append(infected)
 
-    set_of_infected = set(zero_patients)
+
+@timing
+def contagion_runner(data, basic_conf, sql=True):
+    period = 10  # max is 65
+    if sql:
+        pickle_of_ids = one_array_pickle_to_set(
+            Path("./data/destination_ids_first_3days.pickle")
+        )
+        zero_patients = pick_patient_zero(
+            pickle_of_ids, num_of_patients=data.task_conf.get("number_of_patient_zero")
+        )
+    else:
+        zero_patients = set(
+            pd.read_csv(
+                "../call_1.csv",
+                header=None,
+                nrows=data.task_conf.get("number_of_patient_zero"),
+            )[0]
+        )
+    get_trajectory(zero_patients, data, data.first_date, add_duration=False)
+    set_of_infected = zero_patients
     for day in range(period):
         print(f"Status of {day}:")
-        start_time = datetime.now()
-        curr_date = first_date + timedelta(days=day)
-        curr_date_as_str = curr_date.strftime("%Y-%m-%d")
-        set_of_contact_with_patient = contagion_in_sql(
-            set_of_infected, basic_conf, curr_date_as_str
-        )
-        print(f"set_of_contact_with_patient: {len(set_of_contact_with_patient)}")
-        print(f"SQL query time: {(datetime.now() - start_time)}")
-        start_time = datetime.now()
-        for id in set_of_contact_with_patient:
-            daily_duration = daily_duration_in_sql(id, curr_date_as_str)  # = D_i
-            P_gb = (
-                daily_duration / task_conf.get("D_max")
-                if daily_duration > task_conf.get("D_min")
-                else 0
+        curr_date = data.first_date + timedelta(days=day)
+        if sql:
+            set_of_contact_with_patient = contagion_in_sql(
+                set_of_infected, basic_conf, curr_date.strftime("%Y-%m-%d")
             )
-            P_max = task_conf.get("P_max")
-            if data.check_if_infected(P_max, P_gb):
-                age_group, color, expiration_date = data.infection_state_transition(
-                    task_conf, curr_date_as_str
-                )
-                data.append(id, age_group, curr_date_as_str, expiration_date, color)
-
-        set_of_infected = set(
-            data.df[(data.df["expiration_date"] > curr_date_as_str)]["id"].values
-        )
-        # patients that doesn't recovered or died yet
+        else:
+            set_of_contact_with_patient = contagion_in_csv(
+                "../call_1.csv", set_of_infected, date=curr_date
+            )
+        start_time = datetime.now()
+        get_trajectory(set_of_contact_with_patient, data, curr_date)
+        set_of_infected = set(data.df[data.df["expiration_date"] > curr_date].index)
+        # patients that haven't recovered or died yet
         print(f"local calculation time: {(datetime.now() - start_time)}")
-
         print(data.shape())
-        # data.display()
 
     data.export()
 
@@ -440,16 +457,16 @@ def main(test_conf: dict = False):
     basic_conf = BasicConfiguration()
     gcloud = GoogleCloud(basic_conf)
     if test_conf:
-        contagion_runner(Data(), basic_conf=basic_conf, task_conf=TaskConfig(test_conf))
+        contagion_runner(
+            Data(task_conf=test_conf), basic_conf=basic_conf
+        )  # , sql=False)
     else:
         gcloud.get_tasklist()
         if gcloud.todo:
             results = []
             for task in gcloud.todo:
-                data = Data(output_path=task.id)
-                contagion_runner(
-                    data, basic_conf=basic_conf, task_conf=TaskConfig(task)
-                )
+                data = Data(output_path=task.id, task_conf=TaskConfig(task))
+                contagion_runner(data, basic_conf=basic_conf)
                 results.append((data, task))
             gcloud.write_results(results)
         else:
