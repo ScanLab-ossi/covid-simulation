@@ -12,7 +12,7 @@ from pathlib import Path
 
 import simulation.simulation as sim
 
-SKIP_TESTS = os.environ.get("CI_SKIP_TESTS", False)
+SKIP_TESTS = os.environ.get("CI_SKIP_TESTS", True)
 
 
 class PickZeroPatients(unittest.TestCase):
