@@ -30,16 +30,17 @@ class PickZeroPatients(unittest.TestCase):
         }
         self.assertEqual(len(sim.pick_patient_zero(set_of_mock_potential_patients)), 1)
         self.assertEqual(
-            sim.pick_patient_zero(set_of_mock_potential_patients)[0]
-            in set_of_mock_potential_patients,
-            True,
+            sim.pick_patient_zero(set_of_mock_potential_patients)
+            - set_of_mock_potential_patients,
+            set(),
         )
 
     def test_if_more_than_one_patient_zero_selected(self):
         set_of_mock_potential_patients = {
             ".QP/64EdoTcdkMnmXGVO0A",
-            "BP51jL2myIMRqfYseLbGfM,D8hZWX/ycJMmF4qg1uGkZc",
-            " FNGiD7T4cpkOIM3mq.YdMY",
+            "BP51jL2myIMRqfYseLbGfM",
+            "D8hZWX/ycJMmF4qg1uGkZc",
+            "FNGiD7T4cpkOIM3mq.YdMY",
             "HhulO23UWA2BVHqsECvjJY",
             "Sq1s6KEGp1Qm8MN1o1paM.",
             "cMvEW1y.DLUsMgtP951/f.",
@@ -55,16 +56,16 @@ class PickZeroPatients(unittest.TestCase):
         )
 
     def test_if_patient_zero_arbitrarily_selected(self):
-        self.assertEqual(
-            sim.pick_patient_zero(None, arbitrary=True,), ["MJviZSTPuYw1v0W0cURthY"]
+        self.assertSetEqual(
+            sim.pick_patient_zero(None, arbitrary=True), {"MJviZSTPuYw1v0W0cURthY"}
         )
 
     def test_if_patient_zero_user_arbitrarily_selected(self):
-        self.assertEqual(
+        self.assertSetEqual(
             sim.pick_patient_zero(
-                None, arbitrary=True, arbitrary_patient_zero=["JYiZSTPuYw1v0W0cURthY"]
+                None, arbitrary=True, arbitrary_patient_zero={"JYiZSTPuYw1v0W0cURthY"}
             ),
-            ["JYiZSTPuYw1v0W0cURthY"],
+            {"JYiZSTPuYw1v0W0cURthY"},
         )
 
 
@@ -338,6 +339,7 @@ class GoogleCloudTest(unittest.TestCase):
             False, [isinstance(t, datastore.entity.Entity) for t in all_tasks]
         )
 
+    @unittest.skipIf(SKIP_TESTS, "Skip Google Storage Tests")
     def test_add_task(self):
         self.gcloud.ds_client.put = MagicMock(return_value=True)
         self.assertTrue(
