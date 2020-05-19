@@ -1,5 +1,5 @@
 from random import seed, randint, choices
-import random, pickle, os, configparser, json
+import random, pickle, os, configparser, json, subprocess
 from datetime import datetime, date, timedelta
 import numpy as np
 import pandas as pd
@@ -176,14 +176,8 @@ class GoogleCloud(object):
         self.ds_client = datastore.Client()
         self.todo = []
         self.done = []
-        self.task_validator = Draft7Validator(
-            {
-                "type": "object",
-                "properties": {"dataset": {"type": "string", "enum": ["h3g"]}},
-                "required": ["dataset"],
-            }
-        )
 
+    @timing
     def upload(
         self, filename: Path, new_name: str = None, bucket_name: str = "simulation_runs"
     ):
@@ -221,22 +215,39 @@ class GoogleCloud(object):
         self.done = [t for t in result if t["done"] == True]
         self.todo = [t for t in result if t["done"] == False]
 
-    def add_task(self, task_dict: dict, config_dict: TaskConfig):
-        self.task_validator.validate(task_dict)
-        task_key = self.ds_client.key("task")  # , np.random.randint(1e15, 1e16))
+    def add_task(self, dataset: str, task_config: TaskConfig, done=False):
+        if done:
+            task_key = self.ds_client.key("task", np.random.randint(1e15, 1e16))
+        else:
+            task_key = self.ds_client.key("task")
         task = datastore.Entity(key=task_key)
+        os.chdir(Path("./simulation"))
+        machine_version = (
+            subprocess.check_output(
+                ['git log -1 --pretty="%h" simulation.py'], shell=True
+            )
+            .strip()
+            .decode("utf-8")
+        )
+        os.chdir(Path(os.getcwd()).parent)
         task.update(
             {
-                **task_dict,
-                **{
-                    "done": False,
-                    "task_added": datetime.now(),
-                    "config": config_dict.as_lists(),
-                },
+                "dataset": dataset,
+                "config": task_config.as_lists(),
+                "machine_version": machine_version,
+                "task_added": datetime.now(),
+                "done": done,
             }
         )
-        return self.ds_client.put(task)
-        # print("added task!")
+        if done:
+            task.update(
+                {
+                    "output_url": f"https://storage.cloud.google.com/simulation_runs/{task_key}.csv",
+                    "task_done": datetime.now(),
+                }
+            )
+        self.ds_client.put(task)
+        return task_key.id
 
     def write_results(self, result):
         if len(result) > 1:
@@ -267,13 +278,13 @@ def pick_patient_zero(
 ):
     # return set of zero patients
     if arbitrary:
-        return arbitrary_patient_zero
+        return set(arbitrary_patient_zero)
     else:
         seed(random_seed)
         randomly_patient_zero = random.sample(
             set_of_potential_patients, num_of_patients
         )
-        return randomly_patient_zero
+        return set(randomly_patient_zero)
 
 
 @timing
@@ -453,13 +464,15 @@ def contagion_runner(data, basic_conf, sql=True):
     data.export()
 
 
-def main(test_conf: dict = False):
+def main(test_conf: dict = False, test=True):
     basic_conf = BasicConfiguration()
     gcloud = GoogleCloud(basic_conf)
     if test_conf:
-        contagion_runner(
-            Data(task_conf=test_conf), basic_conf=basic_conf
-        )  # , sql=False)
+        data = Data(task_conf=TaskConfig(test_conf))
+        # contagion_runner(data, basic_conf=basic_conf, sql=False)
+        if not test:
+            task_key = gcloud.add_task("h3g", data.task_conf, done=True)
+            gcloud.upload(data.output_path, new_name=task_key)
     else:
         gcloud.get_tasklist()
         if gcloud.todo:

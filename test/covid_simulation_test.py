@@ -55,16 +55,16 @@ class PickZeroPatients(unittest.TestCase):
         )
 
     def test_if_patient_zero_arbitrarily_selected(self):
-        self.assertEqual(
-            sim.pick_patient_zero(None, arbitrary=True,), ["MJviZSTPuYw1v0W0cURthY"]
+        self.assertSetEqual(
+            sim.pick_patient_zero(None, arbitrary=True,), {"MJviZSTPuYw1v0W0cURthY"}
         )
 
     def test_if_patient_zero_user_arbitrarily_selected(self):
-        self.assertEqual(
+        self.assertSetEqual(
             sim.pick_patient_zero(
-                None, arbitrary=True, arbitrary_patient_zero=["JYiZSTPuYw1v0W0cURthY"]
+                None, arbitrary=True, arbitrary_patient_zero={"JYiZSTPuYw1v0W0cURthY"}
             ),
-            ["JYiZSTPuYw1v0W0cURthY"],
+            {"JYiZSTPuYw1v0W0cURthY"},
         )
 
 
@@ -338,6 +338,7 @@ class GoogleCloudTest(unittest.TestCase):
             False, [isinstance(t, datastore.entity.Entity) for t in all_tasks]
         )
 
+    @unittest.skipIf(SKIP_TESTS, "Skip Google Storage Tests")
     def test_add_task(self):
         self.gcloud.ds_client.put = MagicMock(return_value=True)
         self.assertTrue(
