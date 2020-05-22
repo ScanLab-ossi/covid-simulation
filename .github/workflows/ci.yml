@@ -27,7 +27,7 @@ jobs:
       - name: Format with black
         run: |
           black .
-      - name: Test with unittest
+      - name: Test with nose2
         env: # Or as an environment variable
           POSTGRES_DATABASE_NAME: ${{ secrets.POSTGRES_DATABASE_NAME }}
           POSTGRES_USER_NAME: ${{ secrets.POSTGRES_USER_NAME }}
@@ -35,4 +35,4 @@ jobs:
           POSTGRES_DATABASE_HOST: ${{ secrets.POSTGRES_DATABASE_HOST }}
           KEYFILE: ${{ secrets.KEYFILE }}
         run: |
-          python -m unittest test.covid_simulation_test
+          nose2 --with-coverage
