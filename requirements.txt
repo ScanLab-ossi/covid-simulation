@@ -3,3 +3,5 @@ google-cloud-datastore
 psycopg2
 pandas
 jsonschema
+altair
+nose2[coverage_plugin]

@@ -1,6 +1,6 @@
 from functools import wraps
 from time import time
-from timeit import timeit
+import pickle
 
 
 def timing(f):
@@ -16,9 +16,9 @@ def timing(f):
     return wrap
 
 
-def timing_loop(f):
-    @wraps(f)
-    def wrap(*args, **kw):
-        timeit(f(*args, **kw), number=10)
-
-    return
+def one_array_pickle_to_set(pickle_file_name):
+    # open a file, where you stored the pickled data
+    with open(pickle_file_name, "rb") as f:
+        data = pickle.load(f)
+    set_from_arr = set(data.flatten())
+    return set_from_arr
