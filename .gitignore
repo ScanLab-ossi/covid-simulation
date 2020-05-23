@@ -3,7 +3,7 @@ keyfile.json
 secrets.conf
 *.csv
 !mock_data.csv
-*.png
+*.html
 
 *.ipynb
 .idea/

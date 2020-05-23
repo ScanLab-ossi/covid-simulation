@@ -78,7 +78,7 @@ def main(test_conf: dict = False, test=True):
     dataset = Dataset(DATASET)
     dataset.load_dataset(gcloud=gcloud)
     if test_conf:
-        output = Output()
+        output = Output(dataset=dataset)
         contagion = (
             CSVContagion(dataset, test_conf)
             if dataset.storage == "csv"
@@ -91,8 +91,8 @@ def main(test_conf: dict = False, test=True):
             basic_conf=basic_conf,
             contagion=contagion,
         )
-        # visualizer = Visualizer(dataset, output)
-        # visualizer.visualize()
+        visualizer = Visualizer(output)
+        visualizer.visualize()
         if not test:
             task_key = gcloud.add_task(dataset.name, dict(TaskConfig), done=True)
             gcloud.upload(output.output_path, new_name=task_key)

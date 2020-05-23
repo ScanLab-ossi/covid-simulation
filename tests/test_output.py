@@ -1,12 +1,15 @@
 import unittest
 import pandas as pd
+from datetime import date
 
 from simulation.output import Output
+from simulation.dataset import Dataset
 
 
 class TestOutput(unittest.TestCase):
     def setUp(self):
-        self.output = Output()
+        dataset = Dataset("mock_data")
+        self.output = Output(dataset=dataset)
 
     def test_create_empty_dataframe(self):
         self.assertListEqual(
@@ -26,3 +29,17 @@ class TestOutput(unittest.TestCase):
         self.assertEqual(len(self.output.df), 1)
         with self.assertRaises(ValueError):
             self.output.append(sample_df)
+
+    def test_sum_output(self):
+        sample_df = pd.DataFrame(
+            [
+                [0, True, date(2012, 3, 26), date(2012, 4, 1)],
+                [2, False, date(2012, 3, 27), date(2012, 4, 5)],
+            ],
+            columns=["age_group", "color", "infection_date", "expiration_date"],
+            index=["FNGiD7T4cpkOIM3mq.YdMY", "ODOkY9pchzsDHj.23UGQoc"],
+        )
+        self.output.append(sample_df)
+        summed = self.output.sum_output()
+        self.assertEqual(summed.shape, (330, 3))
+        self.assertEqual(summed.columns.tolist(), ["color", "day", "amount"])
