@@ -1,7 +1,10 @@
-import json
+import json, os, sys
 from datetime import datetime, date, timedelta
 import numpy as np
+import pandas as pd
 from pathlib import Path
+import multiprocessing as mp
+from typing import Union
 
 from simulation.helpers import timing, one_array_pickle_to_set
 from simulation.constants import *
@@ -35,80 +38,116 @@ test_conf = {
 class ContagionRunner(object):
     @staticmethod
     @timing
-    def contagion_runner(dataset, output, basic_conf, contagion, task_conf=test_conf):
-        st = StateTransition(dataset, task_conf)
-        if dataset.storage == "sql":
-            pickle_of_ids = one_array_pickle_to_set(
-                Path(DATA_FOLDER / "destination_ids_first_3days.pickle")
-            )
-            zero_patients = contagion.pick_patient_zero(
-                pickle_of_ids, num_of_patients=task_conf.get("number_of_patient_zero")
-            )
-        else:
-            zero_patients = contagion.pick_patient_zero()
-        st.get_trajectory(
-            zero_patients, output, dataset.start_date, add_duration=dataset.add_duration
-        )
-        set_of_infected = zero_patients
-        for day in range(dataset.period + 1):
-            print(f"Status of {day}:")
-            curr_date = dataset.start_date + timedelta(days=day)
-            # TODO: make contagion in sql and contagion in csv have same input
-            set_of_contact_with_patient = contagion.contagion(
-                set_of_infected, curr_date=curr_date
-            )
+    def contagion_runner(
+        dataset: Dataset,
+        output: Output,
+        basic_conf: BasicConfiguration,
+        contagion: Union[CSVContagion, SQLContagion],
+        task_conf: TaskConfig = test_conf,
+        repeat: int = 1,
+    ):
+        for i in range(repeat):
+            st = StateTransition(dataset, task_conf)
+            if dataset.storage == "sql":
+                pickle_of_ids = one_array_pickle_to_set(
+                    Path(DATA_FOLDER / "destination_ids_first_3days.pickle")
+                )
+                zero_patients = contagion.pick_patient_zero(
+                    pickle_of_ids,
+                    num_of_patients=task_conf.get("number_of_patient_zero"),
+                )
+            else:
+                zero_patients = contagion.pick_patient_zero()
             st.get_trajectory(
-                set_of_contact_with_patient,
+                zero_patients,
                 output,
-                curr_date,
+                dataset.start_date,
                 add_duration=dataset.add_duration,
             )
-            set_of_infected = set(
-                output.df[output.df["expiration_date"] > curr_date].index
-            )
-            # patients that haven't recovered or died yet
-            output.shape()
-
+            set_of_infected = zero_patients
+            for day in range(dataset.period + 1):
+                process = f", process {os.getpid()}" if PARALLEL else ""
+                print(f"Status of {day}:" + process)
+                curr_date = dataset.start_date + timedelta(days=day)
+                set_of_contact_with_patient = contagion.contagion(
+                    set_of_infected, curr_date=curr_date
+                )
+                st.get_trajectory(
+                    set_of_contact_with_patient,
+                    output,
+                    curr_date,
+                    add_duration=dataset.add_duration,
+                )
+                set_of_infected = set(
+                    output.df[output.df["expiration_date"] > curr_date].index
+                )
+                # patients that haven't recovered or died yet
+                output.shape()
+            output.summed.append(output.sum_output())
+            output.reset()
+        output.average_outputs()
         output.export()
+        return output.average
 
 
-def main(test_conf: dict = False, test=True):
+def main(test_conf: dict = False):
+    print(
+        f"""starting!
+DATASET = {DATASET}
+REPETITIONS = {REPETITIONS}
+UPLOAD = {UPLOAD}
+PARALLEL = {PARALLEL}
+LOCAL = {LOCAL}
+"""
+    )
     basic_conf = BasicConfiguration()
     gcloud = GoogleCloud(basic_conf)
-    dataset = Dataset(DATASET)
-    dataset.load_dataset(gcloud=gcloud)
-    if test_conf:
-        output = Output(dataset=dataset)
+    if not LOCAL:
+        gcloud.get_tasklist()
+        if not gcloud.todo:
+            print("you've picked LOCAL=False, but no tasks are waiting")
+            sys.exit()
+    results = []
+    tasklist = [test_conf] if LOCAL else gcloud.todo
+    for task in tasklist:
+        dataset = Dataset(DATASET) if LOCAL else task.dataset
+        dataset.load_dataset(gcloud=gcloud)
+        output = (
+            Output(dataset=dataset)
+            if LOCAL
+            else Output(dataset=dataset, output_filename=task.id)
+        )
         contagion = (
             CSVContagion(dataset, test_conf)
             if dataset.storage == "csv"
             else SQLContagion(dataset, test_conf, basic_conf)
         )
-        ContagionRunner.contagion_runner(
-            dataset=dataset,
-            task_conf=test_conf,
-            output=output,
-            basic_conf=basic_conf,
-            contagion=contagion,
-        )
+        if PARALLEL:
+            with mp.Pool() as p:
+                r = [
+                    p.apply_async(
+                        ContagionRunner.contagion_runner,
+                        (dataset, output, basic_conf, contagion, task),
+                    )
+                    for _ in range(REPETITIONS)
+                ]
+                output.summed = [res.get() for res in r]
+                output.average_outputs()
+                output.export()
+        else:
+            ContagionRunner.contagion_runner(
+                dataset, output, basic_conf, contagion, task, repeat=REPETITIONS
+            )
         visualizer = Visualizer(output)
         visualizer.visualize()
-        if not test:
-            task_key = gcloud.add_task(dataset.name, dict(TaskConfig), done=True)
+        if UPLOAD:
+            if len(tasklist) > 1:
+                results.append((output, task))
+                continue
+            task_key = gcloud.add_task(dataset.name, TaskConfig(test_conf), done=True)
             gcloud.upload(output.output_path, new_name=task_key)
-    else:
-        gcloud.get_tasklist()
-        if gcloud.todo:
-            results = []
-            for task in gcloud.todo:
-                data = Output(output_path=task.id)
-                ContagionRunner.contagion_runner(
-                    data, task_conf=TaskConfig(task), basic_conf=basic_conf
-                )
-                results.append((data, task))
-            gcloud.write_results(results)
-        else:
-            print("No tasks waiting!")
+    if len(tasklist) > 1 and UPLOAD:
+        gcloud.write_results(results)
 
 
 if __name__ == "__main__":

@@ -2,10 +2,12 @@ import psycopg2
 from random import seed, randint, choices, sample
 import multiprocessing as mp
 import numpy as np
+import os
 
 from simulation.helpers import timing
 from simulation.dataset import Dataset
 from simulation.task_config import TaskConfig
+from simulation.constants import *
 
 
 class CSVContagion(object):
@@ -19,10 +21,17 @@ class CSVContagion(object):
         if arbitrary_patient_zero:
             return set(arbitrary_patient_zero)
         elif set_of_potential_patients:
-            seed(1)
-            randomly_patient_zero = sample(
-                set_of_potential_patients, self.task_conf.get("number_of_patient_zero")
+            # seed_ = os.getpid() if PARALLEL else 1
+            # seed(seed_)
+            randomly_patient_zero = np.random.choice(
+                list(set_of_potential_patients),
+                self.task_conf.get("number_of_patient_zero"),
+                replace=False,
             )
+
+            # randomly_patient_zero = sample(
+            #     set_of_potential_patients, self.task_conf.get("number_of_patient_zero")
+            # )
             return set(randomly_patient_zero)
         else:
             first_day = self.dataset.data[

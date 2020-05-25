@@ -22,17 +22,14 @@ class StateTransition(object):
             return self.dataset.end_date
         return expiration_date
 
-    @timing
     def check_if_aggravate(self, age_group, s_i=0.7):
         # TO BE MORE COMPETABILE TO THE MODEL
         return np.random.rand(len(age_group)) > s_i
 
-    @timing
     def daily_duration_in_sql(self, id=None, date=None):
         # to be completed
         return 90
 
-    @timing
     def is_enough_duration(self, daily_duration):
         return (
             np.where(
@@ -44,7 +41,6 @@ class StateTransition(object):
             > 0.05
         )
 
-    @timing
     def infection_state_transition(self, infected, infection_date):
         # get info about an infected person and return relevant data for dataframe
         df = pd.DataFrame(
