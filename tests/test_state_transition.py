@@ -13,7 +13,7 @@ class TestStateTransition(unittest.TestCase):
     def setUp(self):
         dataset = Dataset("mock_data")
         dataset.load_dataset()
-        self.output = Output()
+        self.output = Output(dataset)
         self.st = StateTransition(dataset=dataset, task_conf=test_conf)
         self.sample_infected = pd.DataFrame(
             [[50]], columns=["daily_duration"], index=[".QP/64EdoTcdkMnmXGVO0A"]
