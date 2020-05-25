@@ -13,7 +13,7 @@ class Output(object):
         self.reset()
         self.dataset = dataset
         self.output_filname = output_filename
-        self.output_path = Path(OUTPUT_FOLDER / f"{output_filename}.csv")
+        self.output_path = Path(OUTPUT_FOLDER / f"{output_filename}_{REPETITIONS}.csv")
         self.summed = []
 
     def reset(self):
@@ -87,3 +87,6 @@ class Output(object):
             .mean()
             .reset_index()
         )
+
+    def concat_output(self):
+        pd.concat(self.summed).to_pickle(OUTPUT_FOLDER / f"summed_{REPETITIONS}.pkl")

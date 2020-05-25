@@ -4,6 +4,7 @@ secrets.conf
 *.csv
 !mock_data.csv
 *.html
+*.pkl
 
 *.ipynb
 .idea/
