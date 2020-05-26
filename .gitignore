@@ -2,7 +2,7 @@
 keyfile.json
 secrets.conf
 *.csv
-!mock_data.csv
+!mock_*.csv
 *.html
 *.pkl
 

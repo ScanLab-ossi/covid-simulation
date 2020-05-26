@@ -9,12 +9,17 @@ from simulation.helpers import timing
 
 
 class Output(object):
-    def __init__(self, dataset: Dataset, output_filename="output"):
+    def __init__(self, dataset: Dataset, output_filename="output", pickle=False):
         self.reset()
         self.dataset = dataset
-        self.output_filname = output_filename
-        self.output_path = Path(OUTPUT_FOLDER / f"{output_filename}_{REPETITIONS}.csv")
+        self.output_filname = (
+            f"{output_filename}_{REPETITIONS}"
+            if REPETITIONS > 1 and LOCAL
+            else output_filename
+        )
+        self.output_path = Path(OUTPUT_FOLDER / f"{output_filename}.csv")
         self.summed = []
+        self.pickle = pickle
 
     def reset(self):
         self.df = pd.DataFrame(
@@ -22,18 +27,18 @@ class Output(object):
         )
         self.df.index.name = "id"
 
-    def display(self):
-        print(self.df.to_string())
-
-    def shape(self):
-        print(self.df.shape)
-
-    def export(self, name=None, summed=True):
-        path = Path(OUTPUT_FOLDER / f"{name}.csv") if name else self.output_path
-        if summed:
-            self.average.to_csv(path, index=False)
-        else:
-            self.df.to_csv(path)
+    def export(
+        self, name: Union[str, None] = None, how: str = "average", pickle: bool = False,
+    ):
+        # average, concated, df
+        if not hasattr(self, how):
+            raise AttributeError(f'sorry, you haven\'t created attribute "{how}" yet')
+        name = (f"{how}_" if LOCAL else "") + (name if name else self.output_filname)
+        getattr(self, how).to_csv(
+            Path(OUTPUT_FOLDER / f"{name}.csv"), index=(False if how != "df" else True)
+        )
+        if pickle:
+            getattr(self, how).to_pickle(Path(OUTPUT_FOLDER / f"{name}.pkl"))
 
     def append(self, new_df):
         self.df = self.df.append(new_df, verify_integrity=True)
@@ -88,5 +93,5 @@ class Output(object):
             .reset_index()
         )
 
-    def concat_output(self):
-        pd.concat(self.summed).to_pickle(OUTPUT_FOLDER / f"summed_{REPETITIONS}.pkl")
+    def concat_outputs(self):
+        self.concated = pd.concat(self.summed)
