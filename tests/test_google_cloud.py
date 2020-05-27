@@ -5,8 +5,10 @@ from google.cloud import exceptions as gcloud_exceptions
 from pathlib import Path
 
 from simulation.google_cloud import GoogleCloud
+from simulation.task_config import TaskConfig
 from simulation.basic_configuration import BasicConfiguration
 from simulation.constants import SKIP_TESTS
+from simulation.simulation import test_conf
 
 
 class GoogleCloudTest(unittest.TestCase):
@@ -58,6 +60,4 @@ class GoogleCloudTest(unittest.TestCase):
     @unittest.skipIf(SKIP_TESTS, "Skip Google Storage Tests")
     def test_add_task(self):
         self.gcloud.ds_client.put = MagicMock(return_value=True)
-        self.assertTrue(
-            self.gcloud.add_task({"dataset": "h3g"}, sim.TaskConfig(sim.test_conf))
-        )
+        self.assertTrue(self.gcloud.add_task({"dataset": "h3g"}, TaskConfig(test_conf)))

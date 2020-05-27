@@ -8,6 +8,6 @@ class TestConstants(unittest.TestCase):
         self.assertEqual(REPETITIONS, 1)
         self.assertEqual(UPLOAD, False)
         self.assertEqual(LOCAL, True)
-        self.assertEqual(VERBOSE, False)
+        self.assertEqual(VERBOSE, True)
         self.assertEqual(PARALLEL, False)
         self.assertEqual(SKIP_TESTS, True)
