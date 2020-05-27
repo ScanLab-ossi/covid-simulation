@@ -17,21 +17,17 @@ from simulation.contagion import CSVContagion, SQLContagion
 from simulation.output import Output
 from simulation.visualizer import Visualizer
 
-# TODO: change np.arrays to lists
-
 test_conf = {
-    "age_dist": np.array([0.15, 0.6, 0.25]),  # [youngs, adults, olds]
-    "recovery_time_dist": np.array(
-        [20, 10]
-    ),  # recovery_time_dist ~ Norm(mean, std) | ref:
-    "aggravation_time_dist": np.array(
-        [5, 2]
-    ),  # aggravation_time_dist ~ Norm(mean, std) | ref:
-    "D_min": 10,  # Arbitrary, The minimal threshold (in time) for infection,
+    "age_dist": [0.15, 0.6, 0.25],  # [youngs, adults, olds]
+    "blue_to_white": [20, 10],  # ~ Norm(mean, std) | ref:
+    "purple_to_red": [5, 2],  # ~ Norm(mean, std)
+    "red_to_final_state": [15, 7],
+    "D_min": 100,  # Arbitrary, The minimal threshold (in time) for infection,
     "number_of_patient_zero": 10,  # Arbitrary
-    "D_max": 70,  # Arbitrary, TO BE CALCULATED,  0.9 precentile of (D_i)'s
-    "P_max": 0.2,  # The probability to be infected when the exposure is over the threshold
+    "D_max": 700,  # Arbitrary, TO BE CALCULATED,  0.9 precentile of (D_i)'s
+    "P_max": 0.05,  # The probability to be infected when the exposure is over the threshold
     "risk_factor": None,  # should be vector of risk by age group
+    "P_r": [0.08, 0.03],
 }
 
 
@@ -80,12 +76,13 @@ def contagion_runner(
                 add_duration=dataset.add_duration,
             )
             set_of_infected = set(
-                output.df[output.df["expiration_date"] > curr_date].index
+                output.df[output.df["transition_date"] > curr_date].index
             )
             # patients that haven't recovered or died yet
             if VERBOSE:
-                print(output.df.shape)
+                print(f"{output.df.shape[0]} infected today altogether")
         output.summed.append(output.sum_output())
+        output.export(how="df")
         output.reset()
         print(f"repetition {i} took {datetime.now()- start}")
     output.concat_outputs()
@@ -149,8 +146,8 @@ VERBOSE = {VERBOSE}"""
             if len(tasklist) > 1:
                 results.append((output, task))
                 continue
-            task_key = gcloud.add_task(dataset.name, TaskConfig(test_conf), done=True)
-            gcloud.upload(output.output_path, new_name=task_key)
+            task_key = gcloud.add_task(dict(TaskConfig(test_conf)), done=True)
+            gcloud.upload(output.csv_path, new_name=task_key)
     if len(tasklist) > 1 and UPLOAD:
         gcloud.write_results(results)
 

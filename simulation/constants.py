@@ -27,6 +27,6 @@ UPLOAD = os.environ.get("UPLOAD", False)
 
 # maximum prints, for testing withuor repetitions
 VERBOSE = os.environ.get("VERBOSE", (True if REPETITIONS == 1 else False))
-
+# VERBOSE = True
 # skip heavy tests - google cloud and sql
 SKIP_TESTS = os.environ.get("SKIP_TESTS", True)

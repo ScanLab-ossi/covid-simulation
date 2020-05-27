@@ -9,36 +9,43 @@ from simulation.helpers import timing
 
 
 class Output(object):
-    def __init__(self, dataset: Dataset, output_filename="output", pickle=False):
+    def __init__(self, dataset: Dataset, pickle=False):
         self.reset()
         self.dataset = dataset
-        self.output_filname = (
-            f"{output_filename}_{REPETITIONS}"
-            if REPETITIONS > 1 and LOCAL
-            else output_filename
-        )
-        self.output_path = Path(OUTPUT_FOLDER / f"{output_filename}.csv")
         self.summed = []
         self.pickle = pickle
+        self.filename = "output.csv"
 
     def reset(self):
         self.df = pd.DataFrame(
-            columns=["age_group", "color", "infection_date", "expiration_date"]
+            columns=[
+                "age_group",
+                "color",
+                "infection_date",
+                "transition_date",
+                "expiration_date",
+                "final_state",
+            ]
         )
         self.df.index.name = "id"
 
     def export(
-        self, name: Union[str, None] = None, how: str = "average", pickle: bool = False,
+        self,
+        filename: Union[str, None] = "output",
+        how: str = "average",
+        pickle: bool = False,
     ):
         # average, concated, df
         if not hasattr(self, how):
             raise AttributeError(f'sorry, you haven\'t created attribute "{how}" yet')
-        name = (f"{how}_" if LOCAL else "") + (name if name else self.output_filname)
-        getattr(self, how).to_csv(
-            Path(OUTPUT_FOLDER / f"{name}.csv"), index=(False if how != "df" else True)
+        self.filename = (f"{how}_" if LOCAL else "") + (
+            f"{filename}_{REPETITIONS}" if REPETITIONS > 1 and LOCAL else filename
         )
+        self.csv_path = Path(OUTPUT_FOLDER / f"{self.filename}.csv")
+        getattr(self, how).to_csv(self.csv_path, index=(False if how != "df" else True))
         if pickle:
-            getattr(self, how).to_pickle(Path(OUTPUT_FOLDER / f"{name}.pkl"))
+            self.pickle_path = Path(OUTPUT_FOLDER / f"{self.filename}.pkl")
+            getattr(self, how).to_pickle(self.pickle_path)
 
     def append(self, new_df):
         self.df = self.df.append(new_df, verify_integrity=True)
@@ -59,20 +66,37 @@ class Output(object):
 
     @timing
     def sum_output(self):
-        s = pd.Series(
+        # s2i = start_to_infection, i2t = infection_to_transition,
+        # t2e = transition_to_expiration, e2ft = expiration_to_final_state
+        # u = uninfected
+        s2i = pd.Series(
             self.df["infection_date"].values - np.array(self.dataset.start_date)
         ).dt.days.apply(self._color_array, args=("g",))
-        i = self._color_lists(
-            (self.df["expiration_date"].values - self.df["infection_date"].values)
+        i2t = self._color_lists(
+            (self.df["transition_date"].values - self.df["infection_date"].values)
             .astype("timedelta64[D]")
             .astype(int),
             ["p", "b"],
         )
-        r = self._color_lists(
-            self.dataset.period - np.vectorize(len)(s + i), ["r", "w"]
+        t2e = self._color_lists(
+            (self.df["expiration_date"].values - self.df["transition_date"].values)
+            .astype("timedelta64[D]")
+            .astype(int),
+            ["r", "w"],
+        )
+        e2ft = pd.Series(
+            self.df["final_state"].apply(list).values
+            * (self.dataset.period - np.vectorize(len)(s2i + i2t + t2e))
+        )
+        u = pd.Series(
+            [
+                ["g"] * self.dataset.period
+                for _ in range(self.dataset.nodes - len(self.df))
+            ]
         )
         return (
-            (s + i + r)
+            (s2i + i2t + t2e + e2ft)
+            .append(u)
             .apply(pd.Series)
             .apply(pd.Series.value_counts)
             .reset_index()

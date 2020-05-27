@@ -1,8 +1,8 @@
 from pathlib import Path
-import json
-from jsonschema import Draft7Validator, validators
+import json, subprocess
 import numpy as np
 from collections import UserDict
+from datetime import datetime
 
 from simulation.constants import *
 
@@ -12,34 +12,46 @@ class TaskConfig(UserDict):
     Config for each simulation run. Can be used for validation
     """
 
-    def __init__(self, data, validate=True):
+    def __init__(self, data, done=False):
         super().__init__(dict(data))
-        with open(Path(DATA_FOLDER / "config_schema.json")) as f:
-            schema = json.load(f)
-        self.validator = self.create_validator(schema)
-        if validate:
-            self.validator.validate(self.data)
-            self.is_valid = self.validator.is_valid(self.data)
-        self.data = self.as_ndarrays()
+        self.metadata_keys = [
+            "dataset",
+            "repetitions",
+            "start_date",
+            "end_date",
+            "output_url",
+            "machine_version",
+            "done",
+        ]
+        # self.params = { k: v
+        #     for k, v in data.items()
+        #     if k not in self.metadata_keys + self.run_configuration_keys
+        # }
+        self.data["machine_version"] = self.get_machine_version()
+        self.data.setdefault("start_date", datetime.now())
+        self.data.setdefault("repetitions", REPETITIONS)
+        self.data.setdefault("dataset", DATASET)
+        self.data.setdefault("done", done)
 
-    def create_validator(self, schema):
-        type_checker = Draft7Validator.TYPE_CHECKER.redefine(
-            "array",
-            fn=lambda checker, instance: True
-            if isinstance(instance, np.ndarray) or isinstance(instance, list)
-            else False,
-        )
-        Validator = validators.extend(Draft7Validator, type_checker=type_checker)
-        return Validator(schema=schema)
+    def get_params(self):
+        return {k: v for k, v in self.data.items() if k not in self.metadata_keys}
 
-    def as_lists(self):
-        return {
-            k: (v.tolist() if isinstance(v, np.ndarray) else v)
-            for k, v in self.data.items()
-        }
-
-    def as_ndarrays(self):
-        return {
-            k: (np.array(v) if isinstance(v, list) else v)
-            for k, v in dict(self.data).items()
-        }
+    def get_machine_version(self):
+        versions = []
+        for f in ["contagion", "state_transition"]:
+            versions.append(
+                subprocess.check_output(
+                    [f'git log -1 --pretty="%h" ./simulation/{f}.py'], shell=True
+                )
+                .strip()
+                .decode("utf-8")
+            )
+        newer = (
+            subprocess.check_output(
+                " ".join(["git merge-base --is-ancestor"] + versions + ["; echo $?"]),
+                shell=True,
+            )
+            .strip()
+            .decode("utf-8")
+        )  # 0 = contagion is newer, 1 = st is newer
+        return versions[int(newer)]

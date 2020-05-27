@@ -11,9 +11,12 @@ class Visualizer(object):
     def __init__(self, output: Output):
         self.dataset = output.dataset
         self.output = output
-        self.output_filename = output.output_filname
+        self.filename = output.filename
         self.colors = dict(
-            zip("bprwg", ["#3498db", "#9b59b6", "#e74c3c", "#ffffff", "#ffffff"])
+            zip(
+                "bprkwg",
+                ["#3498db", "#9b59b6", "#e74c3c", "#000000", "#ffffff", "#ffffff"],
+            )
         )
         self.real_colors = (lambda a, b: a.update(b) or a)(
             self.colors, {"w": "#dddddd", "g": "#4daf4a"}
@@ -41,7 +44,7 @@ class Visualizer(object):
                 tooltip=["color", "amount", f"{self.dataset.interval}"],
             )
         )
-        chart.save(str(OUTPUT_FOLDER / f"{self.output_filename}.html"), format="html")
+        chart.save(str(OUTPUT_FOLDER / f"{self.filename}.html"), format="html")
         return chart
 
     def boxplot_variance(self):
@@ -62,7 +65,5 @@ class Visualizer(object):
             .properties(width=800, height=400)
             .facet(row="color")
         )
-        chart.save(
-            str(OUTPUT_FOLDER / f"{self.output_filename}_variance.html"), format="html"
-        )
+        chart.save(str(OUTPUT_FOLDER / f"{self.filename}_variance.html"), format="html")
         return chart
