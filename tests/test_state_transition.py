@@ -16,7 +16,7 @@ class TestStateTransition(unittest.TestCase):
         self.output = Output(dataset)
         self.st = StateTransition(dataset=dataset, task_conf=test_conf)
         self.sample_infected = pd.DataFrame(
-            [[1000]], columns=["daily_duration"], index=[".QP/64EdoTcdkMnmXGVO0A"]
+            [[10000]], columns=["daily_duration"], index=[".QP/64EdoTcdkMnmXGVO0A"]
         )
 
     def test_check_if_aggravation(self):
@@ -48,7 +48,7 @@ class TestStateTransition(unittest.TestCase):
         )
         self.assertEqual(
             self.st._is_enough_duration(
-                self.sample_infected["daily_duration"].replace(1000, 10)
+                self.sample_infected["daily_duration"].replace(10000, 10)
             ),
             np.array([False]),
         )

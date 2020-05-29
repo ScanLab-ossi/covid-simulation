@@ -22,10 +22,10 @@ test_conf = {
     "blue_to_white": [20, 10],  # ~ Norm(mean, std) | ref:
     "purple_to_red": [5, 2],  # ~ Norm(mean, std)
     "red_to_final_state": [15, 7],
-    "D_min": 100,  # Arbitrary, The minimal threshold (in time) for infection,
+    "D_min": 200,  # Arbitrary, The minimal threshold (in time) for infection,
     "number_of_patient_zero": 10,  # Arbitrary
-    "D_max": 700,  # Arbitrary, TO BE CALCULATED,  0.9 precentile of (D_i)'s
-    "P_max": 0.05,  # The probability to be infected when the exposure is over the threshold
+    "D_max": 1400,  # Arbitrary, TO BE CALCULATED,  0.9 precentile of (D_i)'s
+    "P_max": 0.02,  # The probability to be infected when the exposure is over the threshold
     "risk_factor": None,  # should be vector of risk by age group
     "P_r": [0.08, 0.03],
 }
@@ -82,10 +82,10 @@ def contagion_runner(
             if VERBOSE:
                 print(f"{output.df.shape[0]} infected today altogether")
         output.summed.append(output.sum_output())
-        output.export(how="df")
         output.reset()
         print(f"repetition {i} took {datetime.now()- start}")
     output.concat_outputs()
+    # output.export(how="concated")
     output.average_outputs()
     output.export()
     return output.average
@@ -141,7 +141,8 @@ VERBOSE = {VERBOSE}"""
             )
         visualizer = Visualizer(output)
         visualizer.visualize()
-        visualizer.boxplot_variance()
+        if REPETITIONS > 1:
+            visualizer.boxplot_variance()
         if UPLOAD:
             if len(tasklist) > 1:
                 results.append((output, task))

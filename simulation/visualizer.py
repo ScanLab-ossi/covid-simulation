@@ -15,11 +15,8 @@ class Visualizer(object):
         self.colors = dict(
             zip(
                 "bprkwg",
-                ["#3498db", "#9b59b6", "#e74c3c", "#000000", "#ffffff", "#ffffff"],
+                ["#3498db", "#9b59b6", "#e74c3c", "#000000", "#dddddd", "#4daf4a"],
             )
-        )
-        self.real_colors = (lambda a, b: a.update(b) or a)(
-            self.colors, {"w": "#dddddd", "g": "#4daf4a"}
         )
 
     def visualize(self):
@@ -57,8 +54,8 @@ class Visualizer(object):
                 color=alt.Color(
                     "color",
                     scale=alt.Scale(
-                        domain=list(self.real_colors.keys()),
-                        range=list(self.real_colors.values()),
+                        domain=list(self.colors.keys()),
+                        range=list(self.colors.values()),
                     ),
                 ),
             )

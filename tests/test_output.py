@@ -16,7 +16,7 @@ class TestOutput(unittest.TestCase):
         self.sample_df = pd.DataFrame(
             [
                 [0, True, date(2012, 3, 26), date(2012, 4, 1), date(2012, 4, 1), "w"],
-                [2, False, date(2012, 3, 27), date(2012, 4, 5), date(2012, 4, 7), "k"],
+                [2, False, date(2012, 3, 27), date(2012, 4, 5), date(2012, 4, 7), "w"],
             ],
             columns=[
                 "age_group",
@@ -74,7 +74,7 @@ class TestOutput(unittest.TestCase):
     def test_sum_output(self):
         self.output.append(self.sample_df)
         summed = self.output.sum_output()
-        self.assertEqual(summed.shape, (330, 3))
+        self.assertEqual(summed.shape, (396, 3))  # 66 days in mockdata * 6 colors
         self.assertEqual(summed.columns.tolist(), ["color", "day", "amount"])
 
     def test_average_outputs(self):

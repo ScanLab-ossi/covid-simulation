@@ -15,6 +15,7 @@ class Output(object):
         self.summed = []
         self.pickle = pickle
         self.filename = "output.csv"
+        self.colors = list("bprkwg")
 
     def reset(self):
         self.df = pd.DataFrame(
@@ -50,6 +51,16 @@ class Output(object):
     def append(self, new_df):
         self.df = self.df.append(new_df, verify_integrity=True)
         self.df.index.name = "id"
+
+    def _add_missing(self, df):
+        for k in self.colors:
+            if k not in df.index:
+                df = df.append(
+                    pd.DataFrame.from_dict(
+                        {k: [0] * self.dataset.period}, orient="index"
+                    )
+                )
+        return df
 
     def _color_array(self, i, color):
         if isinstance(color, list):
@@ -99,6 +110,8 @@ class Output(object):
             .append(u)
             .apply(pd.Series)
             .apply(pd.Series.value_counts)
+            .fillna(0)
+            .pipe(self._add_missing)
             .reset_index()
             .rename(columns={"index": "color"})
             .melt(

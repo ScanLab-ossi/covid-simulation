@@ -1,5 +1,5 @@
 from functools import wraps
-from time import time
+from datetime import datetime
 import pickle
 
 from simulation.constants import VERBOSE
@@ -8,11 +8,11 @@ from simulation.constants import VERBOSE
 def timing(f):
     @wraps(f)
     def wrap(*args, **kw):
-        ts = time()
+        ts = datetime.now()
         result = f(*args, **kw)
-        te = time()
+        te = datetime.now()
         if VERBOSE or f.__name__ == "contagion_runner":
-            print("func: %r took: %2.4f sec" % (f.__name__, te - ts))
+            print(f"func: {f.__name__} took: {te-ts}")
         # print("func:%r args:[%r, %r] took: %2.4f sec" % (f.__name__, args, kw, te - ts))
         return result
 
