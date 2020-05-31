@@ -53,9 +53,7 @@ class GoogleCloudTest(unittest.TestCase):
     def test_get_tasklist(self):
         self.gcloud.get_tasklist()
         all_tasks = self.gcloud.todo + self.gcloud.done
-        self.assertNotIn(
-            False, [isinstance(t, datastore.entity.Entity) for t in all_tasks]
-        )
+        self.assertNotIn(False, [isinstance(t, TaskConfig) for t in all_tasks])
 
     @unittest.skipIf(SKIP_TESTS, "Skip Google Storage Tests")
     def test_add_task(self):

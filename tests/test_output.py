@@ -15,14 +15,28 @@ class TestOutput(unittest.TestCase):
         self.output = Output(dataset=dataset)
         self.sample_df = pd.DataFrame(
             [
-                [0, True, date(2012, 3, 26), date(2012, 4, 1)],
-                [2, False, date(2012, 3, 27), date(2012, 4, 5)],
+                [0, True, date(2012, 3, 26), date(2012, 4, 1), date(2012, 4, 1), "w"],
+                [2, False, date(2012, 3, 27), date(2012, 4, 5), date(2012, 4, 7), "w"],
             ],
-            columns=["age_group", "color", "infection_date", "expiration_date"],
+            columns=[
+                "age_group",
+                "color",
+                "infection_date",
+                "transition_date",
+                "expiration_date",
+                "final_state",
+            ],
             index=["FNGiD7T4cpkOIM3mq.YdMY", "ODOkY9pchzsDHj.23UGQoc"],
         )
         self.sample_empty_df = self.df = pd.DataFrame(
-            columns=["age_group", "color", "infection_date", "expiration_date"]
+            columns=[
+                "age_group",
+                "color",
+                "infection_date",
+                "transition_date",
+                "expiration_date",
+                "final_state",
+            ]
         )
         self.sample_empty_df.index.name = "id"
         self.sample_summed_df = pd.DataFrame(
@@ -60,7 +74,7 @@ class TestOutput(unittest.TestCase):
     def test_sum_output(self):
         self.output.append(self.sample_df)
         summed = self.output.sum_output()
-        self.assertEqual(summed.shape, (330, 3))
+        self.assertEqual(summed.shape, (396, 3))  # 66 days in mockdata * 6 colors
         self.assertEqual(summed.columns.tolist(), ["color", "day", "amount"])
 
     def test_average_outputs(self):

@@ -55,40 +55,34 @@ class GoogleCloud(object):
     def get_tasklist(self, done=False):
         query = self.ds_client.query(kind="task")
         result = list(query.fetch())  # .add_filter("done", "=", done)
-        self.done = [t for t in result if t["done"] == True]
-        self.todo = [t for t in result if t["done"] == False]
+        self.done = [TaskConfig(t) for t in result if t["done"] == True]
+        self.todo = [TaskConfig(t) for t in result if t["done"] == False]
 
-    def add_task(self, dataset: str, task_config: TaskConfig, done=False):
+    def add_task(self, task_config: TaskConfig, done=False):
         if done:
             task_key = self.ds_client.key("task", np.random.randint(1e15, 1e16))
         else:
             task_key = self.ds_client.key("task")
         task = datastore.Entity(key=task_key)
-        os.chdir(Path("./simulation"))
-        machine_version = (
-            subprocess.check_output(
-                ['git log -1 --pretty="%h" contagion.py'], shell=True
-            )
-            .strip()
-            .decode("utf-8")
-        )
-        os.chdir(Path(os.getcwd()).parent)
-        task.update(
-            {
-                "dataset": dataset,
-                "config": task_config.as_lists(),
-                "machine_version": machine_version,
-                "task_added": datetime.now(),
-                "done": done,
-            }
-        )
+        task_config["done"] = done
+        # os.chdir(Path("./simulation"))
+        # machine_version = (
+        #     subprocess.check_output(
+        #         ['git log -1 --pretty="%h" contagion.py'], shell=True
+        #     )
+        #     .strip()
+        #     .decode("utf-8")
+        # )
+        # os.chdir(Path(os.getcwd()).parent)
+        task.update(task_config)
         if done:
-            task.update(
+            task_config.update(
                 {
-                    "output_url": f"https://storage.cloud.google.com/simulation_runs/{task_key}.csv",
+                    "output_url": f"https://storage.cloud.google.com/simulation_runs/{task_key.id}.csv",
                     "task_done": datetime.now(),
                 }
             )
+            task.update(task_config)
         self.ds_client.put(task)
         return task_key.id
 
@@ -97,12 +91,12 @@ class GoogleCloud(object):
             batch = self.ds_client.batch()
             with batch:
                 tasks = []
-                for data, task in result:
-                    link = self.upload(data.output_filename, new_name=task.id)
+                for output, task in result:
+                    link = self.upload(output.csv_path, new_name=task.id)
                     task.update(
                         {"done": True, "task_done": datetime.now(), "link": link}
                     )
-                    tasks.append(task)
+                    tasks.append(dict(task))
                 self.ds_client.put_multi(tasks)
         else:
             data, task = result[0]
