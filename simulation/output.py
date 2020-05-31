@@ -10,13 +10,17 @@ from simulation.helpers import timing
 
 class Output(object):
     def __init__(self, dataset: Dataset, output_filename="output"):
+        self.reset()
+        self.dataset = dataset
+        self.output_filname = output_filename
+        self.output_path = Path(OUTPUT_FOLDER / f"{output_filename}_{REPETITIONS}.csv")
+        self.summed = []
+
+    def reset(self):
         self.df = pd.DataFrame(
             columns=["age_group", "color", "infection_date", "expiration_date"]
         )
         self.df.index.name = "id"
-        self.dataset = dataset
-        self.output_filname = output_filename
-        self.output_path = Path(OUTPUT_FOLDER / f"{output_filename}.csv")
 
     def display(self):
         print(self.df.to_string())
@@ -24,8 +28,12 @@ class Output(object):
     def shape(self):
         print(self.df.shape)
 
-    def export(self):
-        self.df.to_csv(self.output_path)
+    def export(self, name=None, summed=True):
+        path = Path(OUTPUT_FOLDER / f"{name}.csv") if name else self.output_path
+        if summed:
+            self.average.to_csv(path, index=False)
+        else:
+            self.df.to_csv(path)
 
     def append(self, new_df):
         self.df = self.df.append(new_df, verify_integrity=True)
@@ -71,3 +79,14 @@ class Output(object):
                 var_name=self.dataset.interval,
             )
         )
+
+    def average_outputs(self):
+        self.average = (
+            pd.concat(self.summed)
+            .groupby(["color", "day"])["amount"]
+            .mean()
+            .reset_index()
+        )
+
+    def concat_output(self):
+        pd.concat(self.summed).to_pickle(OUTPUT_FOLDER / f"summed_{REPETITIONS}.pkl")

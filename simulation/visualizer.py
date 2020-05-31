@@ -15,7 +15,7 @@ class Visualizer(object):
         )  ##95a5a6
 
     def visualize(self):
-        summed = self.output.sum_output()
+        summed = self.output.average
         summed["order"] = summed["color"].replace(
             {val: i for i, val in enumerate(self.colors.keys())}
         )
