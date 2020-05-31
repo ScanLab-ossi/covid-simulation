@@ -1,11 +1,14 @@
 import unittest
+from unittest.mock import MagicMock
 from google.cloud import storage, datastore
 from google.cloud import exceptions as gcloud_exceptions
 from pathlib import Path
-from unittest.mock import MagicMock
-import os
+
 from simulation.google_cloud import GoogleCloud
+from simulation.task_config import TaskConfig
 from simulation.basic_configuration import BasicConfiguration
+from simulation.constants import SKIP_TESTS
+from simulation.simulation import test_conf
 
 
 class GoogleCloudTest(unittest.TestCase):
@@ -21,12 +24,12 @@ class GoogleCloudTest(unittest.TestCase):
         bucket = self.gcloud.s_client.lookup_bucket("simulation_runs")
         self.assertIsInstance(bucket, storage.Bucket)
 
-    @unittest.skipIf(os.environ.get("SKIP_TESTS", True), "Skip Google Storage Tests")
+    @unittest.skipIf(SKIP_TESTS, "Skip Google Storage Tests")
     def test_download(self):
         self.gcloud.download("test.csv")
         self.assertTrue(Path("./data/test.csv").exists())
 
-    @unittest.skipIf(os.environ.get("SKIP_TESTS", True), "Skip Google Storage Tests")
+    @unittest.skipIf(SKIP_TESTS, "Skip Google Storage Tests")
     def test_upload(self):
         bucket = self.gcloud.s_client.bucket("simulation_datasets")
         blob = bucket.blob("test.csv")
@@ -54,9 +57,7 @@ class GoogleCloudTest(unittest.TestCase):
             False, [isinstance(t, datastore.entity.Entity) for t in all_tasks]
         )
 
-    @unittest.skipIf(os.environ.get("SKIP_TESTS", True), "Skip Google Storage Tests")
+    @unittest.skipIf(SKIP_TESTS, "Skip Google Storage Tests")
     def test_add_task(self):
         self.gcloud.ds_client.put = MagicMock(return_value=True)
-        self.assertTrue(
-            self.gcloud.add_task({"dataset": "h3g"}, sim.TaskConfig(sim.test_conf))
-        )
+        self.assertTrue(self.gcloud.add_task({"dataset": "h3g"}, TaskConfig(test_conf)))

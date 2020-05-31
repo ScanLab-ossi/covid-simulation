@@ -84,11 +84,11 @@ def contagion_runner(
             )
             # patients that haven't recovered or died yet
             if VERBOSE:
-                output.shape()
+                print(output.df.shape)
         output.summed.append(output.sum_output())
         output.reset()
         print(f"repetition {i} took {datetime.now()- start}")
-    # output.concat_output()
+    output.concat_outputs()
     output.average_outputs()
     output.export()
     return output.average
@@ -144,6 +144,7 @@ VERBOSE = {VERBOSE}"""
             )
         visualizer = Visualizer(output)
         visualizer.visualize()
+        visualizer.boxplot_variance()
         if UPLOAD:
             if len(tasklist) > 1:
                 results.append((output, task))

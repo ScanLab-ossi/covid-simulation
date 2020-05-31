@@ -5,6 +5,7 @@ import os
 from simulation.simulation import test_conf
 from simulation.contagion import CSVContagion, SQLContagion
 from simulation.dataset import Dataset
+from simulation.constants import SKIP_TESTS
 
 
 class TestCSVContagion(unittest.TestCase):
@@ -52,7 +53,7 @@ class TestCSVContagion(unittest.TestCase):
         self.assertEqual(result.iloc[0].name, "cMvEW1y.DLUsMgtP951/f.")
 
 
-@unittest.skipIf(os.environ.get("SKIP_TESTS", True), "Skip SQL Tests")
+@unittest.skipIf(SKIP_TESTS, "Skip SQL Tests")
 class TestSQLContagion(unittest.TestCase):
     def setUp(self):
         dataset = Dataset("h3g")
