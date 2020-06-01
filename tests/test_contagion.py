@@ -1,6 +1,7 @@
 import unittest
 from datetime import date
 import os
+import pandas as pd
 
 from simulation.simulation import test_conf
 from simulation.contagion import CSVContagion, SQLContagion
@@ -25,6 +26,11 @@ class TestCSVContagion(unittest.TestCase):
             "m5YJXcVamIkxaZmrDw1mwA",
             "xDK0mIGasmAilJrvnFS3Pw",
         }
+        self.sample_df = pd.DataFrame(
+            [[True], [False]],
+            columns=["color"],
+            index=["..7cyMMPqV.bMVjsN7Rcns", "..cvdr3nnY2eZmwko9evCQ"],
+        )
 
     def test_patient_zero(self):
         self.assertEqual(
@@ -42,14 +48,8 @@ class TestCSVContagion(unittest.TestCase):
             {"MJviZSTPuYw1v0W0cURthY"},
         )
 
-    def test_first_circle_of_patient_in_specific_date(self):
-        result = self.cc.contagion({"FNGiD7T4cpkOIM3mq.YdMY"}, date(2012, 3, 26))
-        self.assertEqual(result.iloc[0].name, "ODOkY9pchzsDHj.23UGQoc")
-
     def test_first_circle_of_2_patient_in_specific_date(self):
-        result = self.cc.contagion(
-            {"..7cyMMPqV.bMVjsN7Rcns", "..cvdr3nnY2eZmwko9evCQ"}, date(2012, 3, 26),
-        )
+        result = self.cc.contagion(self.sample_df, date(2012, 3, 26))
         self.assertEqual(result.iloc[0].name, "cMvEW1y.DLUsMgtP951/f.")
 
 
