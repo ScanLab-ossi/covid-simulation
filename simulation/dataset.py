@@ -4,6 +4,7 @@ import json
 
 from simulation.constants import *
 from simulation.google_cloud import GoogleCloud
+from simulation.helpers import timing
 
 
 class Dataset(object):
@@ -20,9 +21,11 @@ class Dataset(object):
                 setattr(self, key, datasets[name][key])
         self.period = (self.end_date - self.start_date).days
 
+    @timing
     def load_dataset(self, gcloud: GoogleCloud = None):
         if (self.storage == "csv") and not (DATA_FOLDER / f"{self.name}.csv").exists():
             gcloud.download(f"{self.name}.csv")
         self.data = pd.read_csv(
             DATA_FOLDER / f"{self.name}.csv", parse_dates=["datetime"]
         )
+        self.split = {x.date(): df for x, df in self.data.resample("D", on="datetime")}

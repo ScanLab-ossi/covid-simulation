@@ -28,20 +28,22 @@ class StateTransition(object):
         # TO BE MORE COMPETABILE TO THE MODEL
         return np.random.rand(len(age_group)) > s_i
 
-    def _daily_duration_in_sql(self, id=None, date=None):
-        # to be completed
-        return 90
+    def _dummy_daily_duration(self):
+        return (
+            self.task_conf["threshold"]
+            * self.task_conf["D_max"]
+            / self.task_conf["P_max"]
+            + self.task_conf["D_min"]
+        )
 
     def _is_enough_duration(self, daily_duration):
-        return (
-            np.where(
-                daily_duration.values >= self.task_conf.get("D_min"),
-                daily_duration.values / self.task_conf.get("D_max"),
-                0,
-            )
-            * self.task_conf.get("P_max")
-            > 0.05
-        )
+        return np.where(
+            daily_duration.values >= self.task_conf.get("D_min"),
+            daily_duration.values
+            / self.task_conf.get("D_max")
+            * self.task_conf.get("P_max"),
+            0,
+        ) > self.task_conf.get("threshold")
 
     def _final_state(self, color: bool):
         if color:
@@ -77,18 +79,17 @@ class StateTransition(object):
         df["final_state"] = df["color"].apply(self._final_state)
         return df
 
-    @timing
     def get_trajectory(self, infected, output, curr_date, add_duration=True):
         if isinstance(infected, set):
             infected = pd.DataFrame(index=infected)
             if add_duration:
-                infected["daily_duration"] = self._daily_duration_in_sql()  # = D_i
+                infected["daily_duration"] = self._dummy_daily_duration()  # = D_i
         # remove newly infected if they've already been infected in the past
         infected = infected.loc[~infected.index.isin(output.df.index)]
-        if "daily_duration" in infected.columns:
-            infected = infected[self._is_enough_duration(infected)]
+        infected = infected[self._is_enough_duration(infected)]
         # no need to add anything if there are no newly infected today
         if infected.empty:
             return
         infected = infected.join(self._infection_state_transition(infected, curr_date))
         output.append(infected)
+        return infected

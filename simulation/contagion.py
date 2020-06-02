@@ -2,6 +2,9 @@ import psycopg2
 from random import seed, randint, choices, sample
 import multiprocessing as mp
 import numpy as np
+import numpy.ma as ma
+import pandas as pd
+from datetime import date
 import os
 
 from simulation.helpers import timing
@@ -46,25 +49,43 @@ class CSVContagion(object):
             )
 
     @timing
-    def contagion(self, infected_set, curr_date=None):
-        df = self.dataset.data
-        contagion_df = (
-            df[
-                (df["source"].isin(infected_set) | df["destination"].isin(infected_set))
-                & (df["datetime"].dt.date == curr_date)
+    def contagion(
+        self, infected: pd.DataFrame, curr_date: date = None, contagion_model: int = 1
+    ) -> pd.DataFrame:
+        infected_ids = infected.index
+        today = self.dataset.split[curr_date]
+        # color is the infector's color
+        # True=purple, False=blue
+        contagion_df = pd.concat(
+            [
+                pd.merge(
+                    today, infected["color"], left_on=c, right_index=True, how="inner"
+                )
+                for c in ("source", "destination")
             ]
-            .melt(id_vars=["datetime", self.dataset.infection_param])
-            .drop(columns=["variable"])
-            .drop_duplicates()
-            .groupby("value")[self.dataset.infection_param]
-            .sum()
-            .to_frame(name="daily_duration")
-            .reset_index()
-            .rename(columns={"value": "id"})
+        ).melt(
+            id_vars=["datetime", self.dataset.infection_param, "color"], value_name="id"
         )
-        contagion_df = contagion_df[~contagion_df["id"].isin(infected_set)].set_index(
-            "id"
+        contagion_df = contagion_df[~contagion_df["id"].isin(infected_ids)]
+        new_distance = (
+            ma.array(
+                contagion_df[self.dataset.infection_param].values,
+                mask=contagion_df["color"].values,
+            )
+            * (1 - self.task_conf["alpha_blue"])
+        ).data
+        new_distance[new_distance > self.task_conf.get("D_max")] = self.task_conf.get(
+            "D_max"
         )
+        contagion_df["daily_duration"] = new_distance
+        if contagion_model == 1:
+            contagion_df = (
+                contagion_df.groupby("id")["daily_duration"]
+                .sum()
+                .to_frame(name="daily_duration")
+            )
+        else:
+            contagion_df = contagion_df[["id", "daily_duration"]].set_index("id")
         return contagion_df
 
 

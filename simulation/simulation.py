@@ -22,10 +22,13 @@ test_conf = {
     "blue_to_white": [20, 10],  # ~ Norm(mean, std) | ref:
     "purple_to_red": [5, 2],  # ~ Norm(mean, std)
     "red_to_final_state": [15, 7],
-    "D_min": 200,  # Arbitrary, The minimal threshold (in time) for infection,
     "number_of_patient_zero": 10,  # Arbitrary
+    "alpha_blue": 0.5,
+    "D_min": 200,  # Arbitrary, The minimal threshold (in time) for infection,
     "D_max": 1400,  # Arbitrary, TO BE CALCULATED,  0.9 precentile of (D_i)'s
-    "P_max": 0.02,  # The probability to be infected when the exposure is over the threshold
+    "P_max": 0.8,  # The probability to be infected when the exposure is over the threshold
+    "threshold": 0.05,
+    "contagion_model": 1,
     "risk_factor": None,  # should be vector of risk by age group
     "P_r": [0.08, 0.03],
 }
@@ -55,29 +58,19 @@ def contagion_runner(
         else:
             zero_patients = contagion.pick_patient_zero()
         st.get_trajectory(
-            zero_patients,
-            output,
-            dataset.start_date,
-            add_duration=dataset.add_duration,
+            zero_patients, output, dataset.start_date,
         )
-        set_of_infected = zero_patients
+        infected_df = output.df[["color"]]
         for day in range(dataset.period + 1):
             if VERBOSE:
                 process = f", process {os.getpid()}" if PARALLEL else ""
                 print(f"Status of {day}:" + process)
             curr_date = dataset.start_date + timedelta(days=day)
             set_of_contact_with_patient = contagion.contagion(
-                set_of_infected, curr_date=curr_date
+                infected_df, curr_date=curr_date
             )
-            st.get_trajectory(
-                set_of_contact_with_patient,
-                output,
-                curr_date,
-                add_duration=dataset.add_duration,
-            )
-            set_of_infected = set(
-                output.df[output.df["transition_date"] > curr_date].index
-            )
+            st.get_trajectory(set_of_contact_with_patient, output, curr_date)
+            infected_df = output.df[output.df["transition_date"] > curr_date][["color"]]
             # patients that haven't recovered or died yet
             if VERBOSE:
                 print(f"{output.df.shape[0]} infected today altogether")

@@ -7,6 +7,7 @@ secrets.conf
 *.pkl
 
 *.ipynb
+!notebooks/*.ipynb
 .idea/
 
 # Byte-compiled / optimized / DLL files

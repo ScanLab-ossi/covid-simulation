@@ -23,6 +23,22 @@ class TaskConfig(UserDict):
             "machine_version",
             "done",
         ]
+        self.continuous_params = [
+            "number_of_patient_zero",
+            "alpha_blue",
+            "D_min",
+            "D_max",
+            "P_max",
+            "threshold",
+        ]
+        self.distribution_params = [
+            "age_dist",
+            "blue_to_white",
+            "purple_to_red",
+            "red_to_final_state",
+            "P_r",
+        ]
+        self.ordinal_params = ["contagion_model"]
         # self.params = { k: v
         #     for k, v in data.items()
         #     if k not in self.metadata_keys + self.run_configuration_keys
