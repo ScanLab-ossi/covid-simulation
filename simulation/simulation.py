@@ -23,13 +23,13 @@ test_conf = {
     "purple_to_red": [5, 2],  # ~ Norm(mean, std)
     "red_to_final_state": [15, 7],
     "number_of_patient_zero": 10,  # Arbitrary
-    "alpha_blue": 0.5,
-    "D_min": 200,  # Arbitrary, The minimal threshold (in time) for infection,
-    "D_max": 1400,  # Arbitrary, TO BE CALCULATED,  0.9 precentile of (D_i)'s
+    "alpha_blue": 0.5,  # if alpha_blue == 1 it will be skipped
+    "D_min": 2,  # Arbitrary, The minimal threshold (in time) for infection,
+    "D_max": 1440,  # Arbitrary, TO BE CALCULATED,  0.9 precentile of (D_i)'s
     "P_max": 0.8,  # The probability to be infected when the exposure is over the threshold
     "threshold": 0.05,
-    "contagion_model": 1,
-    "risk_factor": None,  # should be vector of risk by age group
+    "infection_model": 2,
+    "S_i": 0.7,  # should be vector of risk by age group
     "P_r": [0.08, 0.03],
 }
 

@@ -13,11 +13,49 @@ from simulation.task_config import TaskConfig
 from simulation.constants import *
 
 
-class CSVContagion(object):
+class Contagion(object):
     def __init__(self, dataset: Dataset, task_conf: TaskConfig):
         self.dataset = dataset
         self.task_conf = task_conf
 
+    def _cases(self, df: pd.DataFrame, D_i: str = "duration") -> pd.DataFrame:
+        if self.task_conf["infection_model"] == 1:
+            df[D_i] = np.where(
+                df[D_i].values >= self.task_conf["D_min"],
+                df[D_i].values / self.task_conf["D_max"] * self.task_conf["P_max"],
+                0,
+            )
+        elif self.task_conf["infection_model"] == 2:
+            df[D_i] = np.where(
+                df[D_i].values >= self.task_conf["D_min"], df[D_i].values, 0.00001,
+            )
+        return df
+
+    def _is_above_threshold(self, P_gi_i: pd.Series) -> pd.Series:
+        return P_gi_i > self.task_conf["threshold"]
+
+    def _multiply_not_infected_chances(self, d_i_k: pd.Series) -> float:
+        return 1 - np.prod(
+            1
+            - np.minimum(
+                d_i_k.values / self.task_conf["D_max"] * self.task_conf["P_max"], 1
+            )
+        )
+
+    def _consider_alpha(self, contagion_df: pd.DataFrame) -> pd.DataFrame:
+        new_duration = (
+            ma.array(
+                contagion_df[self.dataset.infection_param].values,
+                mask=contagion_df["color"].values,
+            )
+            * (1 - self.task_conf["alpha_blue"])
+        ).data
+        new_duration[new_duration > self.task_conf["D_max"]] = self.task_conf["D_max"]
+        contagion_df["duration"] = new_duration
+        return contagion_df
+
+
+class CSVContagion(Contagion):
     def pick_patient_zero(
         self, set_of_potential_patients=None, arbitrary_patient_zero: list = [],
     ):
@@ -28,12 +66,12 @@ class CSVContagion(object):
             # seed(seed_)
             randomly_patient_zero = np.random.choice(
                 list(set_of_potential_patients),
-                self.task_conf.get("number_of_patient_zero"),
+                self.task_conf["number_of_patient_zero"],
                 replace=False,
             )
 
             # randomly_patient_zero = sample(
-            #     set_of_potential_patients, self.task_conf.get("number_of_patient_zero")
+            #     set_of_potential_patients, self.task_conf["number_of_patient_zero"]
             # )
             return set(randomly_patient_zero)
         else:
@@ -45,17 +83,16 @@ class CSVContagion(object):
                 .stack()
                 .drop_duplicates()
                 .reset_index(drop=True)
-                .sample(self.task_conf.get("number_of_patient_zero"))
+                .sample(self.task_conf["number_of_patient_zero"])
             )
 
     @timing
     def contagion(
-        self, infected: pd.DataFrame, curr_date: date = None, contagion_model: int = 1
+        self, infected: pd.DataFrame, curr_date: date = None,
     ) -> pd.DataFrame:
         infected_ids = infected.index
         today = self.dataset.split[curr_date]
-        # color is the infector's color
-        # True=purple, False=blue
+        # color is the infector's color, True=purple, False=blue
         contagion_df = pd.concat(
             [
                 pd.merge(
@@ -67,33 +104,27 @@ class CSVContagion(object):
             id_vars=["datetime", self.dataset.infection_param, "color"], value_name="id"
         )
         contagion_df = contagion_df[~contagion_df["id"].isin(infected_ids)]
-        new_distance = (
-            ma.array(
-                contagion_df[self.dataset.infection_param].values,
-                mask=contagion_df["color"].values,
-            )
-            * (1 - self.task_conf["alpha_blue"])
-        ).data
-        new_distance[new_distance > self.task_conf.get("D_max")] = self.task_conf.get(
-            "D_max"
-        )
-        contagion_df["daily_duration"] = new_distance
-        if contagion_model == 1:
+        if self.task_conf["alpha_blue"] < 1:
+            contagion_df = self._consider_alpha(contagion_df)
+        if self.task_conf["infection_model"] == 1:
             contagion_df = (
-                contagion_df.groupby("id")["daily_duration"]
-                .sum()
-                .to_frame(name="daily_duration")
+                contagion_df.groupby("id").agg({"duration": "sum"}).pipe(self._cases)
             )
-        else:
-            contagion_df = contagion_df[["id", "daily_duration"]].set_index("id")
+        elif self.task_conf["infection_model"] == 2:
+            contagion_df = (
+                contagion_df[["id", "duration"]]
+                .set_index("id")
+                .pipe(self._cases)
+                .groupby("id")
+                .agg({"duration": self._multiply_not_infected_chances})
+            )
+        contagion_df = contagion_df[
+            self._is_above_threshold(contagion_df["duration"])
+        ].rename(columns={"duration": "P_gi_i"})
         return contagion_df
 
 
-class SQLContagion(object):
-    def __init__(self, dataset: Dataset, task_conf: TaskConfig):
-        self.dataset = dataset
-        self.task_conf = task_conf
-
+class SQLContagion(Contagion):
     @timing
     def pick_patient_zero(
         self, set_of_potential_patients=None, arbitrary_patient_zero: list = [],
@@ -104,7 +135,7 @@ class SQLContagion(object):
         else:
             seed(1)
             randomly_patient_zero = sample(
-                set_of_potential_patients, self.task_conf.get("number_of_patient_zero")
+                set_of_potential_patients, self.task_conf["number_of_patient_zero"]
             )
             return set(randomly_patient_zero)
 

@@ -1,6 +1,7 @@
 import numpy as np
-from datetime import timedelta
+from datetime import timedelta, date
 import pandas as pd
+from typing import Tuple
 
 from simulation.dataset import Dataset
 from simulation.task_config import TaskConfig
@@ -12,23 +13,23 @@ class StateTransition(object):
         self.task_conf = task_conf
         self.dataset = dataset
 
-    def _get_next_date(self, dist_and_previous_date):
+    def _check_if_aggravate(self, age_group: np.ndarray) -> np.ndarray:
+        # TO BE MORE COMPETABILE TO THE MODEL
+        return np.random.rand(len(age_group)) > self.task_conf["S_i"]
+
+    def _get_next_date(self, dist_and_previous_date: Tuple[str, date]) -> date:
         dist, previous_date = dist_and_previous_date
         if dist == "same":
             return previous_date
-        duration = int(np.around(np.random.normal(*self.task_conf.get(dist))))
-        if duration <= 1:  # Avoid the paradox of negative recovery duration.
-            duration = 1
+        duration = int(
+            np.maximum(np.around(np.random.normal(*self.task_conf[dist])), 1)
+        )
         next_date = previous_date + timedelta(duration)
         if next_date > self.dataset.end_date:
             return self.dataset.end_date
         return next_date
 
-    def _check_if_aggravate(self, age_group, s_i=0.7):
-        # TO BE MORE COMPETABILE TO THE MODEL
-        return np.random.rand(len(age_group)) > s_i
-
-    def _dummy_daily_duration(self):
+    def _dummy_duration(self):
         return (
             self.task_conf["threshold"]
             * self.task_conf["D_max"]
@@ -36,18 +37,9 @@ class StateTransition(object):
             + self.task_conf["D_min"]
         )
 
-    def _is_enough_duration(self, daily_duration):
-        return np.where(
-            daily_duration.values >= self.task_conf.get("D_min"),
-            daily_duration.values
-            / self.task_conf.get("D_max")
-            * self.task_conf.get("P_max"),
-            0,
-        ) > self.task_conf.get("threshold")
-
     def _final_state(self, color: bool):
         if color:
-            P_r = np.random.normal(*[0.08, 0.03])
+            P_r = np.random.normal(*self.task_conf["P_r"])
             return np.random.choice(["w", "k"], 1, p=[1 - abs(P_r), abs(P_r)]).item()
         else:
             return "w"
@@ -83,10 +75,9 @@ class StateTransition(object):
         if isinstance(infected, set):
             infected = pd.DataFrame(index=infected)
             if add_duration:
-                infected["daily_duration"] = self._dummy_daily_duration()  # = D_i
+                infected["duration"] = self._dummy_duration()  # = D_i
         # remove newly infected if they've already been infected in the past
         infected = infected.loc[~infected.index.isin(output.df.index)]
-        infected = infected[self._is_enough_duration(infected)]
         # no need to add anything if there are no newly infected today
         if infected.empty:
             return

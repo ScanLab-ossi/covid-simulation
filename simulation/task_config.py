@@ -38,7 +38,7 @@ class TaskConfig(UserDict):
             "red_to_final_state",
             "P_r",
         ]
-        self.ordinal_params = ["contagion_model"]
+        self.ordinal_params = ["infection_model"]
         # self.params = { k: v
         #     for k, v in data.items()
         #     if k not in self.metadata_keys + self.run_configuration_keys

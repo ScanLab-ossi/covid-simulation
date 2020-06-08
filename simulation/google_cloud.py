@@ -40,17 +40,22 @@ class GoogleCloud(object):
         print(f"uploaded {blob_name} to {bucket.name}. took {datetime.now() - then}")
         return blob.self_link
 
-    @timing
+    # @timing
     def download(self, blob_name: str):
         destination_path = Path(DATA_FOLDER / blob_name)
-        if not destination_path.exists():
-            bucket = self.s_client.bucket("simulation_datasets")
-            blob = bucket.blob(blob_name)
+        bucket = self.s_client.bucket("simulation_datasets")
+        blob = bucket.blob(blob_name)
+        blob.reload()
+        if (
+            not destination_path.exists()
+            or os.path.getsize(destination_path) != blob.size
+        ):
             print(f"downloading {blob_name}. this might take a while.")
             blob.download_to_filename(destination_path)
             print(f"finished downloading {blob_name}. thank you for your patience :)")
         else:
-            print(f"{destination_path.name} already exists")
+            pass
+            # print(f"{destination_path.name} already exists")
 
     def get_tasklist(self, done=False):
         query = self.ds_client.query(kind="task")
