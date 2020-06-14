@@ -5,4 +5,5 @@ pandas
 jsonschema
 altair
 altair_saver
+pyyaml
 nose2[coverage_plugin]

@@ -7,12 +7,14 @@ from unittest.mock import patch
 from simulation.output import Output
 from simulation.dataset import Dataset
 from simulation.constants import *
+from simulation.task import Task
 
 
 class TestOutput(unittest.TestCase):
     def setUp(self):
         dataset = Dataset("mock_data")
-        self.output = Output(dataset=dataset)
+        self.task = Task()
+        self.output = Output(dataset, self.task)
         self.sample_df = pd.DataFrame(
             [
                 [0, True, date(2012, 3, 26), date(2012, 4, 1), date(2012, 4, 1), "w"],
@@ -58,10 +60,10 @@ class TestOutput(unittest.TestCase):
         self.output.average = self.sample_df
         self.output.export(pickle=True)
         mock_to_pickle.assert_called_once_with(
-            Path(OUTPUT_FOLDER / "average_output.pkl")
+            Path(OUTPUT_FOLDER / f"{self.task.id}_average.pkl")
         )
         mock_to_csv.assert_called_once_with(
-            Path(OUTPUT_FOLDER / "average_output.csv"), index=False
+            Path(OUTPUT_FOLDER / f"{self.task.id}_average.csv"), index=False
         )
 
     def test_append_row_to_df(self):
@@ -72,19 +74,11 @@ class TestOutput(unittest.TestCase):
             self.output.append(self.sample_df)
 
     def test_sum_output(self):
-        self.output.append(self.sample_df)
-        summed = self.output.sum_output()
+        summed = self.output.sum_output(self.sample_df)
         self.assertEqual(summed.shape, (396, 3))  # 66 days in mockdata * 6 colors
         self.assertEqual(summed.columns.tolist(), ["color", "day", "amount"])
 
     def test_average_outputs(self):
-        self.output.summed = [self.sample_summed_df] * 3
+        self.output.concated = pd.concat([self.sample_summed_df] * 3)
         self.output.average_outputs()
         pdt.assert_frame_equal(self.sample_summed_df, self.output.average)
-
-    def test_concat_outputs(self):
-        self.output.summed = [self.sample_summed_df] * 3
-        self.output.concat_outputs()
-        pdt.assert_frame_equal(
-            self.output.concated, pd.concat([self.sample_summed_df] * 3)
-        )

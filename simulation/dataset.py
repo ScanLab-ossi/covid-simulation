@@ -10,7 +10,7 @@ from simulation.helpers import timing
 class Dataset(object):
     def __init__(self, name):
         self.name = name
-        with open(DATA_FOLDER / "datasets.json", "r") as f:
+        with open(CONFIG_FOLDER / "datasets.json", "r") as f:
             datasets = json.load(f)
         for key in datasets[name]:
             if "date" in key:

@@ -1,6 +1,5 @@
 import unittest
 
-from simulation.simulation import test_conf
 from simulation.contagion import CSVContagion
 from simulation.dataset import Dataset
 from simulation.helpers import timing

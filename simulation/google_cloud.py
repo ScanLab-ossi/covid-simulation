@@ -1,4 +1,5 @@
 from google.cloud import storage, datastore
+from google.api_core.exceptions import NotFound
 from pathlib import Path
 from datetime import datetime
 import os, subprocess
@@ -8,7 +9,7 @@ import numpy as np
 from simulation.constants import *
 from simulation.helpers import timing
 from simulation.basic_configuration import BasicConfiguration
-from simulation.task_config import TaskConfig
+from simulation.task import Task
 
 
 class GoogleCloud(object):
@@ -45,7 +46,12 @@ class GoogleCloud(object):
         destination_path = Path(DATA_FOLDER / blob_name)
         bucket = self.s_client.bucket("simulation_datasets")
         blob = bucket.blob(blob_name)
-        blob.reload()
+        try:
+            blob.reload()
+        except NotFound:
+            # if input("doesn't exist in cloud. should i upload? [y/N] ")
+            print("file doesn't exist in cloud storage")
+            return
         if (
             not destination_path.exists()
             or os.path.getsize(destination_path) != blob.size
@@ -60,35 +66,26 @@ class GoogleCloud(object):
     def get_tasklist(self, done=False):
         query = self.ds_client.query(kind="task")
         result = list(query.fetch())  # .add_filter("done", "=", done)
-        self.done = [TaskConfig(t) for t in result if t["done"] == True]
-        self.todo = [TaskConfig(t) for t in result if t["done"] == False]
+        self.done = [Task(t) for t in result if t["done"] == True]
+        self.todo = [Task(t) for t in result if t["done"] == False]
 
-    def add_task(self, task_config: TaskConfig, done=False):
+    def add_task(self, task: Task, done=False):
         if done:
-            task_key = self.ds_client.key("task", np.random.randint(1e15, 1e16))
+            task_key = self.ds_client.key("task", task.id)
         else:
             task_key = self.ds_client.key("task")
-        task = datastore.Entity(key=task_key)
-        task_config["done"] = done
-        # os.chdir(Path("./simulation"))
-        # machine_version = (
-        #     subprocess.check_output(
-        #         ['git log -1 --pretty="%h" contagion.py'], shell=True
-        #     )
-        #     .strip()
-        #     .decode("utf-8")
-        # )
-        # os.chdir(Path(os.getcwd()).parent)
-        task.update(task_config)
+        g_task = datastore.Entity(key=task_key)
+        task["done"] = done
+        g_task.update(task)
         if done:
-            task_config.update(
+            task.update(
                 {
                     "output_url": f"https://storage.cloud.google.com/simulation_runs/{task_key.id}.csv",
                     "task_done": datetime.now(),
                 }
             )
-            task.update(task_config)
-        self.ds_client.put(task)
+            g_task.update(task)
+        self.ds_client.put(g_task)
         return task_key.id
 
     def write_results(self, result):

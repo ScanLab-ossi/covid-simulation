@@ -1,17 +1,21 @@
 import altair as alt
 from altair.expr import datum
 from copy import copy
+import pandas as pd
+from typing import Union
 
 from simulation.constants import *
 from simulation.dataset import Dataset
 from simulation.output import Output
+from simulation.task import Task
 
 
 class Visualizer(object):
-    def __init__(self, output: Output):
+    def __init__(self, output: Output, task: Task):
         self.dataset = output.dataset
         self.output = output
-        self.filename = output.filename
+        self.task = task
+        self.filename = str(self.task.id)
         self.colors = dict(
             zip(
                 "bprkwg",
@@ -19,8 +23,9 @@ class Visualizer(object):
             )
         )
 
-    def visualize(self):
-        summed = self.output.average
+    def visualize(self, df: Union[pd.DataFrame, None] = None) -> alt.Chart:
+        got_input = isinstance(df, pd.DataFrame)
+        summed = df if got_input else self.output.average
         summed["order"] = summed["color"].replace(
             {val: i for i, val in enumerate(self.colors.keys())}
         )
@@ -41,10 +46,11 @@ class Visualizer(object):
                 tooltip=["color", "amount", f"{self.dataset.interval}"],
             )
         )
-        chart.save(str(OUTPUT_FOLDER / f"{self.filename}.html"), format="html")
+        if not got_input:
+            chart.save(str(OUTPUT_FOLDER / f"{self.filename}.html"), format="html")
         return chart
 
-    def boxplot_variance(self):
+    def variance_boxplot(self) -> alt.FacetChart:
         chart = (
             alt.Chart(self.output.concated)
             .mark_boxplot()
@@ -63,4 +69,43 @@ class Visualizer(object):
             .facet(row="color")
         )
         chart.save(str(OUTPUT_FOLDER / f"{self.filename}_variance.html"), format="html")
+        return chart
+
+    def sensitivity_boxplot(
+        self, df: Union[pd.DataFrame, None] = None, grouping: str = "parameter"
+    ) -> alt.FacetChart:
+        got_input = isinstance(df, pd.DataFrame)
+        metric = self.task["sensitivity"]["metric"]
+        df = df if got_input else pd.concat(self.output.results)
+        base_values = [
+            f"{param}: {self.task[param]}"
+            for param in sorted(self.task["sensitivity"]["params"])
+        ]
+        chart = (
+            alt.Chart(df)
+            .mark_boxplot()
+            .encode(
+                y=f"{metric}:Q",
+                color=alt.Color(
+                    "parameter",
+                    sort="ascending",
+                    legend=alt.Legend(values=base_values),
+                ),
+            )
+        )
+        step_sort = sorted(set(df["step"].tolist()), key=eval)
+        if grouping == "parameter":
+            chart = chart.encode(x=alt.X("parameter", title=None)).facet(
+                alt.Facet("step:O", sort=step_sort, spacing=5)
+            )
+        elif grouping == "step":
+            chart = chart.encode(
+                x=alt.X("step", title=None, sort=step_sort),
+                y=f"{metric}:Q",
+                color="parameter",
+            ).facet("parameter:N")
+        if not got_input:
+            chart.save(
+                str(OUTPUT_FOLDER / f"{self.filename}_sensitivity.html"), format="html"
+            )
         return chart

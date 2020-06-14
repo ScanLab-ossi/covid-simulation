@@ -9,22 +9,23 @@ from unittest.mock import patch
 from simulation.output import Output
 from simulation.state_transition import StateTransition
 from simulation.dataset import Dataset
-from simulation.simulation import test_conf
 from simulation.basic_configuration import BasicConfiguration
 from simulation.google_cloud import GoogleCloud
+from simulation.task import Task
 
 
 class TestStateTransition(unittest.TestCase):
     def setUp(self):
         dataset = Dataset("mock_data")
+        task = Task()
         bc = BasicConfiguration()
-        dataset.load_dataset(gcloud=GoogleCloud(bc))
-        self.output = Output(dataset)
-        self.st = StateTransition(dataset=dataset, task_conf=test_conf)
+        dataset.load_dataset(GoogleCloud(bc))
+        self.output = Output(dataset, task)
+        self.st = StateTransition(dataset, task)
         self.sample_infected = pd.DataFrame(
             [[10000]], columns=["duration"], index=[".QP/64EdoTcdkMnmXGVO0A"]
         )
-        self.st.task_conf.update(
+        self.st.task.update(
             {"D_min": 2, "D_max": 1440, "P_max": 0.8, "threshold": 0.05, "S_i": 0.7}
         )
 
@@ -48,9 +49,6 @@ class TestStateTransition(unittest.TestCase):
             date(2012, 5, 31),
         )
 
-    def test_dummy_duration(self):
-        self.assertEqual(self.st._dummy_duration(), 92)
-
     @patch("numpy.random.normal")
     def test_final_state(self, mock_normal):
         mock_normal.return_value = 1.0
@@ -62,7 +60,7 @@ class TestStateTransition(unittest.TestCase):
             self.sample_infected, date(2012, 3, 26)
         )
         self.assertEqual(
-            set(df["age_group"]) - set(range(len(test_conf["age_dist"]))), set()
+            set(df["age_group"]) - set(range(len(self.st.task["age_dist"]))), set()
         )
         self.assertTrue(df["color"].isin(np.array([True, False])).all())
         # infection_date, transition_date, final_state
@@ -83,27 +81,27 @@ class TestStateTransition(unittest.TestCase):
         pdt.assert_series_equal(df.dtypes, dtypes)
 
     def test_get_trajectory(self):
-        infected = self.st.get_trajectory(
-            self.sample_infected, self.output, date(2012, 3, 26), add_duration=False,
-        )
-        self.assertListEqual(
-            infected.columns.tolist(),
-            [
-                "duration",
-                "age_group",
-                "color",
-                "infection_date",
-                "transition_date",
-                "expiration_date",
-                "final_state",
-            ],
-        )
-        self.assertEqual(self.output.df.index.name, "id")
-        self.assertIsNone(
-            self.st.get_trajectory(
-                set(self.sample_infected.index), self.output, date(2012, 3, 26)
+        for starter in [self.sample_infected, {".QP/64EdoTcdkMnmXGVO0A"}]:
+            infected = self.st.get_trajectory(starter, self.output, date(2012, 3, 26))
+            self.assertListEqual(
+                infected.columns.tolist(),
+                (["duration"] if isinstance(starter, pd.DataFrame) else [])
+                + [
+                    "age_group",
+                    "color",
+                    "infection_date",
+                    "transition_date",
+                    "expiration_date",
+                    "final_state",
+                ],
             )
+            self.assertEqual(self.output.df.index.name, "id")
+        # check that people don't get reinfected
+        self.output.append(infected)
+        reinfected = self.st.get_trajectory(
+            {".QP/64EdoTcdkMnmXGVO0A"}, self.output, date(2012, 3, 26)
         )
+        pdt.assert_frame_equal(reinfected, pd.DataFrame([]))
 
 
 # def test_time_to_recovery(self):
