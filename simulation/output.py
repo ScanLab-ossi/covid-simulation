@@ -2,19 +2,20 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 from typing import Union
+from datetime import datetime
 
 from simulation.constants import *
 from simulation.dataset import Dataset
+from simulation.task import Task
 from simulation.helpers import timing
 
 
 class Output(object):
-    def __init__(self, dataset: Dataset, pickle=False):
+    def __init__(self, dataset: Dataset, task: Task):
         self.reset()
         self.dataset = dataset
-        self.summed = []
-        self.pickle = pickle
-        self.filename = "output.csv"
+        self.batch = []
+        self.filename = str(task.id)
         self.colors = list("bprkwg")
 
     def reset(self):
@@ -38,14 +39,17 @@ class Output(object):
     ):
         # average, concated, df
         if not hasattr(self, how):
-            raise AttributeError(f'sorry, you haven\'t created attribute "{how}" yet')
-        self.filename = (f"{how}_" if LOCAL else "") + (
-            f"{filename}_{REPETITIONS}" if REPETITIONS > 1 and LOCAL else filename
-        )
-        self.csv_path = Path(OUTPUT_FOLDER / f"{self.filename}.csv")
+            if how == "concated":
+                self.concat_outputs()
+            elif how == "averaged":
+                self.average_outputs()
+            else:
+                raise AttributeError(f'you haven\'t created attribute "{how}" yet')
+        filename = self.filename + (f"_{how}" if settings["LOCAL"] else "")
+        self.csv_path = Path(OUTPUT_FOLDER / f"{filename}.csv")
         getattr(self, how).to_csv(self.csv_path, index=(False if how != "df" else True))
         if pickle:
-            self.pickle_path = Path(OUTPUT_FOLDER / f"{self.filename}.pkl")
+            self.pickle_path = Path(OUTPUT_FOLDER / f"{filename}.pkl")
             getattr(self, how).to_pickle(self.pickle_path)
 
     def append(self, new_df):
@@ -68,42 +72,40 @@ class Output(object):
         else:
             return [color] * i
 
-    def _color_lists(self, array: np.array, colors: Union[list, str]):
-        return pd.concat(
-            [pd.Series(array), self.df["color"].reset_index(drop=True)],
-            axis=1,
-            ignore_index=True,
-        ).apply(self._color_array, args=(colors,), axis=1)
+    def _color_lists(self, a: np.array, colors: pd.Series, letters: Union[list, str]):
+        return pd.concat([pd.Series(a), colors], axis=1, ignore_index=True).apply(
+            self._color_array, args=(letters,), axis=1
+        )
 
     @timing
-    def sum_output(self):
+    def sum_output(self, df):
         # s2i = start_to_infection, i2t = infection_to_transition,
         # t2e = transition_to_expiration, e2ft = expiration_to_final_state
         # u = uninfected
+        colors = df["color"].reset_index(drop=True)
         s2i = pd.Series(
-            self.df["infection_date"].values - np.array(self.dataset.start_date)
+            df["infection_date"].values - np.array(self.dataset.start_date)
         ).dt.days.apply(self._color_array, args=("g",))
         i2t = self._color_lists(
-            (self.df["transition_date"].values - self.df["infection_date"].values)
+            (df["transition_date"].values - df["infection_date"].values)
             .astype("timedelta64[D]")
             .astype(int),
+            colors,
             ["p", "b"],
         )
         t2e = self._color_lists(
-            (self.df["expiration_date"].values - self.df["transition_date"].values)
+            (df["expiration_date"].values - df["transition_date"].values)
             .astype("timedelta64[D]")
             .astype(int),
+            colors,
             ["r", "w"],
         )
         e2ft = pd.Series(
-            self.df["final_state"].apply(list).values
+            df["final_state"].apply(list).values
             * (self.dataset.period - np.vectorize(len)(s2i + i2t + t2e))
         )
         u = pd.Series(
-            [
-                ["g"] * self.dataset.period
-                for _ in range(self.dataset.nodes - len(self.df))
-            ]
+            [["g"] * self.dataset.period for _ in range(self.dataset.nodes - len(df))]
         )
         return (
             (s2i + i2t + t2e + e2ft)
@@ -122,13 +124,12 @@ class Output(object):
             )
         )
 
-    def average_outputs(self):
-        self.average = (
-            pd.concat(self.summed)
-            .groupby(["color", "day"])["amount"]
-            .mean()
-            .reset_index()
-        )
+    def sum_and_concat_outputs(self):
+        self.concated = pd.concat([self.sum_output(df) for df in self.batch])
 
-    def concat_outputs(self):
-        self.concated = pd.concat(self.summed)
+    def average_outputs(self):
+        if not hasattr(self, "concated"):
+            self.sum_and_concat_outputs()
+        self.average = (
+            self.concated.groupby(["color", "day"])["amount"].mean().reset_index()
+        )

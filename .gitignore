@@ -5,6 +5,7 @@ secrets.conf
 !mock_*.csv
 *.html
 *.pkl
+!mock_*.pkl
 
 *.ipynb
 !notebooks/*.ipynb

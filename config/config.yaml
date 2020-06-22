@@ -1,0 +1,37 @@
+settings:
+  PARALLEL: false # run simulation in parallel, rather than iteratively. iterative seems to run faster locally
+  LOCAL: true # task list according to local config only. skips downloading task list from google cloud
+  UPLOAD: false # uplaod results to google cloud
+  SKIP_TESTS: true # skip heavy tests - google cloud and sql
+  VERBOSE: false # how much to print
+
+meta:
+  DATASET: mock_data # which dataset to use
+  ITERATIONS: 1 # run experiment X times, so to average chaotic(?) effects. use 1 repetition for working on the model itself
+  SENSITIVITY: false
+
+params:
+  age_dist: [0.15, 0.6, 0.25] # [youngs, adults, olds]
+  blue_to_white: [20, 10] # ~ Norm(mean, std)
+  purple_to_red: [5, 2] # ~ Norm(mean, std)
+  red_to_final_state: [15, 7]
+  number_of_patient_zero: 10 # Arbitrary
+  # randomize_patient_zero: true
+  alpha_blue: 1.0 # if alpha_blue == 1.0 it will be skipped. float!
+  D_min: 5 # Arbitrary, The minimal threshold (in time) for infection,
+  D_max: 1440 # Arbitrary, TO BE CALCULATED,  0.9 precentile of (D_i)'s
+  P_max: 0.8 # The probability to be infected when the exposure is over the threshold
+  infection_model: 2
+  S_i: 0.7 # should be vector of risk by age group
+  P_r: [0.08, 0.03]
+
+sensitivity:
+  params:
+    - D_min
+  metric: peak_sick # [peak_sick, peak_newly_infected]
+  ranges:
+    D_min: { step: 5, min: 0, max: 25 }
+    D_max: { step: 60, min: 1200, max: 1440 }
+    P_max: { step: 0.1, min: 0.1, max: 1.0 }
+    number_of_patient_zero: { step: 5, min: 5, max: 35 }
+    infection_model: { step: 1, min: 1, max: 2 }

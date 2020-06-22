@@ -10,7 +10,7 @@ from simulation.helpers import timing
 class Dataset(object):
     def __init__(self, name):
         self.name = name
-        with open(DATA_FOLDER / "datasets.json", "r") as f:
+        with open(CONFIG_FOLDER / "datasets.json", "r") as f:
             datasets = json.load(f)
         for key in datasets[name]:
             if "date" in key:
@@ -21,9 +21,9 @@ class Dataset(object):
                 setattr(self, key, datasets[name][key])
         self.period = (self.end_date - self.start_date).days
 
-    @timing
+    # @timing
     def load_dataset(self, gcloud: GoogleCloud = None):
-        if (self.storage == "csv") and not (DATA_FOLDER / f"{self.name}.csv").exists():
+        if self.storage == "csv":
             gcloud.download(f"{self.name}.csv")
         self.data = pd.read_csv(
             DATA_FOLDER / f"{self.name}.csv", parse_dates=["datetime"]

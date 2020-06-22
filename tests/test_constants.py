@@ -5,9 +5,8 @@ from simulation.constants import *
 
 class TestConstants(unittest.TestCase):
     def test_default_constants(self):
-        self.assertEqual(REPETITIONS, 1)
-        self.assertEqual(UPLOAD, False)
-        self.assertEqual(LOCAL, True)
-        self.assertEqual(VERBOSE, True)
-        self.assertEqual(PARALLEL, False)
-        self.assertEqual(SKIP_TESTS, True)
+        self.assertEqual(settings["UPLOAD"], False)
+        self.assertEqual(settings["LOCAL"], True)
+        self.assertIsInstance(settings["VERBOSE"], bool)
+        self.assertEqual(settings["PARALLEL"], False)
+        self.assertEqual(settings["SKIP_TESTS"], True)
