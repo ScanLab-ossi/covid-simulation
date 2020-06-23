@@ -6,7 +6,7 @@ settings:
   VERBOSE: false # how much to print
 
 meta:
-  DATASET: mock_data # which dataset to use
+  DATASET: copenhagen_interactions # which dataset to use
   ITERATIONS: 1 # run experiment X times, so to average chaotic(?) effects. use 1 repetition for working on the model itself
   SENSITIVITY: false
 
@@ -21,7 +21,7 @@ params:
   D_min: 5 # Arbitrary, The minimal threshold (in time) for infection,
   D_max: 1440 # Arbitrary, TO BE CALCULATED,  0.9 precentile of (D_i)'s
   P_max: 0.8 # The probability to be infected when the exposure is over the threshold
-  infection_model: 2
+  infection_model: 1
   S_i: 0.7 # should be vector of risk by age group
   P_r: [0.08, 0.03]
 
