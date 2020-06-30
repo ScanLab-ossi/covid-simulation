@@ -26,6 +26,9 @@ class Dataset(object):
         if self.storage == "csv":
             gcloud.download(f"{self.name}.csv")
         self.data = pd.read_csv(
-            DATA_FOLDER / f"{self.name}.csv", parse_dates=["datetime"]
+            DATA_FOLDER / f"{self.name}.csv",
+            parse_dates=["datetime"],
+            usecols=["source", "destination", "datetime", "duration"]
+            + (["hops"] if self.hops else []),
         )
         self.split = {x.date(): df for x, df in self.data.resample("D", on="datetime")}

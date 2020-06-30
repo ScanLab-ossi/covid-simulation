@@ -5,7 +5,8 @@
         "start_date": "2019-12-11",
         "end_date": "2020-01-08",
         "interval": "day",
-        "infection_param": "duration"
+        "infection_param": "duration",
+        "hops": false
     },
     "mock_data": {
         "storage": "csv",
@@ -13,22 +14,16 @@
         "start_date": "2012-03-26",
         "end_date": "2012-05-31",
         "interval": "day",
-        "infection_param": "duration"
+        "infection_param": "duration",
+        "hops": false
     },
-    "copenhagen_interactions_only_full_group": {
+    "copenhagen_hops": {
         "storage": "csv",
-        "nodes": 662,
+        "nodes": 692,
         "start_date": "2019-12-11",
         "end_date": "2020-01-08",
         "interval": "day",
-        "infection_param": "duration"
-    },
-    "copenhagen_interactions_partial_groups": {
-        "storage": "csv",
-        "nodes": 668,
-        "start_date": "2019-12-11",
-        "end_date": "2020-01-08",
-        "interval": "day",
-        "infection_param": "duration"
+        "infection_param": "duration",
+        "hops": true
     }
 }
