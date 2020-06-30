@@ -23,6 +23,7 @@ continuous_params = [
     "D_min",
     "D_max",
     "P_max",
+    "ITERATIONS",
 ]
 distribution_params = [
     "age_dist",

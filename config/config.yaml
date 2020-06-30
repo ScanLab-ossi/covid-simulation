@@ -6,8 +6,8 @@ settings:
   VERBOSE: false # how much to print
 
 meta:
-  DATASET: copenhagen_interactions # which dataset to use
-  ITERATIONS: 1 # run experiment X times, so to average chaotic(?) effects. use 1 repetition for working on the model itself
+  DATASET: copenhagen_hops # which dataset to use
+  ITERATIONS: 5 # run experiment X times, so to average chaotic(?) effects. use 1 repetition for working on the model itself
   SENSITIVITY: false
 
 params:
@@ -21,13 +21,13 @@ params:
   D_min: 5 # Arbitrary, The minimal threshold (in time) for infection,
   D_max: 1440 # Arbitrary, TO BE CALCULATED,  0.9 precentile of (D_i)'s
   P_max: 0.8 # The probability to be infected when the exposure is over the threshold
-  infection_model: 1
+  infection_model: 2
   S_i: 0.7 # should be vector of risk by age group
   P_r: [0.08, 0.03]
 
 sensitivity:
   params:
-    - D_min
+    - ITERATIONS
   metric: peak_sick # [peak_sick, peak_newly_infected]
   ranges:
     D_min: { step: 5, min: 0, max: 25 }
@@ -35,3 +35,4 @@ sensitivity:
     P_max: { step: 0.1, min: 0.1, max: 1.0 }
     number_of_patient_zero: { step: 5, min: 5, max: 35 }
     infection_model: { step: 1, min: 1, max: 2 }
+    ITERATIONS: { step: 5, min: 5, max: 20 }

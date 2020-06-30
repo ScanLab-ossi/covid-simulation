@@ -67,7 +67,7 @@ class ContagionRunner(object):
                 if settings["VERBOSE"]:
                     print(f"{output.df.shape[0]} infected today altogether")
             output.batch.append(output.df)
-            output.export(filename=(str(task.id)), how="df", pickle=True)
+            # output.export(filename=(str(task.id)), how="df", pickle=True)
             output.reset()
             print(f"repetition {i} took {datetime.now() - start}")
         return output
@@ -89,8 +89,9 @@ class Contagion(object):
                 0,
             )
         elif self.task["infection_model"] == 2:
+            hops = df["hops"].values if self.dataset.hops else 1
             df[D_i] = np.where(
-                df[D_i].values >= self.task["D_min"], df[D_i].values, 0.00001,
+                df[D_i].values >= self.task["D_min"], df[D_i].values / hops, 0.00001,
             )
         return df
 
@@ -181,10 +182,17 @@ class CSVContagion(Contagion):
             .reset_index(drop=True, level=1)
             .rename("infector")
         ).melt(
-            id_vars=["datetime", self.dataset.infection_param, "color", "infector"],
+            id_vars=[
+                "datetime",
+                self.dataset.infection_param,
+                "color",
+                "infector",
+                "hops",
+            ],
             value_name="id",
         )
         contagion_df = contagion_df[~contagion_df["id"].isin(infected_ids)]
+        # print(contagion_df)
         if len(contagion_df) == 0:
             return contagion_df
         if self.task["alpha_blue"] < 1:
@@ -197,7 +205,7 @@ class CSVContagion(Contagion):
             )
         elif self.task["infection_model"] == 2:
             contagion_df = (
-                contagion_df[["id", "duration", "infector"]]
+                contagion_df[["id", "duration", "infector", "hops"]]
                 .set_index("id")
                 .pipe(self._cases)
                 .groupby("id")
