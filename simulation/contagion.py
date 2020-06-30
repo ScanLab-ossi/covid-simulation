@@ -168,8 +168,21 @@ class CSVContagion(Contagion):
                 )
                 for c in ("source", "destination")
             ]
+        )
+        only_newly_infected = contagion_df[
+            ~(
+                contagion_df["source"].isin(infected_ids)
+                & contagion_df["destination"].isin(infected_ids)
+            )
+        ]
+        stacked = only_newly_infected[["source", "destination"]].stack()
+        contagion_df = only_newly_infected.join(
+            stacked[stacked.isin(infected_ids)]
+            .reset_index(drop=True, level=1)
+            .rename("infector")
         ).melt(
-            id_vars=["datetime", self.dataset.infection_param, "color"], value_name="id"
+            id_vars=["datetime", self.dataset.infection_param, "color", "infector"],
+            value_name="id",
         )
         contagion_df = contagion_df[~contagion_df["id"].isin(infected_ids)]
         if len(contagion_df) == 0:
@@ -178,15 +191,17 @@ class CSVContagion(Contagion):
             contagion_df = self._consider_alpha(contagion_df)
         if self.task["infection_model"] == 1:
             contagion_df = (
-                contagion_df.groupby("id").agg({"duration": "sum"}).pipe(self._cases)
+                contagion_df.groupby("id")
+                .agg({"duration": "sum", "infector": set})
+                .pipe(self._cases)
             )
         elif self.task["infection_model"] == 2:
             contagion_df = (
-                contagion_df[["id", "duration"]]
+                contagion_df[["id", "duration", "infector"]]
                 .set_index("id")
                 .pipe(self._cases)
                 .groupby("id")
-                .agg({"duration": self._multiply_not_infected_chances})
+                .agg({"duration": self._multiply_not_infected_chances, "infector": set})
             )
         contagion_df = contagion_df[self._is_infected(contagion_df["duration"])].drop(
             columns=["duration"]
