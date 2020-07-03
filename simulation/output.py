@@ -41,11 +41,10 @@ class Output(object):
         if not hasattr(self, how):
             if how == "concated":
                 self.concat_outputs()
-            elif how == "averaged":
+            elif how == "average":
                 self.average_outputs()
             else:
                 raise AttributeError(f'you haven\'t created attribute "{how}" yet')
-        filename = self.filename + (f"_{how}" if settings["LOCAL"] else "")
         self.csv_path = Path(OUTPUT_FOLDER / f"{filename}.csv")
         getattr(self, how).to_csv(self.csv_path, index=(False if how != "df" else True))
         if pickle:

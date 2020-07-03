@@ -1,4 +1,7 @@
-import psycopg2
+try:
+    import psycopg2
+except ModuleNotFoundError:
+    pass
 from random import seed, randint, choices, sample
 import multiprocessing as mp
 import numpy as np

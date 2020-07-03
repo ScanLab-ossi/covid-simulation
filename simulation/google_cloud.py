@@ -5,6 +5,7 @@ from datetime import datetime
 import os, subprocess
 import requests
 import numpy as np
+from typing import List, Tuple
 
 from simulation.constants import *
 from simulation.helpers import timing
@@ -24,6 +25,9 @@ class GoogleCloud(object):
     def upload(
         self, filename: Path, new_name: str = None, bucket_name: str = "simulation_runs"
     ):
+        """
+        Expect `filename` to be output.csv_path, whereas `newname` without extension
+        """
         then = datetime.now()
         bucket = self.s_client.bucket(bucket_name)
         blob_name = f"{new_name}.csv" if new_name else filename.name
@@ -42,9 +46,14 @@ class GoogleCloud(object):
         return blob.self_link
 
     # @timing
-    def download(self, blob_name: str):
-        destination_path = Path(DATA_FOLDER / blob_name)
-        bucket = self.s_client.bucket("simulation_datasets")
+    def download(
+        self,
+        blob_name: str,
+        destination: Path = DATA_FOLDER,
+        bucket_name: str = "simulation_datasets",
+    ):
+        destination_path = destination / blob_name
+        bucket = self.s_client.bucket(bucket_name)
         blob = bucket.blob(blob_name)
         try:
             blob.reload()
@@ -56,52 +65,49 @@ class GoogleCloud(object):
             not destination_path.exists()
             or os.path.getsize(destination_path) != blob.size
         ):
-            print(f"downloading {blob_name}. this might take a while.")
+            print(
+                f"downloading {blob_name}. \
+                it {('exists' if destination_path.exists() else 'doesnt exist')}. \
+                its size is {os.path.getsize(destination_path)} locally and {blob.size} remotely. \
+                this might take a while."
+            )
             blob.download_to_filename(destination_path)
             print(f"finished downloading {blob_name}. thank you for your patience :)")
         else:
             pass
             # print(f"{destination_path.name} already exists")
 
-    def get_tasklist(self, done=False):
+    def get_tasklist(self):
         query = self.ds_client.query(kind="task")
         result = list(query.fetch())  # .add_filter("done", "=", done)
         self.done = [Task(t) for t in result if t["done"] == True]
         self.todo = [Task(t) for t in result if t["done"] == False]
 
-    def add_task(self, task: Task, done=False):
-        if done:
+    def add_tasks(self, tasks: Task, done: bool = False):
+        entities = []
+        for task in tasks:
             task_key = self.ds_client.key("task", task.id)
+            entity = datastore.Entity(key=task_key)
+            task["done"] = done
+            if done:
+                task.update(
+                    {
+                        "output_url": f"https://storage.cloud.google.com/simulation_runs/{task.id}.csv",
+                        "task_done": datetime.now(),
+                    }
+                )
+            entity.update(task)
+            entities.append(entity)
+        if len(entities) == 1:
+            self.ds_client.put(entities[0])
         else:
-            task_key = self.ds_client.key("task")
-        g_task = datastore.Entity(key=task_key)
-        task["done"] = done
-        g_task.update(task)
-        if done:
-            task.update(
-                {
-                    "output_url": f"https://storage.cloud.google.com/simulation_runs/{task_key.id}.csv",
-                    "task_done": datetime.now(),
-                }
-            )
-            g_task.update(task)
-        self.ds_client.put(g_task)
-        return task_key.id
-
-    def write_results(self, result):
-        if len(result) > 1:
             batch = self.ds_client.batch()
             with batch:
-                tasks = []
-                for output, task in result:
-                    link = self.upload(output.csv_path, new_name=task.id)
-                    task.update(
-                        {"done": True, "task_done": datetime.now(), "link": link}
-                    )
-                    tasks.append(dict(task))
-                self.ds_client.put_multi(tasks)
-        else:
-            data, task = result[0]
-            link = self.upload(data.output_filename, new_name=task.id)
-            task.update({"done": True, "task_done": datetime.now(), "link": link})
-            self.ds_client.put(task)
+                self.ds_client.put_multi(entities)
+        return [e.id for e in entities]
+
+    def write_results(self, tasks: List[Task], outputs: List) -> List[int]:
+        for output in outputs:
+            self.upload(output.csv_path)
+        return self.add_tasks(tasks, done=True)
+

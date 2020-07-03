@@ -5,6 +5,7 @@ import pandas as pd
 from pathlib import Path
 import multiprocessing as mp
 from typing import Union
+from flask import Flask, jsonify
 
 from simulation.helpers import timing, one_array_pickle_to_set, print_settings
 from simulation.constants import *
@@ -25,13 +26,15 @@ from simulation.visualizer import Visualizer
 def main(test_conf: dict = False):
     basic_conf = BasicConfiguration()
     gcloud = GoogleCloud(basic_conf)
-    if not settings["LOCAL"]:
+    if settings["LOCAL_TASK"]:
+        tasklist = [Task()]
+    else:
         gcloud.get_tasklist()
-        if not gcloud.todo:
-            print("you've picked LOCAL=False, but no tasks are waiting")
-            sys.exit()
-    results = []
-    tasklist = [Task()] if settings["LOCAL"] else gcloud.todo
+        tasklist = gcloud.todo
+        if len(tasklist) == 0:
+            print("you've picked LOCAL_TASK=False, but no tasks are waiting")
+            return jsonify([])
+    tasks, outputs = [], []
     for task in tasklist:
         print(f"starting task {task.id}")
         print_settings()
@@ -66,15 +69,24 @@ def main(test_conf: dict = False):
                 visualizer.visualize()
                 if task["ITERATIONS"] > 1:
                     visualizer.variance_boxplot()
-        if settings["UPLOAD"]:
-            if len(tasklist) > 1:
-                results.append((output, task))
-                continue
-            task_key = gcloud.add_task(task, done=True)
-            gcloud.upload(output.csv_path, new_name=task_key)
-    if len(tasklist) > 1 and settings["UPLOAD"]:
-        gcloud.write_results(results)
+        tasks.append(task)
+        outputs.append(output)
+    if settings["UPLOAD"]:
+        return gcloud.write_results(tasks, outputs)
+
+
+app = Flask(__name__)
+
+
+@app.route("/")
+def run_main():
+    tasks_finished = main()
+    return jsonify(tasks_finished)
 
 
 if __name__ == "__main__":
-    main()
+    if settings["LOCAL"] == True:
+        main()
+    else:
+        app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+

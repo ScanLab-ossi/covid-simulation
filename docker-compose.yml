@@ -1,0 +1,12 @@
+version: "3.3"
+services:
+  worker:
+    image: simulation:0.1
+    ports:
+      - "8080:8080"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s

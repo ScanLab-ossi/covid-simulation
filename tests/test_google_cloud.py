@@ -54,4 +54,4 @@ class GoogleCloudTest(unittest.TestCase):
     @unittest.skipIf(settings["SKIP_TESTS"], "Skip Google Storage Tests")
     def test_add_task(self):
         self.gcloud.ds_client.put = MagicMock(return_value=True)
-        self.assertTrue(self.gcloud.add_task({"dataset": "h3g"}, Task()))
+        self.assertTrue(self.gcloud.add_tasks([Task()]))
