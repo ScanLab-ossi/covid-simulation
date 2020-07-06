@@ -1,3 +1,7 @@
+Dockerfile
+*Dockerfile
+docker-compose.yml
+
 # Specific
 keyfile.json
 secrets.conf
