@@ -12,14 +12,14 @@ RUN apt-get update && apt-get install -y \
 
 # Install production dependencies.
 COPY requirements.txt ./requirements.txt
-RUN pip install -r requirements.txt
+RUN pip3 install -r requirements.txt
+
 
 # Copy local code to the container image.
 COPY . .
 
 # helps code understand its running on cloud, so starts server
 ENV LOCAL False
-# only for running locally. google cloud sets port on it's own
 
 # Run the web service on container startup. Here we use the gunicorn
 # webserver, with one worker process and 8 threads.
@@ -27,4 +27,4 @@ ENV LOCAL False
 # to be equal to the cores available.
 # CMD python -m simulation.simulation
 
-CMD streamlit run --server.port $PORT --server.enableCORS false app.py
+CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 simulation.simulation:app

@@ -9,13 +9,11 @@ from typing import List, Tuple
 
 from simulation.constants import *
 from simulation.helpers import timing
-from simulation.basic_configuration import BasicConfiguration
 from simulation.task import Task
 
 
 class GoogleCloud(object):
-    def __init__(self, config: BasicConfiguration):
-        self.config = config
+    def __init__(self):
         self.s_client = storage.Client()
         self.ds_client = datastore.Client()
         self.todo = []
@@ -61,21 +59,14 @@ class GoogleCloud(object):
             # if input("doesn't exist in cloud. should i upload? [y/N] ")
             print("file doesn't exist in cloud storage")
             return
-        if (
-            not destination_path.exists()
-            or os.path.getsize(destination_path) != blob.size
-        ):
-            print(
-                f"downloading {blob_name}. \
-                it {('exists' if destination_path.exists() else 'doesnt exist')}. \
-                its size is {os.path.getsize(destination_path)} locally and {blob.size} remotely. \
-                this might take a while."
-            )
+        if not destination_path.exists():
             blob.download_to_filename(destination_path)
-            print(f"finished downloading {blob_name}. thank you for your patience :)")
+        elif os.path.getsize(destination_path) != blob.size:
+            blob.download_to_filename(destination_path)
         else:
-            pass
             # print(f"{destination_path.name} already exists")
+            pass
+        print(f"finished downloading {blob_name}. thank you for your patience :)")
 
     def get_tasklist(self):
         query = self.ds_client.query(kind="task")

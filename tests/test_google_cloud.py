@@ -14,7 +14,7 @@ class GoogleCloudTest(unittest.TestCase):
     # TODO: add mock
     def setUp(self):
         bc = BasicConfiguration()
-        self.gcloud = GoogleCloud(bc)
+        self.gcloud = GoogleCloud()
 
     def test_connection_to_google_cloud_storage(self):
         bucket = self.gcloud.s_client.lookup_bucket("simulation_runs")

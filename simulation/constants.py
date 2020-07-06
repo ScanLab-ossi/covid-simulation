@@ -11,5 +11,5 @@ TEST_FOLDER = Path("./tests").resolve()
 with open(CONFIG_FOLDER / "config.yaml") as f:
     config = load(f, Loader=Loader)
     settings = config["settings"]
-    settings["LOCAL"] = os.environ.get("LOCAL", True)
+    settings["LOCAL"] = eval(os.environ.get("LOCAL", "True"))
     meta = config["meta"]

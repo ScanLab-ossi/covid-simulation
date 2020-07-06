@@ -3,7 +3,6 @@ from typing import List
 
 from simulation.output import Output
 from simulation.constants import *
-from simulation.basic_configuration import BasicConfiguration
 from simulation.task import Task
 from simulation.dataset import Dataset
 from simulation.contagion import ContagionRunner

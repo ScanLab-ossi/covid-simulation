@@ -22,6 +22,9 @@ from simulation.sensitivity_analysis import (
 )
 from simulation.visualizer import Visualizer
 
+# TODO:
+# async?
+
 
 def main(test_conf: dict = False):
     basic_conf = BasicConfiguration()
@@ -33,7 +36,7 @@ def main(test_conf: dict = False):
         tasklist = gcloud.todo
         if len(tasklist) == 0:
             print("you've picked LOCAL_TASK=False, but no tasks are waiting")
-            return jsonify([])
+            return []
     tasks, outputs = [], []
     for task in tasklist:
         print(f"starting task {task.id}")

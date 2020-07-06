@@ -19,7 +19,7 @@ class Task(UserDict):
             config = load(f, Loader=Loader)
         super().__init__(dict(data))
         self.id = data.id if isinstance(data, Entity) else np.random.randint(1e15, 1e16)
-        self.data["machine_version"] = self.get_machine_version()
+        # self.data["machine_version"] = self.get_machine_version()
         for k, v in {
             "start_date": datetime.now(),
             "done": done,

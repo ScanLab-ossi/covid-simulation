@@ -19,9 +19,10 @@ class Visualizer(object):
         self.colors = dict(
             zip(
                 "bprkwg",
-                ["#3498db", "#9b59b6", "#e74c3c", "#000000", "#dddddd", "#4daf4a"],
+                ["#17a2b8", "#6f42c1", "#ff2b2b", "#262730", "#f0f2f6", "#09ab3b"],
             )
         )
+        # old colors: ["#3498db", "#9b59b6", "#e74c3c", "#000000", "#dddddd", "#4daf4a"],
 
     def visualize(self, df: Union[pd.DataFrame, None] = None) -> alt.Chart:
         got_input = isinstance(df, pd.DataFrame)
@@ -30,7 +31,7 @@ class Visualizer(object):
             {val: i for i, val in enumerate(self.colors.keys())}
         )
         chart = (
-            alt.Chart(summed, title=self.dataset.name)
+            alt.Chart(summed, **({} if got_input else {"title": self.dataset.name}))
             .mark_bar()
             .encode(
                 x=f"{self.dataset.interval}:O",

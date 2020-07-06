@@ -19,7 +19,7 @@ class TestStateTransition(unittest.TestCase):
         dataset = Dataset("mock_data")
         task = Task()
         bc = BasicConfiguration()
-        dataset.load_dataset(GoogleCloud(bc))
+        dataset.load_dataset(GoogleCloud())
         self.output = Output(dataset, task)
         self.st = StateTransition(dataset, task)
         self.sample_infected = pd.DataFrame(

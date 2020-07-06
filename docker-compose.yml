@@ -1,12 +1,18 @@
 version: "3.3"
 services:
-  worker:
-    image: simulation:0.1
+  simulation:
+    build:
+      context: .
+      dockerfile: Simulation.Dockerfile
+    environment:
+      PORT: 8080
     ports:
       - "8080:8080"
-    deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 3
-        window: 120s
+  app:
+    build:
+      context: .
+      dockerfile: App.Dockerfile
+    environment:
+      PORT: 8051 # for local runs
+    ports:
+      - "8051:8051"

@@ -8,7 +8,7 @@ import numpy as np
 import numpy.ma as ma
 import pandas as pd
 from datetime import date, datetime, timedelta
-import os
+import os, logging
 from typing import Union
 
 from simulation.helpers import timing, one_array_pickle_to_set
@@ -73,6 +73,7 @@ class ContagionRunner(object):
             # output.export(filename=(str(task.id)), how="df", pickle=True)
             output.reset()
             print(f"repetition {i} took {datetime.now() - start}")
+            logging.info(f"repetition {i} took {datetime.now() - start}")
         return output
 
 

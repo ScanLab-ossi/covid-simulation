@@ -5,6 +5,7 @@ import json
 from copy import copy
 from datetime import date
 from google.cloud import storage, datastore
+import altair as alt
 
 from simulation.google_cloud import GoogleCloud
 from simulation.basic_configuration import BasicConfiguration
@@ -13,24 +14,38 @@ from simulation.constants import *
 from simulation.dataset import Dataset
 from simulation.visualizer import Visualizer
 from simulation.output import Output
+from simulation.sensitivity_analysis import Analysis
+
+from app.extras import streamlit_theme, results_css
+
+
+alt.themes.register("streamlit", streamlit_theme)
+alt.themes.enable("streamlit")
 
 with open(CONFIG_FOLDER / "app.yaml") as f:
     config = load(f, Loader=Loader)
 
-gcloud = GoogleCloud(BasicConfiguration())
+bc = BasicConfiguration()
+gcloud = GoogleCloud()
 gcloud.get_tasklist()
 default_task = Task()
 datasets = Dataset("mock_data").datasets
 
 
+# root > div:nth-child(1) > div > div > div > div > section.main > div > div:nth-child(1) > div:nth-child(7) > div {{
+
+
 # TODO:
-# configurable age_dist
-# state+default as dict
-# config validation
+# more config validation?
+# dataset metadata
+# sensitivity results
+# testing?
+# crud for tasks?
+# tasklist display to show full json per task?
 
 hash_funcs = {
-    storage.Client: lambda x: x.project + "_storage",
-    datastore.Client: lambda x: x.project + "_datastore",
+    storage.Client: lambda _: None,
+    datastore.Client: lambda _: None,
 }
 
 
@@ -48,8 +63,9 @@ def get_tasklist():
 
 
 def load_results():
+    results_css()
     get_tasklist()
-    st.header("Show Simulation Results")
+    st.title("Simulation results")
     task = st.selectbox(
         "Pick a task id",
         [False] + [t for t in gcloud.done],
@@ -65,16 +81,21 @@ def load_results():
         #     format_func=lambda x: rename[x],
         # )
         option = "visualize"
-        st.altair_chart(getattr(vis, option)(df), use_container_width=True)
+        st.altair_chart(
+            getattr(vis, option)(df).properties(
+                width=1000, height=600
+            )  # use_container_width=True
+        )
         st.sidebar.header("This task's parameters")
-        st.sidebar.json(task.data)
-    # st.altair_chart()
-
-    # st.image(OUTPUT_FOLDER / f"{task_id}.csv", use_column_width=True)
+        st.sidebar.json(
+            {k: v for k, v in task.data.items() if k != "sensitivity"}
+            if task["SENSITIVITY"] == False
+            else task.data
+        )
 
 
 def load_todo():
-    st.header("Upcoming Tasks")
+    st.title("Upcoming Tasks")
     get_tasklist()
 
     def render_todo():
@@ -89,73 +110,154 @@ def load_todo():
         st.success("No tasks left!")
 
 
+def load_inputs(key, new_task):
+    for n, dict_ in enumerate(config[key].items()):
+        param, metadata = dict_
+        st.markdown(f"#### {param}")
+        if metadata["type"] == "categorical":
+            options = (
+                list(datasets.keys()) if param == "DATASET" else metadata["options"]
+            )
+            new_task[param] = st.selectbox(
+                param, options=options, index=metadata["default_index"]
+            )
+        elif metadata["type"] == "continuous":
+            # step = 0.05 if isinstance(v, float) else 1
+            new_task[param] = st.number_input(
+                param,
+                **{
+                    "value": default_task[param],
+                    "min_value": metadata["range"].get("min"),
+                    "max_value": metadata["range"].get("max"),
+                    "step": metadata["range"].get("step"),
+                },
+            )
+        elif metadata["type"] == "distribution":
+            if metadata["dist_type"] == "percent":
+                top_placeholder = st.empty()
+                # TODO: implement age_dist
+            elif metadata["dist_type"] == "normal":
+                # step = 0.05 if isinstance(v, float) else 1
+                new_task[param] = [
+                    st.number_input(
+                        "mean", value=default_task[param][0], key=f"{param}_mean",
+                    ),
+                    st.number_input(
+                        "std", value=default_task[param][1], key=f"{param}_std"
+                    ),
+                ]
+        if new_task["SENSITIVITY"]:
+            if metadata["type"] == "continuous":
+                add_to_sa = st.checkbox(
+                    "Add this parameter to sensitivity analysis", key=param
+                )
+                if add_to_sa:
+                    if param not in new_task["sensitivity"]["params"]:
+                        new_task["sensitivity"]["params"].append(param)
+                    for factor in ["min", "max", "step"]:
+                        new_task["sensitivity"]["ranges"][param][
+                            factor
+                        ] = st.number_input(
+                            factor,
+                            **{
+                                "value": default_task["sensitivity"]["ranges"][param][
+                                    factor
+                                ],
+                                "min_value": metadata["range"].get("min"),
+                                "max_value": metadata["range"].get("max"),
+                                "step": metadata["range"].get("step"),
+                                "key": f"{param}_{factor}",
+                            },
+                        )
+                    placeholder = st.empty()
+                    validated, message = validate(new_task, error=False)
+                    if not validated:
+                        placeholder = st.warning(message)
+                    st.markdown("---")
+                else:
+                    try:
+                        new_task["sensitivity"]["params"].remove(param)
+                    except ValueError:
+                        pass
+    return new_task
+
+
 def load_add_task():
     new_task = copy(default_task)
-    st.header("Add simulation run")
-    for type_, params in config["input"].items():
-        # if k not in ("machine_version", "start_date", "done"):
-        if isinstance(params, dict):
-            for param, default in params.items():
-                # st.sidebar.markdown(f"#### {param}")
-                if type_ == "categorical":
-                    # st.sidebar.markdown(f"{v}")
-                    options = list(datasets.keys()) if param == "DATASET" else [1, 2]
-                    new_task[param] = st.selectbox(
-                        param, options=options, index=default
-                    )
-                elif type_ == "continuous":
-                    # step = 0.05 if isinstance(v, float) else 1
-                    new_task[param] = st.number_input(
-                        param,
-                        **{
-                            "value": default_task[param],
-                            "min_value": default.get("min"),
-                            "max_value": default.get("max"),
-                            "step": default.get("step"),
-                            "key": f"{param}",
-                        },
-                    )
-                elif type_ == "distribution":
-                    if default == "percent":
-                        top_placeholder = st.empty()
-                        #             if state[1][1] + state[2][1] + state[3][1] != 1.0:
-                        # top_placeholder.warning("should add up to 100!")
+    st.title("Add simulation run")
+    new_task["SENSITIVITY"] = st.checkbox("Run sensitivity analysis")
+    if new_task["SENSITIVITY"]:
+        new_task["sensitivity"]["metric"] = st.selectbox(
+            "Pick metric to run sensitivity analysis on:",
+            [x for x in dir(Analysis) if x[0] != "_"],
+            index=1,
+        )
+        st.markdown("---")
+    # st.write("## Edit task parameter")
+    load_inputs("input", new_task)
+    # st.markdown("---")
+    extra_params = st.checkbox("Show extra parameters")
+    if extra_params:
+        # st.write("## Edit extra parameters")
+        load_inputs("extra_input", new_task)
+    st.sidebar.header("Preview of parameters")
 
-                    elif default == "normal":
-                        st.markdown(f"#### {param}")
-                        # step = 0.05 if isinstance(v, float) else 1
-                        new_task[param] = [
-                            st.number_input(
-                                "mean",
-                                value=default_task[param][0],
-                                key=f"{param}_mean",
-                            ),
-                            st.number_input(
-                                "std", value=default_task[param][1], key=f"{param}_std"
-                            ),
-                        ]
-        else:
-            new_task["SENSITIVITY"] = st.checkbox("Run sensitivity analysis?")
-            if new_task["SENSITIVITY"]:
-                st.json(default_task["sensitivity"])
-    st.sidebar.header("Preview")
-    st.sidebar.json(new_task.data)
-    submit = st.button("submit")
+    display_json = {k: v for k, v in new_task.data.items() if k in config["input"]}
+    extra_display_json = (
+        {k: v for k, v in new_task.data.items() if k in config["extra_input"]}
+        if extra_params
+        else {}
+    )
+    st.sidebar.json({**display_json, **extra_display_json})
+    if new_task["SENSITIVITY"]:
+        ss = new_task["sensitivity"]
+        active_ranges = {k: v for k, v in ss["ranges"].items() if k in ss["params"]}
+        st.sidebar.header("Preview of sensitivity parameters")
+        st.sidebar.json(
+            {"metric": ss["metric"], "params": ss["params"], "ranges": active_ranges}
+        )
+        times = {
+            k: int(((v["max"] - v["min"]) // v["step"]) + 1)
+            for k, v in active_ranges.items()
+        }
+        iters = new_task["ITERATIONS"]
+        if len(ss["params"]) > 0:
+            st.info(
+                f"This sensitivity analysis will run {iters * sum(times.values())} times altogether \
+                ({sum(times.values())} times, {iters} iteratons each time). \
+                If this seem like a lot, consider making {max(times, key=times.get)}'s range smaller"
+            )
+    st.markdown("---")
+    submit = st.button("SUBMIT")
     placeholder = st.empty()
-
-    # st.json({k: v for k, v in task.items() if not isinstance(v, date)})
-
     if submit:
-        if validate("a"):
+        validated, message = validate(new_task)
+        if validated:
             new_task_id = gcloud.add_tasks([new_task])
-            placeholder.success(f"great job! added new task {new_task_id[0]}")
-            # send to datastore
+            placeholder.success(f"Great job! Added new task {new_task_id[0]}")
         else:
-            placeholder.error("doesn't match up. try again!")
+            placeholder.error(message)
 
 
-def validate(state):
-    return True
+def is_correct_range(min, max, step):
+    return True if int((max * 10 - min * 10)) % int((step * 10)) == 0 else False
+
+
+def validate(new_task, error=True):
+    for param, range_ in new_task["sensitivity"]["ranges"].items():
+        if not is_correct_range(**range_):
+            message = "Something is wrong in sensitivity range " + (
+                f"for {param}" if error else ""
+            )
+            return False, message
+        if not is_correct_range(new_task[param], range_["max"], range_["step"]):
+            message = (
+                f"Sensitivity range and param {(param if error else '')} do not match"
+            )
+            return False, message
+        if new_task[param] < range_["min"] or new_task[param] > range_["max"]:
+            return False, f"Make sure {param} is within sensitivity range"
+    return True, ""
 
 
 nav = st.selectbox("navigation", ["Add Task", "Results", "Tasklist"], index=0)
