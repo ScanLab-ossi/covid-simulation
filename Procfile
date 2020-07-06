@@ -1,1 +1,1 @@
-web: echo "whatuppp" && sh setup.sh && streamlit run app.py
+app: echo "whatuppp" && sh setup.sh && streamlit run app.py
