@@ -8,7 +8,7 @@ import numpy as np
 import numpy.ma as ma
 import pandas as pd
 from datetime import date, datetime, timedelta
-import os, logging
+import os
 from typing import Union
 
 from simulation.helpers import timing, one_array_pickle_to_set
@@ -26,11 +26,12 @@ class ContagionRunner(object):
     def contagion_runner(
         dataset: Dataset, output: Output, task: Task, reproducable: bool = False,
     ) -> Output:
-        contagion = (
-            CSVContagion(dataset, task)
-            if dataset.storage == "csv"
-            else SQLContagion(dataset, task)
-        )
+        if dataset.groups:
+            contagion = GroupContagion(dataset, task)
+        elif dataset.storage == "csv":
+            contagion = CSVContagion(dataset, task)
+        else:
+            contagion = SQLContagion(dataset, task)
         for i in range(task["ITERATIONS"]):
             start = datetime.now()
             if not settings["PARALLEL"]:
@@ -73,7 +74,6 @@ class ContagionRunner(object):
             # output.export(filename=(str(task.id)), how="df", pickle=True)
             output.reset()
             print(f"repetition {i} took {datetime.now() - start}")
-            logging.info(f"repetition {i} took {datetime.now() - start}")
         return output
 
 
@@ -122,6 +122,76 @@ class Contagion(object):
         return contagion_df
 
 
+class GroupContagion(Contagion):
+    def _is_infected(self, x: pd.Series) -> np.array:
+        mask = choices(
+            [True, False], weights=[x["P_I"], 1 - x["P_I"]], k=len(x["susceptible"])
+        )
+        return [x_ for i, x_ in enumerate(x["susceptible"]) if mask[i]]
+
+    def _wells_riley(self, df: pd.DataFrame) -> pd.Series:
+        return 1 - np.exp(
+            -(
+                df["infectors"].str.len()
+                * self.task["q"]
+                * self.task["p"]
+                * (df["duration"] / 60)
+                / self.task["Q"]
+            )
+        )
+
+    def pick_patient_zero(self, reproducable: bool = False) -> set:
+        if reproducable:
+            seed(42)
+        return set(
+            sample(
+                set.union(
+                    *self.dataset.split[self.dataset.start_date]["group"].tolist()
+                ),
+                self.task["number_of_patient_zero"],
+            )
+        )
+
+    def contagion(
+        self, infectors: pd.DataFrame, curr_date: date = None
+    ) -> pd.DataFrame:
+        """ 
+            Parameters
+            ----------
+            infectors : pd.DataFrame
+                initially infected nodes
+            curr_date : datetime.date
+            
+            Returns
+            -------
+            pd.DataFrame :
+                Index:
+                    Int64Index
+                        infected nodes
+                Columns:
+                    Name: infectors, dtype: bool
+                        who infected the nodes in the index
+        """
+        infector_ids = set(infectors.index)
+        today = self.dataset.split[curr_date]
+        today["infectors"] = today["group"].apply(lambda x: x & infector_ids)
+        today = today[today["infectors"].str.len() > 0].reset_index()
+        today["susceptible"] = today["group"].apply(
+            lambda x: sample(list(x - infector_ids), len(x - infector_ids))
+        )
+        today["P_I"] = getattr(self, "_" + self.task["infection_model"])(today)
+        today["infected"] = today[["susceptible", "P_I"]].apply(
+            self._is_infected, axis=1
+        )
+        today = today[today["infected"].str.len() > 0]
+        return (
+            today.explode("infected")
+            .groupby("infected")["infectors"]
+            .apply(lambda x: set.union(*x))
+            .to_frame()
+        )
+
+
 class CSVContagion(Contagion):
     def pick_patient_zero(
         self,
@@ -139,17 +209,13 @@ class CSVContagion(Contagion):
                 self.task["number_of_patient_zero"],
                 replace=False,
             )
-
             # randomly_patient_zero = sample(
             #     set_of_potential_patients, self.task["number_of_patient_zero"]
             # )
             return set(randomly_patient_zero)
         else:
-            first_day = self.dataset.data[
-                self.dataset.data["datetime"].dt.date == self.dataset.start_date
-            ]
             return set(
-                first_day[["source", "destination"]]
+                self.dataset.split[self.dataset.start_date][["source", "destination"]]
                 .stack()
                 .drop_duplicates()
                 .reset_index(drop=True)
@@ -161,28 +227,28 @@ class CSVContagion(Contagion):
 
     @timing
     def contagion(
-        self, infected: pd.DataFrame, curr_date: date = None,
+        self, infectors: pd.DataFrame, curr_date: date = None,
     ) -> pd.DataFrame:
-        infected_ids = infected.index
+        infector_ids = set(infectors.index)
         today = self.dataset.split[curr_date]
         # color is the infector's color, True=purple, False=blue
         contagion_df = pd.concat(
             [
                 pd.merge(
-                    today, infected["color"], left_on=c, right_index=True, how="inner"
+                    today, infectors["color"], left_on=c, right_index=True, how="inner",
                 )
                 for c in ("source", "destination")
             ]
         )
-        only_newly_infected = contagion_df[
+        infected = contagion_df[
             ~(
-                contagion_df["source"].isin(infected_ids)
-                & contagion_df["destination"].isin(infected_ids)
+                contagion_df["source"].isin(infector_ids)
+                & contagion_df["destination"].isin(infector_ids)
             )
         ]
-        stacked = only_newly_infected[["source", "destination"]].stack()
-        contagion_df = only_newly_infected.join(
-            stacked[stacked.isin(infected_ids)]
+        stacked = infected[["source", "destination"]].stack()
+        contagion_df = infected.join(
+            stacked[stacked.isin(infector_ids)]
             .reset_index(drop=True, level=1)
             .rename("infector")
         ).melt(
@@ -195,8 +261,7 @@ class CSVContagion(Contagion):
             ],
             value_name="id",
         )
-        contagion_df = contagion_df[~contagion_df["id"].isin(infected_ids)]
-        # print(contagion_df)
+        contagion_df = contagion_df[~contagion_df["id"].isin(infector_ids)]
         if len(contagion_df) == 0:
             return contagion_df
         if self.task["alpha_blue"] < 1:
@@ -215,8 +280,10 @@ class CSVContagion(Contagion):
                 .groupby("id")
                 .agg({"duration": self._multiply_not_infected_chances, "infector": set})
             )
-        contagion_df = contagion_df[self._is_infected(contagion_df["duration"])].drop(
-            columns=["duration"]
+        contagion_df = (
+            contagion_df[self._is_infected(contagion_df["duration"])]
+            .drop(columns=["duration"])
+            .rename_axis(index=["infected"])
         )
         return contagion_df
 
@@ -294,3 +361,13 @@ class SQLContagion(Contagion):
 
         flat_results = [item for sublist in results for item in sublist]
         return set(flat_results)
+
+
+"""
+today : pd.DataFrame
+    Columns:
+        Name: datetime, dtype: datetime64[ns]
+        Name: duration, dtype: int64
+        Name: group, dtype: object
+            set of nodes in group meeting
+"""

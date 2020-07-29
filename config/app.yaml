@@ -11,7 +11,7 @@ input:
     range: { min: 1 }
   infection_model:
     type: categorical
-    options: [1, 2]
+    options: [1, 2, "wells_riley"]
     default_index: 1
   number_of_patient_zero:
     type: continuous

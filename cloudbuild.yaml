@@ -5,8 +5,8 @@ steps:
       - "-t=gcr.io/$PROJECT_ID/simulation"
       - "-f=./Simulation.Dockerfile"
       - .
-  # - name: 'gcr.io/cloud-builders/docker'
-  # args: ['push', 'gcr.io/[PROJECT_ID]/[IMAGE]']
+  - name: "gcr.io/cloud-builders/docker"
+    args: ["push", "gcr.io/[PROJECT_ID]/[IMAGE]"]
   - name: "gcr.io/cloud-builders/gcloud"
     args:
       - "run"
@@ -28,9 +28,9 @@ steps:
     args:
       - "app"
       - "deploy"
-      # - "--image-url=gcr.io/$PROJECT_ID/app:latest"
+      - "--image-url=gcr.io/$PROJECT_ID/app:latest"
     timeout: "1600s"
 
 images:
-  # - "gcr.io/$PROJECT_ID/simulation"
-  # - "gcr.io/$PROJECT_ID/app"
+  - "gcr.io/$PROJECT_ID/simulation"
+  - "gcr.io/$PROJECT_ID/app"

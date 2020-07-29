@@ -28,7 +28,7 @@ from simulation.visualizer import Visualizer
 
 def main(test_conf: dict = False):
     basic_conf = BasicConfiguration()
-    gcloud = GoogleCloud(basic_conf)
+    gcloud = GoogleCloud()
     if settings["LOCAL_TASK"]:
         tasklist = [Task()]
     else:

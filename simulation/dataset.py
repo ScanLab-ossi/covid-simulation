@@ -30,7 +30,10 @@ class Dataset(object):
         self.data = pd.read_csv(
             DATA_FOLDER / f"{self.name}.csv",
             parse_dates=["datetime"],
-            usecols=["source", "destination", "datetime", "duration"]
+            usecols=(["group"] if self.groups else ["source", "destination"])
+            + ["datetime", "duration"]
             + (["hops"] if self.hops else []),
         )
+        if self.groups:
+            self.data["group"] = self.data["group"].apply(eval)
         self.split = {x.date(): df for x, df in self.data.resample("D", on="datetime")}

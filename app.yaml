@@ -1,2 +1,5 @@
 runtime: python37
+env: flex
 entrypoint: streamlit run --server.port $PORT --server.enableCORS false app.py
+manual_scaling:
+  instances: 1

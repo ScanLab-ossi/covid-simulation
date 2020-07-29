@@ -1,7 +1,7 @@
 from pathlib import Path
 import pandas as pd
 import numpy as np
-from typing import Union
+from typing import Union, List
 from datetime import datetime
 
 from simulation.constants import *
@@ -33,10 +33,11 @@ class Output(object):
 
     def export(
         self,
-        filename: Union[str, None] = "output",
+        filename: Union[str, None] = None,
         how: str = "average",
         pickle: bool = False,
     ):
+        filename = self.filename if filename == None else filename
         # average, concated, df
         if not hasattr(self, how):
             if how == "concated":
@@ -51,11 +52,11 @@ class Output(object):
             self.pickle_path = Path(OUTPUT_FOLDER / f"{filename}.pkl")
             getattr(self, how).to_pickle(self.pickle_path)
 
-    def append(self, new_df):
+    def append(self, new_df: pd.DataFrame):
         self.df = self.df.append(new_df, verify_integrity=True)
         self.df.index.name = "id"
 
-    def _add_missing(self, df):
+    def _add_missing(self, df: pd.DataFrame) -> pd.DataFrame:
         for k in self.colors:
             if k not in df.index:
                 df = df.append(
@@ -65,19 +66,21 @@ class Output(object):
                 )
         return df
 
-    def _color_array(self, i, color):
+    def _color_array(self, i: int, color: Union[list, str]) -> List[str]:
         if isinstance(color, list):
             return [color[0]] * i[0] if i[1] else [color[1]] * i[0]
         else:
             return [color] * i
 
-    def _color_lists(self, a: np.array, colors: pd.Series, letters: Union[list, str]):
+    def _color_lists(
+        self, a: np.array, colors: pd.Series, letters: Union[list, str]
+    ) -> pd.DataFrame:
         return pd.concat([pd.Series(a), colors], axis=1, ignore_index=True).apply(
             self._color_array, args=(letters,), axis=1
         )
 
     @timing
-    def sum_output(self, df):
+    def sum_output(self, df: pd.DataFrame) -> pd.DataFrame:
         # s2i = start_to_infection, i2t = infection_to_transition,
         # t2e = transition_to_expiration, e2ft = expiration_to_final_state
         # u = uninfected

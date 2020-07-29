@@ -24,7 +24,7 @@ class GoogleCloud(object):
         self, filename: Path, new_name: str = None, bucket_name: str = "simulation_runs"
     ):
         """
-        Expect `filename` to be output.csv_path, whereas `newname` without extension
+        Expect `filename` to be output.csv_path, whereas `new_name` without extension
         """
         then = datetime.now()
         bucket = self.s_client.bucket(bucket_name)
@@ -57,7 +57,8 @@ class GoogleCloud(object):
             blob.reload()
         except NotFound:
             # if input("doesn't exist in cloud. should i upload? [y/N] ")
-            print("file doesn't exist in cloud storage")
+            if settings["VERBOSE"]:
+                print("file doesn't exist in cloud storage")
             return
         if not destination_path.exists():
             blob.download_to_filename(destination_path)
@@ -66,7 +67,8 @@ class GoogleCloud(object):
         else:
             # print(f"{destination_path.name} already exists")
             pass
-        print(f"finished downloading {blob_name}. thank you for your patience :)")
+        if settings["VERBOSE"]:
+            print(f"finished downloading {blob_name}. thank you for your patience :)")
 
     def get_tasklist(self):
         query = self.ds_client.query(kind="task")
@@ -95,6 +97,7 @@ class GoogleCloud(object):
             batch = self.ds_client.batch()
             with batch:
                 self.ds_client.put_multi(entities)
+        print([e.id for e in entities])
         return [e.id for e in entities]
 
     def write_results(self, tasks: List[Task], outputs: List) -> List[int]:

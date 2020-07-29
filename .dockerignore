@@ -1,7 +1,7 @@
 *Dockerfile
 docker-compose.yml
 cloudbuild.yaml
-keyfile.json
+# keyfile.json
 secrets.conf
 # Specific
 **/*.csv

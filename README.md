@@ -27,3 +27,15 @@ Run docker containers of simulation and streamlit app: `docker-compose up --buil
 gcloud builds submit
 gcloud run deploy --image gcr.io/temporal-dynamics/[simulation/app] --platform managed
 ```
+or 
+```
+docker tag covid-simulation_simulation:latest eu.gcr.io/temporal-dynamics/simulation:latest
+docker push eu.gcr.io/temporal-dynamics/simulation:latest
+gcloud run deploy simulation --image eu.gcr.io/temporal-dynamics/simulation:latest --region europe-west4 --platform managed
+```
+
+```
+docker tag covid-simulation_app:latest eu.gcr.io/temporal-dynamics/app:latest
+docker push eu.gcr.io/temporal-dynamics/app:latest
+gcloud app deploy --image-url=gcr.io/temporal-dynamics/app:latest
+```

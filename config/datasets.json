@@ -6,6 +6,7 @@
         "end_date": "2020-01-08",
         "interval": "day",
         "infection_param": "duration",
+        "groups": false,
         "hops": false
     },
     "mock_data": {
@@ -15,6 +16,7 @@
         "end_date": "2012-05-31",
         "interval": "day",
         "infection_param": "duration",
+        "groups": false,
         "hops": false
     },
     "copenhagen_hops": {
@@ -24,6 +26,17 @@
         "end_date": "2020-01-08",
         "interval": "day",
         "infection_param": "duration",
+        "groups": false,
         "hops": true
+    },
+    "copenhagen_groups": {
+        "storage": "csv",
+        "nodes": 692,
+        "start_date": "2019-12-11",
+        "end_date": "2020-01-08",
+        "interval": "day",
+        "infection_param": "duration",
+        "groups": true,
+        "hops": false
     }
 }

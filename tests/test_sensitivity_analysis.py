@@ -36,22 +36,23 @@ class TestAnalysis(unittest.TestCase):
         output_df = pd.read_pickle(TEST_FOLDER / "mock_output_df.pkl",)
         self.output.batch = [output_df] * 3
 
-    def test_peak_sick(self):
-        for what in ["amount", "day"]:
-            res = Analysis.peak_sick(self.output, what=what)
+    def sick(self):
+        for what in ["max_amount", "max_day"]:
+            res = Analysis.sick(self.output, what=what)
             pdt.assert_frame_equal(
-                res, pd.DataFrame({"peak_sick": [(0 if what == "day" else 10.0)] * 3}),
+                res, pd.DataFrame({"sick": [(0 if what == "max_day" else 10.0)] * 3}),
             )
 
-    def test_peak_newly_infected(self):
-        for what in ["amount", "day"]:
-            res = Analysis.peak_newly_infected(self.output, what=what)
+    def test_infected(self):
+        for what in ["max_amount", "max_day"]:
+            res = Analysis.infected(self.output, what=what)
             pdt.assert_frame_equal(
-                res,
-                pd.DataFrame(
-                    {"peak_newly_infected": [(0 if what == "day" else 10)] * 3}
-                ),
+                res, pd.DataFrame({"infected": [(0 if what == "max_day" else 10)] * 3}),
             )
+
+    def test_r_0(self):
+        pass
+        # TODO
 
 
 # self.assertEqual(res.columns, )

@@ -13,8 +13,8 @@ class BasicConfiguration(object):
 
     def __init__(self):
         self.add_keyfile()
-        self.config = self.get_config()
         self.client = secretmanager_v1.SecretManagerServiceClient()
+        self.config = self.get_config()
 
     def get_secret(self, secret_name):
         name = self.client.secret_version_path(
@@ -34,7 +34,7 @@ class BasicConfiguration(object):
                     "password": self.get_secret("POSTGRES_USER_PASSWORD"),
                     "host": self.get_secret("POSTGRES_DATABASE_HOST"),
                 }
-            except Exception:
+            except Exception as e:
                 conf["postgres"] = {
                     "dbname": os.environ["POSTGRES_DATABASE_NAME"],
                     "user": os.environ["POSTGRES_USER_NAME"],

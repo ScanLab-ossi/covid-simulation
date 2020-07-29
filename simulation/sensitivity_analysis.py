@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from typing import List
 
 from simulation.output import Output
@@ -55,26 +56,37 @@ class SensitivityRunner(object):  # (Runner?)
 
 class Analysis(object):
     @staticmethod
-    def peak_sick(output: Output, what: str = "amount") -> pd.DataFrame:
-        fname = "peak_sick"
+    def sick(output: Output, what: str = "max_amount") -> pd.DataFrame:
+        fname = "sick"
         summed = [
             output.sum_output(df).pivot(index="day", columns="color")["amount"]
             for df in output.batch
         ]
         bpr = [df["b"] + df["p"] + df["r"] for df in summed]
-        if what == "amount":
+        if what == "max_amount":
             return pd.DataFrame([df.max() for df in bpr], columns=[fname])
-        elif what == "day":
+        elif what == "max_day":
             return pd.DataFrame([df.idxmax() for df in bpr], columns=[fname])
+        elif what == "total":
+            return pd.DataFrame([len(df) for df in output.batch], columns=[fname])
 
     @staticmethod
-    def peak_newly_infected(output: Output, what: str = "amount") -> pd.DataFrame:
-        fname = "peak_newly_infected"
+    def infected(output: Output, what: str = "amount") -> pd.DataFrame:
+        fname = "infected"
         grouped = [
             df.groupby("infection_date")["final_state"].count().reset_index(drop=True)
             for df in output.batch
         ]
-        if what == "amount":
+        if what == "max_amount":
             return pd.DataFrame([df.max() for df in grouped], columns=[fname])
-        elif what == "day":
+        elif what == "max_day":
             return pd.DataFrame([df.idxmax() for df in grouped], columns=[fname])
+
+    @staticmethod
+    def r_0(output: Output) -> pd.DataFrame:
+        fname = "r_0"
+        sick = Analysis.sick(output, "total")
+        infectors = np.array(
+            [len(set().union(*df["infector"].dropna())) for df in output.batch]
+        )
+        return pd.DataFrame(sick["sick"].values / infectors, columns=[fname])

@@ -105,23 +105,6 @@ def streamlit_theme():
     return config
 
 
-def results_css():
-    st.markdown(
-        f"""
-    <style>
-    .reportview-container .main .block-container{{
-        max-width: 100vw;
-    }}
-    div.element-container > div.fullScreenFrame {{
-        text-align: center;
-        padding-top: 48px;
-    }}
-    </style>    
-    """,
-        unsafe_allow_html=True,
-    )
-
-
 def remove_label_css(order):
     order += 5
     # st.markdown(
@@ -134,3 +117,55 @@ def remove_label_css(order):
     # """,
     #     unsafe_allow_html=True,
     # )
+
+
+def nav_css():
+    container = "#root > div:nth-child(1) > div > div > div > div > section.main > div > div:nth-child(1)"
+    css = f"""
+    <style>
+        div[radiogroup] {{
+            background-color: red;
+        }}
+        .stRadio div {{
+            display: flex;
+            flex-direction: row;
+        }}
+        .stRadio div label {{
+            padding-right: 50px;
+        }}
+    </style>"""
+    st.markdown(css, unsafe_allow_html=True)
+
+
+def grid_css(repeat):
+    container = "#root > div:nth-child(1) > div > div > div > div > section.main > div > div:nth-child(1)"
+    css = f"""
+        /*{container} {{
+            display: grid;
+            grid-template-columns: 300px 300px;
+            grid-template-rows: repeat({repeat // 2 + 2 + 3}, auto);
+            grid-auto-flow: column;
+            column-gap: 20px;
+        }}
+        {container} > div:nth-child(-n+4) {{
+            grid-column: 1 / span 2;
+        }}
+        {container} > div:nth-child({repeat+5}) {{
+            grid-column: 1 / span 2;
+            # grid-row: {repeat-2};
+        }}
+        .element-container {{
+            width: 100% !important;
+        }}
+
+        .Widget {{
+            width: 100% !important;
+        }}*/
+    </style>
+    """
+    st.markdown(css, unsafe_allow_html=True)
+    print(repeat)
+
+
+# root > div:nth-child(1) > div > div > div > div > section.main > div > div:nth-child(1) > div:nth-child(19) > div > label
+
