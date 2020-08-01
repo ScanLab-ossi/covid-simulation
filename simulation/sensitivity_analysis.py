@@ -1,29 +1,30 @@
-import pandas as pd
-import numpy as np
+import pandas as pd  # type: ignore
+import numpy as np  # type: ignore
 from typing import List
 
+from simulation.building_blocks import OutputBasicBlock, BasicBlock
 from simulation.output import Output
 from simulation.constants import *
 from simulation.task import Task
 from simulation.dataset import Dataset
 from simulation.contagion import ContagionRunner
 from simulation.visualizer import Visualizer
+from simulation.analysis import Analysis
 
 
 class SensitivityOutput(Output):
     def __init__(self, dataset, task):
-        super().__init__(dataset, task)
+        super().__init__(dataset=dataset, task=task)
         self.results = []
 
     def concat_outputs(self):
         self.concated = pd.concat(self.results)
 
 
-class SensitivityRunner(object):  # (Runner?)
-    def __init__(self, dataset: Dataset, output: SensitivityOutput, task: Task):
-        self.dataset = dataset
-        self.output = output
-        self.task = task
+class SensitivityRunner(OutputBasicBlock):  # (Runner?)
+    def __init__(self, dataset, task, output):
+        super().__init__(dataset=dataset, task=task, output=output)
+        self.analysis = Analysis(dataset=dataset, task=task, output=output)
 
     def sensitivity_runner(self) -> SensitivityOutput:
         sa_conf = self.task["sensitivity"]
@@ -44,49 +45,13 @@ class SensitivityRunner(object):  # (Runner?)
                 )
                 step = int(round(self.task[param] - baseline, 1) / sr["step"])
                 relative_steps = f"{('+' if step > 0 else '')}{step}"
-                result = getattr(Analysis, sa_conf["metric"])(output).assign(
+                result = getattr(self.analysis, sa_conf["metric"])(output).assign(
                     **{"step": relative_steps, "parameter": param}
                 )
                 self.output.results.append(result)
             self.task[param] = baseline
-        visualizer = Visualizer(output=self.output, task=self.task)
+        visualizer = Visualizer(
+            output=self.output, task=self.task, dataset=self.dataset
+        )
         visualizer.sensitivity_boxplot(grouping="step")
         return self.output
-
-
-class Analysis(object):
-    @staticmethod
-    def sick(output: Output, what: str = "max_amount") -> pd.DataFrame:
-        fname = "sick"
-        summed = [
-            output.sum_output(df).pivot(index="day", columns="color")["amount"]
-            for df in output.batch
-        ]
-        bpr = [df["b"] + df["p"] + df["r"] for df in summed]
-        if what == "max_amount":
-            return pd.DataFrame([df.max() for df in bpr], columns=[fname])
-        elif what == "max_day":
-            return pd.DataFrame([df.idxmax() for df in bpr], columns=[fname])
-        elif what == "total":
-            return pd.DataFrame([len(df) for df in output.batch], columns=[fname])
-
-    @staticmethod
-    def infected(output: Output, what: str = "amount") -> pd.DataFrame:
-        fname = "infected"
-        grouped = [
-            df.groupby("infection_date")["final_state"].count().reset_index(drop=True)
-            for df in output.batch
-        ]
-        if what == "max_amount":
-            return pd.DataFrame([df.max() for df in grouped], columns=[fname])
-        elif what == "max_day":
-            return pd.DataFrame([df.idxmax() for df in grouped], columns=[fname])
-
-    @staticmethod
-    def r_0(output: Output) -> pd.DataFrame:
-        fname = "r_0"
-        sick = Analysis.sick(output, "total")
-        infectors = np.array(
-            [len(set().union(*df["infector"].dropna())) for df in output.batch]
-        )
-        return pd.DataFrame(sick["sick"].values / infectors, columns=[fname])

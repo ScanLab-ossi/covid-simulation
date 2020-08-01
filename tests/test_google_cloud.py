@@ -1,20 +1,23 @@
-import unittest
+import unittest, os
 from unittest.mock import MagicMock
+from pathlib import Path
+
 from google.cloud import storage, datastore
 from google.cloud import exceptions as gcloud_exceptions
-from pathlib import Path
 
 from simulation.google_cloud import GoogleCloud
 from simulation.task import Task
-from simulation.basic_configuration import BasicConfiguration
 from simulation.constants import settings
 
 
 class GoogleCloudTest(unittest.TestCase):
     # TODO: add mock
     def setUp(self):
-        bc = BasicConfiguration()
         self.gcloud = GoogleCloud()
+
+    def test_conf(self):
+        self.assertIsNotNone(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", None))
+        self.assertTrue(Path(os.environ["GOOGLE_APPLICATION_CREDENTIALS"]).exists())
 
     def test_connection_to_google_cloud_storage(self):
         bucket = self.gcloud.s_client.lookup_bucket("simulation_runs")

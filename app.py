@@ -4,7 +4,6 @@ from datetime import date
 import altair as alt
 
 from simulation.google_cloud import GoogleCloud
-from simulation.basic_configuration import BasicConfiguration
 from simulation.constants import *
 
 from app.style import streamlit_theme, nav_css, grid_css
@@ -16,7 +15,6 @@ from app.helpers import load_data
 alt.themes.register("streamlit", streamlit_theme)
 alt.themes.enable("streamlit")
 
-bc = BasicConfiguration()
 gcloud = GoogleCloud()
 gcloud.get_tasklist()
 

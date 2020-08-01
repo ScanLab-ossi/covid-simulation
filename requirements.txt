@@ -11,4 +11,3 @@ pyyaml
 flask
 gunicorn
 streamlit
-nose2[coverage_plugin]

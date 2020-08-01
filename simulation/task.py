@@ -1,9 +1,9 @@
 from pathlib import Path
 import json, subprocess
-import numpy as np
+import numpy as np  # type: ignore
 from collections import UserDict
 from datetime import datetime
-from google.cloud.datastore import Entity
+from google.cloud.datastore import Entity  # type: ignore
 from yaml import load, Loader
 from typing import Union
 from simulation.constants import *
@@ -18,7 +18,9 @@ class Task(UserDict):
         with open(CONFIG_FOLDER / "config.yaml") as f:
             config = load(f, Loader=Loader)
         super().__init__(dict(data))
-        self.id = data.id if isinstance(data, Entity) else np.random.randint(1e15, 1e16)
+        self.id: int = data.id if isinstance(data, Entity) else np.random.randint(
+            1e15, 1e16
+        )
         # self.data["machine_version"] = self.get_machine_version()
         for k, v in {
             "start_date": datetime.now(),

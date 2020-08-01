@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, date
 import pandas as pd
-import json
+import json  # type: ignore
 
 from simulation.constants import *
 from simulation.google_cloud import GoogleCloud
@@ -11,17 +11,19 @@ class Dataset(object):
     def __init__(self, name):
         self.name = name
         with open(CONFIG_FOLDER / "datasets.json", "r") as f:
-            self.datasets = json.load(f)
-        for key in self.datasets[name]:
-            if "date" in key:
-                setattr(
-                    self,
-                    key,
-                    datetime.strptime(self.datasets[name][key], "%Y-%m-%d").date(),
-                )
-            else:
-                setattr(self, key, self.datasets[name][key])
-        self.period = (self.end_date - self.start_date).days
+            self.metadata = json.load(f)[name]
+        self.storage: str = self.metadata["storage"]
+        self.nodes: int = self.metadata["nodes"]
+        self.start_date: date = self._strp(self.metadata["start_date"])
+        self.end_date: date = self._strp(self.metadata["end_date"])
+        self.interval: str = self.metadata["interval"]
+        self.infection_param: str = self.metadata["infection_param"]
+        self.groups: bool = self.metadata["groups"]
+        self.hops: bool = self.metadata["hops"]
+        self.period: int = (self.end_date - self.start_date).days
+
+    def _strp(self, d: str) -> date:
+        return datetime.strptime(d, "%Y-%m-%d").date()
 
     # @timing
     def load_dataset(self, gcloud: GoogleCloud = None):
@@ -37,3 +39,14 @@ class Dataset(object):
         if self.groups:
             self.data["group"] = self.data["group"].apply(eval)
         self.split = {x.date(): df for x, df in self.data.resample("D", on="datetime")}
+
+
+# more elegant json reading
+#  for key in self.datasets[name]:
+#     if "date" in key:
+#         setattr(
+#             self,
+#             key,
+#         )
+#     else:
+#         setattr(self, key, self.datasets[name][key])

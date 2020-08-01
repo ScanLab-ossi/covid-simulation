@@ -1,12 +1,12 @@
 try:
-    import psycopg2
+    import psycopg2  # type: ignore
 except ModuleNotFoundError:
     pass
 from random import seed, randint, choices, sample
 import multiprocessing as mp
-import numpy as np
-import numpy.ma as ma
-import pandas as pd
+import numpy as np  # type: ignore
+import numpy.ma as ma  # type: ignore
+import pandas as pd  # type: ignore
 from datetime import date, datetime, timedelta
 import os
 from typing import Union
@@ -17,6 +17,7 @@ from simulation.dataset import Dataset
 from simulation.task import Task
 from simulation.output import Output
 from simulation.constants import *
+from simulation.building_blocks import BasicBlock
 
 
 class ContagionRunner(object):
@@ -77,10 +78,9 @@ class ContagionRunner(object):
         return output
 
 
-class Contagion(object):
+class Contagion(BasicBlock):
     def __init__(self, dataset: Dataset, task: Task):
-        self.dataset = dataset
-        self.task = task
+        super().__init__(dataset=dataset, task=task)
         self.rng = np.random.default_rng()
 
     def _cases(self, df: pd.DataFrame, D_i: str = "duration") -> pd.DataFrame:

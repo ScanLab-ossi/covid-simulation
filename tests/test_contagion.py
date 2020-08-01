@@ -12,7 +12,6 @@ from simulation.dataset import Dataset
 from simulation.google_cloud import GoogleCloud
 from simulation.constants import settings
 
-
 task = Task()
 dataset = Dataset("mock_data")
 dataset.load_dataset(gcloud=GoogleCloud())

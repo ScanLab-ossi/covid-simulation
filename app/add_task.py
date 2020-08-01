@@ -1,5 +1,7 @@
 import streamlit as st
 from copy import deepcopy, copy
+import json
+from yaml import load, Loader
 
 from simulation.dataset import Dataset
 from simulation.task import Task
@@ -9,9 +11,11 @@ from app.session_state import get as get_session
 
 with open(CONFIG_FOLDER / "app.yaml") as f:
     config = load(f, Loader=Loader)
-datasets = Dataset("mock_data").datasets
-default_task = Task()
 
+with open(CONFIG_FOLDER / "datasets.json", "r") as f:
+    datasets = json.load(f)
+
+default_task = Task()
 session = get_session(run_id=0)
 
 
@@ -26,7 +30,10 @@ def load_inputs(key, new_task):
                 list(datasets.keys()) if param == "DATASET" else metadata["options"]
             )
             new_task[param] = st.selectbox(
-                param, options=options, index=metadata["default_index"]
+                param,
+                options=options,
+                index=metadata["default_index"],
+                key=session.run_id,
             )
             element_count += 1
         elif metadata["type"] == "continuous":
@@ -50,10 +57,14 @@ def load_inputs(key, new_task):
                 # step = 0.05 if isinstance(v, float) else 1
                 new_task[param] = [
                     st.number_input(
-                        "mean", value=default_task[param][0], key=f"{param}_mean",
+                        "mean",
+                        value=default_task[param][0],
+                        key=f"{param}_mean_{session.run_id}",
                     ),
                     st.number_input(
-                        "std", value=default_task[param][1], key=f"{param}_std"
+                        "std",
+                        value=default_task[param][1],
+                        key=f"{param}_std_{session.run_id}",
                     ),
                 ]
                 st.write()
@@ -165,13 +176,13 @@ def load_add_task(gcloud):
         if new_task["SENSITIVITY"]:
             validated, message = validate_sensitivity(new_task)
             if validated:
-                new_task_id = gcloud.add_tasks([new_task])
-                placeholder.success(f"Great job! Added new task {new_task_id[0]}")
+                gcloud.add_tasks([new_task])
+                placeholder.success(f"Great job! Added new task {label_it(new_task)}")
             else:
                 placeholder.error(message)
         else:
-            new_task_id = gcloud.add_tasks([new_task])
-            placeholder.success(f"Great job! Added new task {new_task_id[0]}")
+            gcloud.add_tasks([new_task])
+            placeholder.success(f"Great job! Added new task {label_it(new_task)}")
 
 
 def is_correct_range(min, max, step):

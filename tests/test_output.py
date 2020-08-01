@@ -56,14 +56,15 @@ class TestOutput(unittest.TestCase):
     @patch.object(pd.DataFrame, "to_csv")
     def test_export(self, mock_to_csv, mock_to_pickle):
         with self.assertRaises(AttributeError):
-            self.output.export()
+            self.output.export(how="test")
         self.output.average = self.sample_df
-        self.output.export(pickle=True)
+        self.output.batch.append(self.sample_df)
+        self.output.export(how="average", pickle=True)
         mock_to_pickle.assert_called_once_with(
-            Path(OUTPUT_FOLDER / f"{self.task.id}_average.pkl")
+            Path(OUTPUT_FOLDER / f"{self.task.id}.pkl")
         )
         mock_to_csv.assert_called_once_with(
-            Path(OUTPUT_FOLDER / f"{self.task.id}_average.csv"), index=False
+            Path(OUTPUT_FOLDER / f"{self.task.id}.csv"), index=False
         )
 
     def test_append_row_to_df(self):

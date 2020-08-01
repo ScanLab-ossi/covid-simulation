@@ -1,7 +1,7 @@
 settings:
   PARALLEL: false # run simulation in parallel, rather than iteratively. iterative seems to run faster locally
   # LOCAL: true # should be true if running locally, false if running in the cloud
-  LOCAL_TASK: false # task list according to local config only. skips downloading task list from google cloud
+  LOCAL_TASK: true # task list according to local config only. skips downloading task list from google cloud
   UPLOAD: true # uplaod results to google cloud
   SKIP_TESTS: true # skip heavy tests - google cloud and sql
   VERBOSE: false # how much to print
@@ -30,8 +30,9 @@ params:
   Q: 900
 
 sensitivity:
-  params: ["D_min"]
-  metric: sick # [sick, infected, r_0]
+  params:
+    - D_min
+  metric: r_0 # [sick, infected, r_0]
   ranges:
     D_min: { step: 5, min: 0, max: 10 }
     D_max: { step: 60, min: 1200, max: 1440 }

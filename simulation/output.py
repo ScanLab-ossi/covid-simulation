@@ -1,22 +1,24 @@
+from __future__ import annotations
 from pathlib import Path
-import pandas as pd
-import numpy as np
-from typing import Union, List
+import pandas as pd  # type: ignore
+import numpy as np  # type: ignore
+from typing import Union, List, Optional
 from datetime import datetime
 
 from simulation.constants import *
 from simulation.dataset import Dataset
 from simulation.task import Task
 from simulation.helpers import timing
+from simulation.building_blocks import BasicBlock
 
 
-class Output(object):
+class Output(BasicBlock):
     def __init__(self, dataset: Dataset, task: Task):
+        super().__init__(dataset=dataset, task=task)
         self.reset()
-        self.dataset = dataset
-        self.batch = []
-        self.filename = str(task.id)
-        self.colors = list("bprkwg")
+        self.batch: List[Optional[pd.DataFrame]] = []
+        self.filename: str = str(task.id)
+        self.colors: List[str] = list("bprkwg")
 
     def reset(self):
         self.df = pd.DataFrame(
@@ -33,15 +35,16 @@ class Output(object):
 
     def export(
         self,
-        filename: Union[str, None] = None,
-        how: str = "average",
+        filename: Optional[str] = None,
+        how: Optional[str] = None,
         pickle: bool = False,
     ):
         filename = self.filename if filename == None else filename
         # average, concated, df
         if not hasattr(self, how):
             if how == "concated":
-                self.concat_outputs()
+                pass
+                # self.sum_and_concat_outputs()
             elif how == "average":
                 self.average_outputs()
             else:
@@ -66,7 +69,9 @@ class Output(object):
                 )
         return df
 
-    def _color_array(self, i: int, color: Union[list, str]) -> List[str]:
+    def _color_array(
+        self, i: Union[List[int], int], color: Union[List[str], str]
+    ) -> List[str]:
         if isinstance(color, list):
             return [color[0]] * i[0] if i[1] else [color[1]] * i[0]
         else:

@@ -1,11 +1,11 @@
-from google.cloud import storage, datastore
-from google.api_core.exceptions import NotFound
+from google.cloud import storage, datastore, secretmanager_v1  # type: ignore
+from google.api_core.exceptions import NotFound  # type: ignore
 from pathlib import Path
 from datetime import datetime
 import os, subprocess
 import requests
-import numpy as np
-from typing import List, Tuple
+import numpy as np  # type: ignore
+from typing import List, Tuple, Dict
 
 from simulation.constants import *
 from simulation.helpers import timing
@@ -14,10 +14,29 @@ from simulation.task import Task
 
 class GoogleCloud(object):
     def __init__(self):
+        self.add_keyfile()
         self.s_client = storage.Client()
         self.ds_client = datastore.Client()
         self.todo = []
         self.done = []
+
+    def add_keyfile(self):
+        if settings["LOCAL"]:
+            if not Path("./keyfile.json").exists():
+                with open("keyfile.json", "w") as fp:
+                    json.dump(json.loads(os.environ["KEYFILE"]), fp)
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "keyfile.json"
+
+    def get_secrets(self, secrets: List[str]) -> Dict[str, str]:
+        secret_client = secretmanager_v1.SecretManagerServiceClient()
+        res = {}
+        for name in secrets:
+            name = secret_client.secret_version_path(
+                "temporal-dynamics", secret_name, "latest"
+            )
+            response = secret_client.access_secret_version(name)
+            res[name] = response.payload.data.decode("utf-8")
+        return res
 
     @timing
     def upload(
@@ -76,7 +95,7 @@ class GoogleCloud(object):
         self.done = [Task(t) for t in result if t["done"] == True]
         self.todo = [Task(t) for t in result if t["done"] == False]
 
-    def add_tasks(self, tasks: Task, done: bool = False):
+    def add_tasks(self, tasks: List[Task], done: bool = False):
         entities = []
         for task in tasks:
             task_key = self.ds_client.key("task", task.id)
