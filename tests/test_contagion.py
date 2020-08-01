@@ -10,14 +10,11 @@ from simulation.contagion import CSVContagion, SQLContagion, Contagion
 from simulation.task import Task
 from simulation.dataset import Dataset
 from simulation.google_cloud import GoogleCloud
-from simulation.basic_configuration import BasicConfiguration
 from simulation.constants import settings
 
-
-bc = BasicConfiguration()
 task = Task()
 dataset = Dataset("mock_data")
-dataset.load_dataset(gcloud=GoogleCloud(bc))
+dataset.load_dataset(gcloud=GoogleCloud())
 
 
 class TestContagion(unittest.TestCase):

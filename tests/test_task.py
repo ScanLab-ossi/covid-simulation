@@ -64,7 +64,7 @@ def make_schema():
             "type": "object",
             "properties": {
                 k: {"type": "boolean"}
-                for k in ["PARALLEL", "LOCAL", "UPLOAD", "SKIP_TESTS", "VERBOSE"]
+                for k in ["PARALLEL", "LOCAL_TASK", "UPLOAD", "SKIP_TESTS", "VERBOSE"]
             },
         }
     }

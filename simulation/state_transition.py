@@ -1,18 +1,19 @@
-import numpy as np
+import numpy as np  # type: ignore
 from datetime import timedelta, date
-import pandas as pd
+import pandas as pd  # type: ignore
 from typing import Tuple, Union
 
 from simulation.dataset import Dataset
 from simulation.task import Task
 from simulation.output import Output
 from simulation.helpers import timing
+from simulation.building_blocks import BasicBlock
 
 
-class StateTransition(object):
-    def __init__(self, dataset: Dataset, task: Task):
-        self.task = task
-        self.dataset = dataset
+class StateTransition(BasicBlock):
+    # def __init__(self, dataset: Dataset, task: Task):
+    #     self.task = task
+    #     self.dataset = dataset
 
     def _check_if_aggravate(self, age_group: np.ndarray) -> np.ndarray:
         # TO BE MORE COMPETABILE TO THE MODEL

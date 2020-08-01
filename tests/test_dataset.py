@@ -3,15 +3,13 @@ import unittest
 from simulation.contagion import CSVContagion
 from simulation.dataset import Dataset
 from simulation.helpers import timing
-from simulation.basic_configuration import BasicConfiguration
 from simulation.google_cloud import GoogleCloud
 
 
 class TestDataset(unittest.TestCase):
     def setUp(self):
         self.dataset = Dataset("mock_data")
-        bc = BasicConfiguration()
-        self.dataset.load_dataset(gcloud=GoogleCloud(bc))
+        self.dataset.load_dataset(gcloud=GoogleCloud())
 
     def test_dataset_structure(self):
         self.assertEqual(

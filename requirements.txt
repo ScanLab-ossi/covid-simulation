@@ -1,9 +1,13 @@
 google-cloud-storage
-google-cloud-datastore
-psycopg2
+google-cloud-datastore  
+google-cloud-secret-manager
+psycopg2-binary
+numpy>=1.19.0
 pandas
 jsonschema
 altair
 altair_saver
 pyyaml
-nose2[coverage_plugin]
+flask
+gunicorn
+streamlit

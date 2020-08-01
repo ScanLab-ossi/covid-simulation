@@ -11,4 +11,11 @@ TEST_FOLDER = Path("./tests").resolve()
 with open(CONFIG_FOLDER / "config.yaml") as f:
     config = load(f, Loader=Loader)
     settings = config["settings"]
+    settings["LOCAL"] = eval(os.environ.get("LOCAL", "True"))
+    try:
+        settings["LOCAL_TASK"] = eval(os.environ["LOCAL_TASK"])
+        settings["UPLOAD"] = eval(os.environ["UPLOAD"])
+    except KeyError:
+        pass
+
     meta = config["meta"]

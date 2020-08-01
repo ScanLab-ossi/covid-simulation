@@ -22,8 +22,8 @@ class TestVisualizer(unittest.TestCase):
             Path(TEST_FOLDER / "mock_output_averaged.csv")
         )
         self.output.concated = pd.concat([self.output.average * 2])
-        self.output.export()
-        self.vis = Visualizer(self.output, self.task)
+        self.output.export(how="average")
+        self.vis = Visualizer(self.output, self.task, self.dataset)
 
     @patch.object(alt.Chart, "save")
     def test_visualizer(self, mock_save):
@@ -56,7 +56,7 @@ class TestVisualizer(unittest.TestCase):
             )
         ] * 10
 
-        self.vis = Visualizer(self.output, self.task)
+        self.vis = Visualizer(output=self.output, task=self.task, dataset=self.dataset)
         chart = self.vis.sensitivity_boxplot(grouping="step")
         # chart = self.vis.sensitivity_boxplot(grouping="parameter")
         self.assertEqual(chart.to_dict()["spec"]["mark"], "boxplot")

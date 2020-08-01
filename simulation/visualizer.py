@@ -1,36 +1,35 @@
-import altair as alt
-from altair.expr import datum
+import altair as alt  # type: ignore
 from copy import copy
-import pandas as pd
-from typing import Union
+import pandas as pd  # type: ignore
+from typing import Union, Optional
 
 from simulation.constants import *
 from simulation.dataset import Dataset
 from simulation.output import Output
 from simulation.task import Task
+from simulation.building_blocks import OutputBasicBlock
 
 
-class Visualizer(object):
-    def __init__(self, output: Output, task: Task):
-        self.dataset = output.dataset
-        self.output = output
-        self.task = task
+class Visualizer(OutputBasicBlock):
+    def __init__(self, output: Output, task: Task, dataset: Dataset):
+        super().__init__(dataset=dataset, output=output, task=task)
         self.filename = str(self.task.id)
         self.colors = dict(
             zip(
                 "bprkwg",
-                ["#3498db", "#9b59b6", "#e74c3c", "#000000", "#dddddd", "#4daf4a"],
+                ["#17a2b8", "#6f42c1", "#ff2b2b", "#262730", "#f0f2f6", "#09ab3b"],
             )
         )
+        # old colors: ["#3498db", "#9b59b6", "#e74c3c", "#000000", "#dddddd", "#4daf4a"],
 
-    def visualize(self, df: Union[pd.DataFrame, None] = None) -> alt.Chart:
+    def visualize(self, df: Optional[pd.DataFrame] = None) -> alt.Chart:
         got_input = isinstance(df, pd.DataFrame)
         summed = df if got_input else self.output.average
         summed["order"] = summed["color"].replace(
             {val: i for i, val in enumerate(self.colors.keys())}
         )
         chart = (
-            alt.Chart(summed, title=self.dataset.name)
+            alt.Chart(summed, **({} if got_input else {"title": self.dataset.name}))
             .mark_bar()
             .encode(
                 x=f"{self.dataset.interval}:O",
@@ -72,7 +71,7 @@ class Visualizer(object):
         return chart
 
     def sensitivity_boxplot(
-        self, df: Union[pd.DataFrame, None] = None, grouping: str = "parameter"
+        self, df: Union[pd.DataFrame, None] = None, grouping: str = "step"
     ) -> alt.FacetChart:
         got_input = isinstance(df, pd.DataFrame)
         metric = self.task["sensitivity"]["metric"]

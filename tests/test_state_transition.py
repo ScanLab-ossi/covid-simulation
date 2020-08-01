@@ -9,17 +9,15 @@ from unittest.mock import patch
 from simulation.output import Output
 from simulation.state_transition import StateTransition
 from simulation.dataset import Dataset
-from simulation.basic_configuration import BasicConfiguration
 from simulation.google_cloud import GoogleCloud
 from simulation.task import Task
 
 
 class TestStateTransition(unittest.TestCase):
     def setUp(self):
-        dataset = Dataset("mock_data")
         task = Task()
-        bc = BasicConfiguration()
-        dataset.load_dataset(GoogleCloud(bc))
+        dataset = Dataset("mock_data")
+        dataset.load_dataset(GoogleCloud())
         self.output = Output(dataset, task)
         self.st = StateTransition(dataset, task)
         self.sample_infected = pd.DataFrame(

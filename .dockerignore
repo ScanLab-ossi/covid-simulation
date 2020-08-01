@@ -1,18 +1,16 @@
-Dockerfile
 *Dockerfile
 docker-compose.yml
-
-# Specific
-keyfile.json
+cloudbuild.yaml
+# keyfile.json
 secrets.conf
-*.csv
+# Specific
+**/*.csv
 !mock_*.csv
-*.html
-*.pkl
+**/*.html
+**/*.pkl
 !mock_*.pkl
 
-*.ipynb
-!notebooks/*.ipynb
+**/*.ipynb
 .idea/
 
 # Byte-compiled / optimized / DLL files

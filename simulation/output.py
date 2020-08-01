@@ -1,22 +1,24 @@
+from __future__ import annotations
 from pathlib import Path
-import pandas as pd
-import numpy as np
-from typing import Union
+import pandas as pd  # type: ignore
+import numpy as np  # type: ignore
+from typing import Union, List, Optional
 from datetime import datetime
 
 from simulation.constants import *
 from simulation.dataset import Dataset
 from simulation.task import Task
 from simulation.helpers import timing
+from simulation.building_blocks import BasicBlock
 
 
-class Output(object):
+class Output(BasicBlock):
     def __init__(self, dataset: Dataset, task: Task):
+        super().__init__(dataset=dataset, task=task)
         self.reset()
-        self.dataset = dataset
-        self.batch = []
-        self.filename = str(task.id)
-        self.colors = list("bprkwg")
+        self.batch: List[Optional[pd.DataFrame]] = []
+        self.filename: str = str(task.id)
+        self.colors: List[str] = list("bprkwg")
 
     def reset(self):
         self.df = pd.DataFrame(
@@ -33,30 +35,31 @@ class Output(object):
 
     def export(
         self,
-        filename: Union[str, None] = "output",
-        how: str = "average",
+        filename: Optional[str] = None,
+        how: Optional[str] = None,
         pickle: bool = False,
     ):
+        filename = self.filename if filename == None else filename
         # average, concated, df
         if not hasattr(self, how):
             if how == "concated":
-                self.concat_outputs()
-            elif how == "averaged":
+                pass
+                # self.sum_and_concat_outputs()
+            elif how == "average":
                 self.average_outputs()
             else:
                 raise AttributeError(f'you haven\'t created attribute "{how}" yet')
-        filename = self.filename + (f"_{how}" if settings["LOCAL"] else "")
         self.csv_path = Path(OUTPUT_FOLDER / f"{filename}.csv")
         getattr(self, how).to_csv(self.csv_path, index=(False if how != "df" else True))
         if pickle:
             self.pickle_path = Path(OUTPUT_FOLDER / f"{filename}.pkl")
             getattr(self, how).to_pickle(self.pickle_path)
 
-    def append(self, new_df):
+    def append(self, new_df: pd.DataFrame):
         self.df = self.df.append(new_df, verify_integrity=True)
         self.df.index.name = "id"
 
-    def _add_missing(self, df):
+    def _add_missing(self, df: pd.DataFrame) -> pd.DataFrame:
         for k in self.colors:
             if k not in df.index:
                 df = df.append(
@@ -66,19 +69,23 @@ class Output(object):
                 )
         return df
 
-    def _color_array(self, i, color):
+    def _color_array(
+        self, i: Union[List[int], int], color: Union[List[str], str]
+    ) -> List[str]:
         if isinstance(color, list):
             return [color[0]] * i[0] if i[1] else [color[1]] * i[0]
         else:
             return [color] * i
 
-    def _color_lists(self, a: np.array, colors: pd.Series, letters: Union[list, str]):
+    def _color_lists(
+        self, a: np.array, colors: pd.Series, letters: Union[list, str]
+    ) -> pd.DataFrame:
         return pd.concat([pd.Series(a), colors], axis=1, ignore_index=True).apply(
             self._color_array, args=(letters,), axis=1
         )
 
     @timing
-    def sum_output(self, df):
+    def sum_output(self, df: pd.DataFrame) -> pd.DataFrame:
         # s2i = start_to_infection, i2t = infection_to_transition,
         # t2e = transition_to_expiration, e2ft = expiration_to_final_state
         # u = uninfected
