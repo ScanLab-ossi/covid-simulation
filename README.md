@@ -18,7 +18,7 @@ Run docker containers of simulation and streamlit app: `docker-compose up --buil
 
 ### Running Tests
 
-Make sure to install packages needed for testing: `pip install nose2[coverage] mypy`
+Make sure to install packages needed for testing: `pip install black nose2[coverage] mypy`
 
 Run tests: `nose2 --with-coverage`
 
