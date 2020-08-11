@@ -15,48 +15,46 @@ from simulation.helpers import timing, one_array_pickle_to_set
 from simulation.state_transition import StateTransition
 from simulation.dataset import Dataset
 from simulation.task import Task
-from simulation.output import Output
+from simulation.output import Output, Batch
 from simulation.constants import *
 from simulation.building_blocks import BasicBlock
 
 
-class ContagionRunner(object):
+class ContagionRunner(BasicBlock):
     """Runs one batch"""
 
-    @staticmethod
-    def contagion_runner(
-        dataset: Dataset, output: Output, task: Task, reproducable: bool = False,
-    ) -> Output:
-        if dataset.groups:
-            contagion = GroupContagion(dataset, task)
-        elif dataset.storage == "csv":
-            contagion = CSVContagion(dataset, task)
+    def run(self, reproducable: bool = False) -> Batch:
+        batch = Batch(self.task)
+        dt = self.dataset, self.task
+        if self.dataset.groups:
+            contagion = GroupContagion(*dt)
+        elif self.dataset.storage == "csv":
+            contagion = CSVContagion(*dt)
         else:
-            contagion = SQLContagion(dataset, task)
-        for i in range(task["ITERATIONS"]):
+            contagion = SQLContagion(*dt)
+        for i in range(self.task["ITERATIONS"]):
+            output = Output(*dt)
             start = datetime.now()
             if not settings["PARALLEL"]:
                 print(f"repetition {i}")
-            st = StateTransition(dataset, task)
-            if dataset.storage == "sql":
+            st = StateTransition(*dt)
+            if self.dataset.storage == "sql":
                 pickle_of_ids = one_array_pickle_to_set(
                     Path(DATA_FOLDER / "destination_ids_first_3days.pickle")
                 )
-                zero_patients = contagion.pick_patient_zero(
-                    pickle_of_ids, num_of_patients=task["number_of_patient_zero"],
-                )
+                zero_patients = contagion.pick_patient_zero(pickle_of_ids)
             else:
                 zero_patients = contagion.pick_patient_zero(reproducable=reproducable)
             zero_patients = st.get_trajectory(
-                zero_patients, output, dataset.start_date,
+                zero_patients, output, self.dataset.start_date,
             )
             output.append(zero_patients)
             active_infected = output.df[["color"]]
-            for day in range(dataset.period + 1):
+            for day in range(self.dataset.period + 1):
                 if settings["VERBOSE"]:
                     process = f", process {os.getpid()}" if settings["PARALLEL"] else ""
                     print(f"Status of {day}:" + process)
-                curr_date = dataset.start_date + timedelta(days=day)
+                curr_date = self.dataset.start_date + timedelta(days=day)
                 newly_infected = contagion.contagion(
                     active_infected, curr_date=curr_date
                 )
@@ -71,11 +69,10 @@ class ContagionRunner(object):
                 # patients that haven't recovered or died yet
                 if settings["VERBOSE"]:
                     print(f"{output.df.shape[0]} infected today altogether")
-            output.batch.append(output.df)
+            batch.append_df(output)
             # output.export(filename=(str(task.id)), how="df", pickle=True)
-            output.reset()
             print(f"repetition {i} took {datetime.now() - start}")
-        return output
+        return batch
 
 
 class Contagion(BasicBlock):

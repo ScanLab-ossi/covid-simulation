@@ -135,7 +135,3 @@ class TestTask(unittest.TestCase):
     def test_id(self):
         self.assertLess(self.t.id, 10000000000000000)
         self.assertLessEqual(1000000000000000, self.t.id)
-
-    def test_get_machine_version(self):
-        self.assertTrue(self.t.get_machine_version().isalnum())
-        self.assertTrue(len(self.t.get_machine_version()), 7)

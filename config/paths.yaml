@@ -1,0 +1,56 @@
+green:
+  duration: 0
+  children:
+    - blue
+    - purple_pink
+    - purple_red
+  distribution:
+    - 0.3
+    - 0.4
+    - 0.3
+blue:
+  duration: 5
+  children: [white]
+purple_pink:
+  duration: 3
+  children: [pink]
+purple_red:
+  duration: 3
+  children: [red]
+pink:
+  duration: 10
+  children: white
+red:
+  duration: 0
+  children:
+    - stable
+    - intensive_care
+  distribution: [0.5, 0.5]
+stable:
+  duration: 0
+  children:
+    - stable_white
+    - stable_black
+  distribution: [0.5, 0.5]
+stable_white:
+  duration: 10
+  children: [white]
+stable_black:
+  duration: 10
+  children: [black]
+intensive_care:
+  duration: 0
+  children:
+    - intensive_care_white
+    - intensive_care_black
+  distribution: [0.5, 0.5]
+  intensive_care_white:
+    duration: 5
+    children: [white]
+  intensive_care_black:
+    duration: 5
+    children: [black]
+  white:
+    duration: 0
+  black:
+    duration: 0

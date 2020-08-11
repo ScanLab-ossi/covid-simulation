@@ -1,8 +1,12 @@
 from __future__ import annotations
-from simulation.dataset import Dataset
-from simulation.task import Task
-from typing import Union
 from abc import ABC
+from typing import TYPE_CHECKING, Optional
+from simulation.constants import OUTPUT_FOLDER
+
+if TYPE_CHECKING:
+    from simulation.output import Output, Batch, MultiBatch
+    from simulation.dataset import Dataset
+    from simulation.task import Task
 
 
 class BasicBlock(ABC):
@@ -12,8 +16,6 @@ class BasicBlock(ABC):
 
 
 class OutputBasicBlock(BasicBlock):
-    def __init__(
-        self, dataset: Dataset, task: Task, output: Union["SensitivityOutput", "Output"]
-    ):
+    def __init__(self, dataset: Dataset, task: Task, output: Output):
         super().__init__(dataset=dataset, task=task)
         self.output: "Output" = output

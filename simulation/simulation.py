@@ -14,12 +14,9 @@ from simulation.google_cloud import GoogleCloud
 from simulation.dataset import Dataset
 from simulation.contagion import ContagionRunner
 from simulation.output import Output
-from simulation.sensitivity_analysis import (
-    Analysis,
-    SensitivityOutput,
-    SensitivityRunner,
-)
+from simulation.sensitivity_analysis import SensitivityRunner
 from simulation.visualizer import Visualizer
+from simulation.analysis import Analysis
 
 
 def main():
@@ -32,46 +29,49 @@ def main():
         if len(tasklist) == 0:
             print("you've picked LOCAL_TASK=False, but no tasks are waiting")
             return []
-    tasks, outputs = [], []
+    tasks, results = [], []
     for task in tasklist:
         print(f"starting task {task.id}")
         print_settings()
         dataset = Dataset(task["DATASET"])
         dataset.load_dataset(gcloud=gcloud)
-        output = (
-            SensitivityOutput(dataset, task)
+        runner = (
+            SensitivityRunner(dataset, task)
             if task["SENSITIVITY"]
-            else Output(dataset, task)
+            else ContagionRunner(dataset, task)
         )
+        result = runner.run()
         if task["SENSITIVITY"]:
-            sr = SensitivityRunner(dataset=dataset, output=output, task=task)
-            output = sr.sensitivity_runner()
-            output.concat_outputs()
-            output.export(how="concated")
+            analysis = Analysis(dataset, task)
+            result.analysis_sum(analysis)
+            result.export()
         else:
-            if settings["PARALLEL"]:
-                with mp.Pool() as p:
-                    r = [
-                        p.apply_async(
-                            ContagionRunner.contagion_runner, (dataset, output, task),
-                        )
-                        for _ in range(task["ITERATIONS"])
-                    ]
-                    output.concated = pd.concat([res.get() for res in r])
-                    output.export(how="average")
-            else:
-                ContagionRunner.contagion_runner(dataset, output, task)
-                output.sum_and_concat_outputs()
-                output.average_outputs()
-                output.export(how="average", filename=(str(task.id)))
-                visualizer = Visualizer(output=output, task=task, dataset=dataset)
-                visualizer.visualize()
-                if task["ITERATIONS"] > 1:
-                    visualizer.variance_boxplot()
+            result.sum_all_and_concat()
+            result.export()
+        # if settings["LOCAL"]:
+        #     visualizer = Visualizer(
+        #         task=task, dataset=dataset, batches=result, save=True
+        #     )
+        #     if task["SENSITIVITY"]:
+        #         visualizer.sensitivity_boxplot()
+        #     else:
+        #         visualizer.visualize()
+        results.append(result)
         tasks.append(task)
-        outputs.append(output)
     if settings["UPLOAD"]:
-        return gcloud.write_results(tasks, outputs)
+        return gcloud.write_results(tasks, results)
+
+
+# if settings["PARALLEL"]:
+#     with mp.Pool() as p:
+#         r = [
+#             p.apply_async(
+#                 ContagionRunner.contagion_runner, (dataset, output, task),
+#             )
+#             for _ in range(task["ITERATIONS"])
+#         ]
+#         output.concated = pd.concat([res.get() for res in r])
+#         output.export(how="average")
 
 
 app = Flask(__name__)

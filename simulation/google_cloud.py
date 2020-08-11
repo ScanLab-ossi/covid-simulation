@@ -1,18 +1,24 @@
-from google.cloud import storage, datastore, secretmanager_v1  # type: ignore
-from google.api_core.exceptions import NotFound  # type: ignore
-from pathlib import Path
+from __future__ import annotations
 from datetime import datetime
 import os, subprocess
+from typing import List, Tuple, Dict, Union
+from pathlib import Path
+
+from google.cloud import storage, datastore, secretmanager_v1  # type: ignore
+from google.api_core.exceptions import NotFound  # type: ignore
 import requests
 import numpy as np  # type: ignore
-from typing import List, Tuple, Dict
 
 from simulation.constants import *
 from simulation.helpers import timing
 from simulation.task import Task
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from simulation.output import Batch, MultiBatch
 
 
-class GoogleCloud(object):
+class GoogleCloud:
     def __init__(self):
         self.add_keyfile()
         self.s_client = storage.Client()
@@ -30,12 +36,12 @@ class GoogleCloud(object):
     def get_secrets(self, secrets: List[str]) -> Dict[str, str]:
         secret_client = secretmanager_v1.SecretManagerServiceClient()
         res = {}
-        for name in secrets:
+        for secret_name in secrets:
             name = secret_client.secret_version_path(
                 "temporal-dynamics", secret_name, "latest"
             )
             response = secret_client.access_secret_version(name)
-            res[name] = response.payload.data.decode("utf-8")
+            res[secret_name] = response.payload.data.decode("utf-8")
         return res
 
     @timing
@@ -119,8 +125,10 @@ class GoogleCloud(object):
         print([e.id for e in entities])
         return [e.id for e in entities]
 
-    def write_results(self, tasks: List[Task], outputs: List) -> List[int]:
-        for output in outputs:
-            self.upload(output.csv_path)
+    def write_results(
+        self, tasks: List[Task], results: List[Union[Batch, MultiBatch]]
+    ) -> List[int]:
+        for result in results:
+            self.upload(result.export_path)
         return self.add_tasks(tasks, done=True)
 

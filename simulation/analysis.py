@@ -1,47 +1,71 @@
 import pandas as pd
 import numpy as np
+from typing import Optional, List, Union
 
-from simulation.output import Output
-from simulation.building_blocks import OutputBasicBlock
+from simulation.output import Batch, MultiBatch
+from simulation.building_blocks import BasicBlock
+from simulation.dataset import Dataset
+from simulation.task import Task
+from simulation.constants import color_dict
 
 
-class Analysis(OutputBasicBlock):
-    def sick(self, output: Output, what: str = "max_amount") -> pd.DataFrame:
-        fname = "sick"
-        summed = [
-            output.sum_output(df).pivot(index="day", columns="color")["amount"]
-            for df in output.batch
-        ]
-        bpr = [df["b"] + df["p"] + df["r"] for df in summed]
-        if what == "max_amount":
-            return pd.DataFrame([df.max() for df in bpr], columns=[fname])
-        elif what == "max_day":
-            return pd.DataFrame([df.idxmax() for df in bpr], columns=[fname])
-        elif what == "total":
-            return pd.DataFrame([len(df) for df in output.batch], columns=[fname])
+class Analysis(BasicBlock):
+    def __init__(
+        self, dataset: Dataset, task: Task, df: Optional[pd.DataFrame] = None,
+    ):
+        super().__init__(dataset=dataset, task=task)
+        self.got_input = isinstance(df, pd.DataFrame)
+        self.not_colors = ["sick", "infected", "infectors"]
 
-    def infected(self, output: Output, what: str = "amount") -> pd.DataFrame:
-        fname = "infected"
-        grouped = [
-            df.groupby("infection_date")["final_state"].count().reset_index(drop=True)
-            for df in output.batch
-        ]
-        if what == "max_amount":
-            return pd.DataFrame([df.max() for df in grouped], columns=[fname])
-        elif what == "max_day":
-            return pd.DataFrame([df.idxmax() for df in grouped], columns=[fname])
+    def count(
+        self,
+        batch: Batch,
+        grouping: str = "sick",  # a color, sick or infected
+        percent: int = None,
+        amount: int = None,
+        max_: bool = True,
+        how: str = "day",  # amount
+        avg: bool = True,
+    ) -> Union[int, pd.DataFrame]:
+        # amount / day @ max percent / amount of color / sick
+        # day @ specific percent / amount of color / sick
+        df_list = batch.summed_list
+        if grouping not in self.not_colors:
+            grouping = color_dict[grouping]
+        if percent:
+            df_list = [df * 100 / self.dataset.nodes for df in df_list]
+        if max_:
+            res = [
+                df[grouping].idxmax() if how == "day" else df[grouping].max()
+                for df in df_list
+            ]
+        else:
+            if how == "amount":
+                raise NotImplementedError(
+                    "you specified the amount, so you shouldn't be needing it as an answer"
+                )
+            thresh_dfs = [
+                df[df[grouping] >= (percent if percent else amount)][grouping]
+                for df in df_list
+            ]
+            res = [(df.index[0] if len(df.index) > 0 else np.inf) for df in thresh_dfs]
+        metric_name = f"{'max' if max_ and percent==None and amount==None else 'day_of_specific'}_{'percent'if percent else 'amount'}_{grouping}"
+        if avg:
+            return sum(res) / len(res)
+        else:
+            return pd.DataFrame({"value": res, "metric": [metric_name] * len(res)})
 
-    def r_0(self, output: Output, what: str = "total") -> pd.DataFrame:
+    def r_0(self, batch: Batch, what: str = "total") -> pd.DataFrame:
         fname = "r_0"
         if what == "total":
-            sick = self.sick(output, "total")
+            sick = self.sick(batch, "total")
             infectors = np.array(
-                [len(set().union(*df["infector"].dropna())) for df in output.batch]
+                [len(set().union(*output.df["infector"].dropna())) for output in batch]
             )
             return pd.DataFrame(sick["sick"].values / infectors, columns=[fname])
         elif what == "average":
             return (
-                pd.concat([self.basic_r_0(df) for df in output.batch])
+                pd.concat([self.basic_r_0(output.df) for output in batch])
                 .groupby("infection_date")[["r_0", "r_thresh"]]
                 .mean()
                 .reset_index()

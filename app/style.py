@@ -120,15 +120,17 @@ def remove_label_css(order):
 
 
 def results_css():
+    # .reportview-container .main .block-container{{
+    #     max-width: 92vw;
+    # }}
     st.markdown(
         f"""
     <style>
-    .reportview-container .main .block-container{{
-        max-width: 92vw;
-    }}
+
     div.element-container > div.fullScreenFrame {{
         text-align: center;
         padding-top: 48px;
+        max-width: 92vw;
     }}
     </style>    
     """,

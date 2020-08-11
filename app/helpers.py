@@ -2,9 +2,12 @@ from google.cloud import storage, datastore
 import grpc
 import pandas as pd
 import streamlit as st
+from typing import Union
 
 from simulation.constants import *
 from simulation.task import Task
+from simulation.output import Batch, MultiBatch
+from simulation.google_cloud import GoogleCloud
 
 hash_funcs = {
     storage.Client: lambda _: None,
@@ -14,11 +17,18 @@ hash_funcs = {
 
 
 @st.cache(persist=True, hash_funcs=hash_funcs)
-def load_data(task_id, gcloud):
+def load_data(task: Task, gcloud: GoogleCloud) -> Union[Batch, MultiBatch]:
     gcloud.download(
-        f"{task_id}.csv", destination=OUTPUT_FOLDER, bucket_name="simulation_runs"
+        f"{task.id}.csv", destination=OUTPUT_FOLDER, bucket_name="simulation_runs"
     )
-    return pd.read_csv(OUTPUT_FOLDER / f"{task_id}.csv")
+    if task["SENSITIVITY"]:
+        metabatch = MultiBatch(task)
+        metabatch.load()
+        return metabatch
+    else:
+        batch = Batch(task)
+        batch.load()
+        return batch
 
 
 def label_it(task: Task):
