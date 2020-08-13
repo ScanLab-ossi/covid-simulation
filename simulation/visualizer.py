@@ -22,13 +22,21 @@ class Visualizer(BasicBlock):
         self.batches = batches
         self.save = save
         self.filename = str(self.task.id)
-        self.colors = dict(
-            zip(
-                "bprkwg",
-                ["#17a2b8", "#6f42c1", "#ff2b2b", "#262730", "#f0f2f6", "#09ab3b"],
-            )
-        )
-        # old colors: ["#3498db", "#9b59b6", "#e74c3c", "#000000", "#dddddd", "#4daf4a"],
+        self.colors = {
+            "blue": "#0068c9",
+            "purple_red": "#ff2b2b",
+            "purple_pink": "#70349e",
+            "pink": "#e83e8c",
+            "stable_black": "#fd7e14",
+            "stable_white": "#faca2b",
+            "intensive_care_black": "#555867",
+            "intensive_care_white": "#a3a8b4",
+            "black": "#292a31",
+            "white": "#e7e8e9",
+            "green": "#09ab3b",
+        }
+        # old colors: "bprkwg", ["#17a2b8", "#6f42c1", "#ff2b2b", "#262730", "#f0f2f6", "#09ab3b"],
+        # old old colors: ["#3498db", "#9b59b6", "#e74c3c", "#000000", "#dddddd", "#4daf4a"],
 
     def _save_chart(self, chart: alt.Chart, suffix: str = None):
         if self.save:

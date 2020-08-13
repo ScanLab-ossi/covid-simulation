@@ -22,11 +22,13 @@ class Task(UserDict):
         self.id: int = data.id if isinstance(data, Entity) else np.random.randint(
             1e15, 1e16
         )
+
         for k, v in {
             "start_date": datetime.now(),
             "done": done,
             **config["meta"],
             **config["params"],
             "sensitivity": config["sensitivity"],
+            "paths": config["paths"],
         }.items():
             self.data.setdefault(k, v)

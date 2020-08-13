@@ -2,6 +2,7 @@ import streamlit as st
 from copy import deepcopy, copy
 import json
 from yaml import load, Loader
+from pprint import pprint
 
 from simulation.dataset import Dataset
 from simulation.task import Task
@@ -16,6 +17,7 @@ with open(CONFIG_FOLDER / "datasets.json", "r") as f:
     datasets = json.load(f)
 
 default_task = Task()
+pprint(default_task.data)
 session = get_session(run_id=0)
 
 

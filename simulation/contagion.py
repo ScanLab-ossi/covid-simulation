@@ -33,44 +33,16 @@ class ContagionRunner(BasicBlock):
         else:
             contagion = SQLContagion(*dt)
         for i in range(self.task["ITERATIONS"]):
-            output = Output(*dt)
             start = datetime.now()
-            if not settings["PARALLEL"]:
-                print(f"repetition {i}")
+            output = Output(*dt)
             st = StateTransition(*dt)
-            if self.dataset.storage == "sql":
-                pickle_of_ids = one_array_pickle_to_set(
-                    Path(DATA_FOLDER / "destination_ids_first_3days.pickle")
-                )
-                zero_patients = contagion.pick_patient_zero(pickle_of_ids)
-            else:
-                zero_patients = contagion.pick_patient_zero(reproducable=reproducable)
-            zero_patients = st.get_trajectory(
-                zero_patients, output, self.dataset.start_date,
-            )
-            output.append(zero_patients)
-            active_infected = output.df[["color"]]
+            output.df = contagion.pick_patient_zero()
             for day in range(self.dataset.period + 1):
-                if settings["VERBOSE"]:
-                    process = f", process {os.getpid()}" if settings["PARALLEL"] else ""
-                    print(f"Status of {day}:" + process)
                 curr_date = self.dataset.start_date + timedelta(days=day)
-                newly_infected = contagion.contagion(
-                    active_infected, curr_date=curr_date
-                )
-                if len(newly_infected) != 0:
-                    newly_infected = st.get_trajectory(
-                        newly_infected, output, curr_date
-                    )
-                    output.append(newly_infected)
-                active_infected = output.df[output.df["transition_date"] > curr_date][
-                    ["color"]
-                ]
-                # patients that haven't recovered or died yet
-                if settings["VERBOSE"]:
-                    print(f"{output.df.shape[0]} infected today altogether")
+                output.df = contagion.contagion(output.df, day, curr_date)
+                output.df = output.df.apply(st.move_one, args=(day,), axis=1)
+                output.value_counts(day)
             batch.append_df(output)
-            # output.export(filename=(str(task.id)), how="df", pickle=True)
             print(f"repetition {i} took {datetime.now() - start}")
         return batch
 
@@ -190,45 +162,31 @@ class GroupContagion(Contagion):
 
 
 class CSVContagion(Contagion):
-    def pick_patient_zero(
-        self,
-        set_of_potential_patients: Union[set, None] = None,
-        arbitrary_patient_zero: list = [],
-        reproducable: bool = False,
-    ) -> set:
-        if arbitrary_patient_zero:
-            return set(arbitrary_patient_zero)
-        elif set_of_potential_patients:
-            # seed_ = os.getpid() if PARALLEL else 1
-            # seed(seed_)
-            randomly_patient_zero = np.random.choice(
-                list(set_of_potential_patients),
-                self.task["number_of_patient_zero"],
+    def pick_patient_zero(self):
+        n_zero = self.task["number_of_patient_zero"]
+        return pd.DataFrame(
+            [[0, 0, "green"]] * n_zero,
+            columns=["infection_date", "days_left", "color"],
+            index=self.rng.choice(
+                np.array(self.dataset.ids[self.dataset.start_date]),
+                n_zero,
                 replace=False,
-            )
-            # randomly_patient_zero = sample(
-            #     set_of_potential_patients, self.task["number_of_patient_zero"]
-            # )
-            return set(randomly_patient_zero)
-        else:
-            return set(
-                self.dataset.split[self.dataset.start_date][["source", "destination"]]
-                .stack()
-                .drop_duplicates()
-                .reset_index(drop=True)
-                .sample(
-                    self.task["number_of_patient_zero"],
-                    random_state=(42 if reproducable else None),
-                )
-            )
+            ),
+        )
+
+    def _non_removed(self, df, day):
+        return df[
+            (df["infection_date"] <= day)
+            & df["color"].isin(["green", "purple_red", "purple_pink", "blue"])
+        ]
 
     @timing
     def contagion(
-        self, infectors: pd.DataFrame, curr_date: date = None,
+        self, df: pd.DataFrame, day: int, curr_date: date = None
     ) -> pd.DataFrame:
+        infectors = self._non_removed(df, day)
         infector_ids = set(infectors.index)
         today = self.dataset.split[curr_date]
-        # color is the infector's color, True=purple, False=blue
         contagion_df = pd.concat(
             [
                 pd.merge(
@@ -260,8 +218,15 @@ class CSVContagion(Contagion):
         )
         contagion_df = contagion_df[~contagion_df["id"].isin(infector_ids)]
         if len(contagion_df) == 0:
-            return contagion_df
+            return df
+        contagion_df = self._infect(contagion_df, day)
+        df = df.append(contagion_df)
+        df = df[~df.index.duplicated(keep="first")]
+        return df
+
+    def _infect(self, contagion_df, day):
         if self.task["alpha_blue"] < 1:
+            # FIXME: alpha should be different
             contagion_df = self._consider_alpha(contagion_df)
         if self.task["infection_model"] == 1:
             contagion_df = (
@@ -277,12 +242,12 @@ class CSVContagion(Contagion):
                 .groupby("id")
                 .agg({"duration": self._multiply_not_infected_chances, "infector": set})
             )
-        contagion_df = (
+        return (
             contagion_df[self._is_infected(contagion_df["duration"])]
             .drop(columns=["duration"])
             .rename_axis(index=["infected"])
+            .assign(**{"infection_date": day, "days_left": 0, "color": "green"})
         )
-        return contagion_df
 
 
 class SQLContagion(Contagion):

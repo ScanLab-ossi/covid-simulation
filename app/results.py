@@ -12,7 +12,7 @@ from simulation.analysis import Analysis
 from simulation.constants import color_dict
 
 
-def analysis_count_interface(analysis, batch, dataset):
+def analysis_count_interface(analysis: Analysis, batch: Batch, dataset: Dataset):
     to_analyze = {}
     to_analyze["grouping"] = st.selectbox(
         "Select a result to group by (color, sick, infected, or infectors)",

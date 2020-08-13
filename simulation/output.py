@@ -58,119 +58,39 @@ class Output(BasicBlock):
 
     def __init__(self, dataset: Dataset, task: Task):
         super().__init__(dataset=dataset, task=task)
-        self.reset()
         self.filename: str = str(task.id)
         self.colors: List[str] = list("bprkwg")
+        self.summed = {}
+        self.sick = [
+            "blue",
+            "purple_red",
+            "purple_pink",
+            "pink",
+            "stable_black",
+            "intensive_care_white",
+            "stable_white",
+            "intensive_care_black",
+        ]
 
     def __len__(self):
         return len(self.df.index)
 
-    def reset(self):
-        self.df = pd.DataFrame(
-            columns=[
-                "age_group",
-                "color",
-                "infection_date",
-                "transition_date",
-                "expiration_date",
-                "final_state",
-            ]
-        )
-        self.df.index.name = "id"
-
-    def append(self, new_df: pd.DataFrame):
-        self.df = self.df.append(new_df, verify_integrity=True)
-        self.df.index.name = "id"
-
-    def _add_missing(self, df: pd.DataFrame) -> pd.DataFrame:
-        for k in self.colors:
-            if k not in df.index:
-                df = df.append(
-                    pd.DataFrame.from_dict(
-                        {k: [0] * self.dataset.period}, orient="index"
-                    )
-                )
-        return df
-
-    def _color_array(
-        self, i: Union[List[int], int], color: Union[List[str], str]
-    ) -> List[str]:
-        if isinstance(color, list):
-            return [color[0]] * i[0] if i[1] else [color[1]] * i[0]
-        else:
-            return [color] * i
-
-    def _color_lists(
-        self, a: np.array, colors: pd.Series, letters: Union[list, str]
-    ) -> pd.DataFrame:
-        return pd.concat([pd.Series(a), colors], axis=1, ignore_index=True).apply(
-            self._color_array, args=(letters,), axis=1
-        )
-
     @timing
-    def sum_output(self, df: pd.DataFrame, pivot=False) -> pd.DataFrame:
-        # s2i = start_to_infection, i2t = infection_to_transition,
-        # t2e = transition_to_expiration, e2ft = expiration_to_final_state
-        # u = uninfected
-        colors = df["color"].reset_index(drop=True)
-        s2i = pd.Series(
-            df["infection_date"].values - np.array(self.dataset.start_date)
-        ).dt.days.apply(self._color_array, args=("g",))
-        i2t = self._color_lists(
-            (df["transition_date"].values - df["infection_date"].values)
-            .astype("timedelta64[D]")
-            .astype(int),
-            colors,
-            ["p", "b"],
-        )
-        t2e = self._color_lists(
-            (df["expiration_date"].values - df["transition_date"].values)
-            .astype("timedelta64[D]")
-            .astype(int),
-            colors,
-            ["r", "w"],
-        )
-        e2ft = pd.Series(
-            df["final_state"].apply(list).values
-            * (self.dataset.period - np.vectorize(len)(s2i + i2t + t2e))
-        )
-        u = pd.Series(
-            [["g"] * self.dataset.period for _ in range(self.dataset.nodes - len(df))]
-        )
-        res = (
-            (s2i + i2t + t2e + e2ft)
-            .append(u)
-            .apply(pd.Series)
-            .apply(pd.Series.value_counts)
-            .fillna(0)
-            .pipe(self._add_missing)
-            .reset_index()
-            .rename(columns={"index": "color"})
-            .melt(
-                id_vars="color",
-                value_vars=range(self.dataset.period),
-                value_name="amount",
-                var_name=self.dataset.interval,
-            )
-        )
-        return res.pivot(index="day", columns="color")["amount"] if pivot else res
+    def sum_output(self):
+        return pd.DataFrame(self.summed).T.rename_axis("day", axis="index").fillna(0)
 
-    def infections(self, df: pd.DataFrame) -> pd.DataFrame:
-        idx = pd.date_range(self.dataset.start_date, self.dataset.end_date)
-        return (
-            df.groupby("infection_date")
-            .agg(
-                infectors=pd.NamedAgg(
-                    column="infector", aggfunc=lambda x: len(set().union(*x.dropna())),
-                ),
-                infected=pd.NamedAgg(column="final_state", aggfunc="count"),
-            )
-            .reindex(idx, fill_value=0)
-            .reset_index(drop=True)
+    def value_counts(self, day):
+        self.summed[day] = dict(self.df["color"].value_counts())
+        self.summed[day]["green"] = self.dataset.nodes - sum(self.summed[day].values())
+        self.summed[day]["infected"] = np.count_nonzero(
+            self.df["infection_date"] == day
         )
-
-    def sick(self, df: pd.DataFrame) -> pd.DataFrame:
-        return (df["b"] + df["p"] + df["r"]).to_frame("sick")
+        self.summed[day]["infectors"] = len(
+            set().union(*self.df[self.df["infection_date"] == day]["infector"].dropna())
+        )
+        self.summed[day]["sick"] = sum(
+            [v for k, v in self.summed[day].items() if k in self.sick]
+        )
 
 
 class Batch(OutputBase):
@@ -196,12 +116,7 @@ class Batch(OutputBase):
         self.average = self.summed.groupby("day").mean()
 
     def sum_all_and_concat(self):
-        self.summed_list = []
-        for output in self.batch:
-            colors = output.sum_output(output.df, pivot=True)
-            sick = output.sick(colors)
-            infections = output.infections(output.df)
-            self.summed_list.append(colors.join(sick).join(infections))
+        self.summed_list = [output.sum_output() for output in self.batch]
         self.summed = pd.concat(self.summed_list)
 
     def load(self, file_path=None, format_="csv"):

@@ -1,7 +1,7 @@
 settings:
   PARALLEL: false # run simulation in parallel, rather than iteratively. iterative seems to run faster locally
   # LOCAL: true # should be true if running locally, false if running in the cloud
-  LOCAL_TASK: false # task list according to local config only. skips downloading task list from google cloud
+  LOCAL_TASK: true # task list according to local config only. skips downloading task list from google cloud
   UPLOAD: true # upload results to google cloud
   SKIP_TESTS: true # skip heavy tests - google cloud and sql
   VERBOSE: false # how much to print
@@ -13,21 +13,68 @@ meta:
 
 params:
   age_dist: [0.15, 0.6, 0.25] # [youngs, adults, olds]
-  blue_to_white: [20, 10] # ~ Norm(mean, std)
-  purple_to_red: [5, 2] # ~ Norm(mean, std)
-  red_to_final_state: [15, 7]
   number_of_patient_zero: 10 # Arbitrary
-  # randomize_patient_zero: true
+  # randomize_patient_zero:
+  infection_model: 2 # [1, 2, wells_riley]
   alpha_blue: 1.0 # if alpha_blue == 1.0 it will be skipped. float!
   D_min: 5 # Arbitrary, The minimal threshold (in time) for infection,
-  D_max: 1440 # Arbitrary, TO BE CALCULATED,  0.9 precentile of (D_i)'s
+  D_max: 1440 # Arbitrary
   P_max: 1.0 # The probability to be infected when the exposure is over the threshold
-  infection_model: 2 # [1, 2, wells_riley]
-  S_i: 0.7 # should be vector of risk by age group
-  P_r: [0.08, 0.03]
   p: 0.5106 # ((7.72 + 9.30) / 2) * 0.001 * 60
   q: 1000
   Q: 900
+
+paths:
+  green:
+    children:
+      - blue
+      - purple_pink
+      - purple_red
+    distribution:
+      - 0.3
+      - 0.4
+      - 0.3
+  blue:
+    duration: [20, 6]
+    children: [white]
+  purple_pink:
+    duration: [5, 1.5]
+    children: [pink]
+  purple_red:
+    duration: [5, 1.5]
+    children: [red]
+  pink:
+    duration: [10, 3]
+    children: [white]
+  red:
+    children:
+      - stable
+      - intensive_care
+    distribution: [0.5, 0.5]
+  stable:
+    children:
+      - stable_white
+      - stable_black
+    distribution: [0.5, 0.5]
+  stable_white:
+    duration: [10, 3]
+    children: [white]
+  stable_black:
+    duration: [10, 3]
+    children: [black]
+  intensive_care:
+    children:
+      - intensive_care_white
+      - intensive_care_black
+    distribution: [0.5, 0.5]
+  intensive_care_white:
+    duration: [10, 3]
+    children: [white]
+  intensive_care_black:
+    duration: [10, 3]
+    children: [black]
+  white: {}
+  black: {}
 
 sensitivity:
   params:

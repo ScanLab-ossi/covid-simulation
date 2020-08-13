@@ -30,8 +30,8 @@ class Analysis(BasicBlock):
         # amount / day @ max percent / amount of color / sick
         # day @ specific percent / amount of color / sick
         df_list = batch.summed_list
-        if grouping not in self.not_colors:
-            grouping = color_dict[grouping]
+        # if grouping not in self.not_colors:
+        #     grouping = color_dict[grouping]
         if percent:
             df_list = [df * 100 / self.dataset.nodes for df in df_list]
         if max_:

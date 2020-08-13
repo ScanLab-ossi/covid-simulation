@@ -29,18 +29,6 @@ extra_input:
   alpha_blue:
     type: continuous
     range: { min: 0.0, max: 1.0, step: 0.1 }
-  blue_to_white:
-    type: distribution
-    dist_type: normal
-  purple_to_red:
-    type: distribution
-    dist_type: normal
-  red_to_final_state:
-    type: distribution
-    dist_type: normal
-  P_r:
-    type: distribution
-    dist_type: normal
 hidden:
   age_dist:
     type: distribution

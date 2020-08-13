@@ -1,5 +1,6 @@
 from datetime import datetime, date
 import pandas as pd
+import numpy as np
 import json  # type: ignore
 
 from simulation.constants import *
@@ -26,7 +27,7 @@ class Dataset(object):
         return datetime.strptime(d, "%Y-%m-%d").date()
 
     # @timing
-    def load_dataset(self, gcloud: GoogleCloud = None):
+    def load_dataset(self, gcloud: GoogleCloud):
         if self.storage == "csv":
             gcloud.download(f"{self.name}.csv")
         self.data = pd.read_csv(
@@ -39,6 +40,10 @@ class Dataset(object):
         if self.groups:
             self.data["group"] = self.data["group"].apply(eval)
         self.split = {x.date(): df for x, df in self.data.resample("D", on="datetime")}
+        self.ids = {
+            x: list(df[["source", "destination"]].stack().drop_duplicates())
+            for x, df in self.split.items()
+        }
 
 
 # more elegant json reading
