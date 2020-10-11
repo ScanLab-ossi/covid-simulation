@@ -18,6 +18,10 @@ class TestAnalysis(unittest.TestCase):
         self.analysis = Analysis(dataset, task)
 
     def test_count(self):
+        df = self.analysis.count(
+            self.batch, grouping="sick", percent=20, how="day", avg=False
+        )
+        print(f"test_count:\n{df}")
         pdt.assert_frame_equal(
             self.analysis.count(
                 self.batch, grouping="sick", percent=20, how="day", avg=False

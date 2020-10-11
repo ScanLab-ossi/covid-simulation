@@ -36,9 +36,9 @@ def main():
         dataset = Dataset(task["DATASET"])
         dataset.load_dataset(gcloud=gcloud)
         runner = (
-            SensitivityRunner(dataset, task)
+            SensitivityRunner(dataset, task, gcloud)
             if task["SENSITIVITY"]
-            else ContagionRunner(dataset, task)
+            else ContagionRunner(dataset, task, gcloud)
         )
         result = runner.run()
         if task["SENSITIVITY"]:

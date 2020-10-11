@@ -119,25 +119,6 @@ def remove_label_css(order):
     # )
 
 
-def results_css():
-    # .reportview-container .main .block-container{{
-    #     max-width: 92vw;
-    # }}
-    st.markdown(
-        f"""
-    <style>
-
-    div.element-container > div.fullScreenFrame {{
-        text-align: center;
-        padding-top: 48px;
-        max-width: 92vw;
-    }}
-    </style>    
-    """,
-        unsafe_allow_html=True,
-    )
-
-
 def nav_css():
     container = "#root > div:nth-child(1) > div > div > div > div > section.main > div > div:nth-child(1)"
     css = f"""

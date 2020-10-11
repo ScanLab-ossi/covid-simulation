@@ -5,13 +5,16 @@ docker-compose.yml
 # Specific
 keyfile.json
 secrets.conf
-leftover.py
 *.csv
+!population.csv
 !mock_*.csv
 *.html
 *.pkl
 !mock_*.pkl
 *.pbz2
+leftovers.py
+data/*.feather
+*.xlsx
 
 *.ipynb
 !notebooks/*.ipynb
@@ -155,4 +158,3 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
-leftovers.py

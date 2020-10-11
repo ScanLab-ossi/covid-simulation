@@ -1,29 +1,15 @@
 import pandas as pd  # type: ignore
 import numpy as np  # type: ignore
-from typing import List
 
-from simulation.building_blocks import OutputBasicBlock, BasicBlock
+from simulation.building_blocks import ConnectedBasicBlock
 from simulation.output import Output, MultiBatch
 from simulation.constants import *
-from simulation.task import Task
-from simulation.dataset import Dataset
 from simulation.contagion import ContagionRunner
-from simulation.visualizer import Visualizer
-from simulation.analysis import Analysis
 
 
-# class SensitivityOutput(Output):
-#     def __init__(self, dataset, task):
-#         super().__init__(dataset=dataset, task=task)
-#         self.batches = {}
-
-#     def concat_outputs(self):
-#         self.concated = pd.concat(self.results)
-
-
-class SensitivityRunner(BasicBlock):  # (Runner?)
+class SensitivityRunner(ConnectedBasicBlock):  # (Runner?)
     def run(self) -> MultiBatch:
-        cr = ContagionRunner(self.dataset, self.task)
+        cr = ContagionRunner(self.dataset, self.task, self.gcloud)
         metabatch = MultiBatch(self.task)
         sa_conf = self.task["sensitivity"]
         for param in sa_conf["params"]:

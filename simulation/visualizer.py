@@ -8,6 +8,7 @@ from simulation.dataset import Dataset
 from simulation.output import Batch, MultiBatch
 from simulation.task import Task
 from simulation.building_blocks import BasicBlock
+from simulation.metrics import Metrics
 
 
 class Visualizer(BasicBlock):
@@ -48,10 +49,14 @@ class Visualizer(BasicBlock):
                 format="html",
             )
 
-    def visualize(self, df: Optional[pd.DataFrame] = None) -> alt.Chart:
+    def visualize(
+        self, df: Optional[pd.DataFrame] = None, include_green: bool = True
+    ) -> alt.Chart:
         got_input = isinstance(df, pd.DataFrame)
         if got_input:
-            summed = df
+            summed = df.drop(columns=["infected_daily", "daily_infectors"]).melt(
+                id_vars="day", var_name="color", value_name="amount"
+            )
         else:
             summed = (
                 self.batches.average[list(self.colors.keys())]
@@ -61,17 +66,21 @@ class Visualizer(BasicBlock):
         summed["order"] = summed["color"].replace(
             {val: i for i, val in enumerate(self.colors.keys())}
         )
+        if not include_green:
+            summed = summed[summed["color"] != "green"]
+            self.colors.pop("green")
+        summed["color"] = summed["color"].apply(Metrics.decrypt_colors)
         # add to chart if title wanted: , **({} if got_input else {"title": self.dataset.name}))
         chart = (
             alt.Chart(summed)
-            .mark_bar()
+            .mark_bar(size=(9 if self.dataset.period > 30 else 15))
             .encode(
                 x=f"{self.dataset.interval}:O",
                 y="amount",
                 color=alt.Color(
                     "color",
                     scale=alt.Scale(
-                        domain=list(self.colors.keys()),
+                        domain=[Metrics.decrypt_colors(c) for c in self.colors.keys()],
                         range=list(self.colors.values()),
                     ),
                 ),
@@ -80,6 +89,7 @@ class Visualizer(BasicBlock):
             )
         )
         self._save_chart(chart)
+        self.colors["green"] = "#09ab3b"
         return chart
 
     # def variance_boxplot(self) -> alt.FacetChart:
@@ -111,10 +121,12 @@ class Visualizer(BasicBlock):
     ) -> alt.FacetChart:
         got_input = isinstance(df, pd.DataFrame)
         df = df if got_input else self.batches.summed
-        base_values = [
-            f"{param}: {self.task[param]}"
-            for param in sorted(self.task["sensitivity"]["params"])
-        ]
+        df["parameter"] = df["parameter"].replace(
+            {
+                param: f"{param}: {self.task[param]}"
+                for param in sorted(self.task["sensitivity"]["params"])
+            }
+        )
         step_sort = sorted(set(df["step"].tolist()), key=eval)
         chart = (
             alt.Chart(df)
@@ -122,11 +134,7 @@ class Visualizer(BasicBlock):
             .encode(
                 x=alt.X("step", title=None, sort=step_sort),
                 y=alt.Y("value:Q", title=metric),
-                color=alt.Color(
-                    "parameter",
-                    sort="ascending",
-                    legend=alt.Legend(values=base_values),
-                ),
+                color=alt.Color("parameter", sort="ascending",),
                 facet=alt.Facet("parameter", title=None),
             )
             .properties(height=300, width=100)

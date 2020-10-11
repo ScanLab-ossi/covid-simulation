@@ -26,7 +26,7 @@ class TestVisualizer(unittest.TestCase):
         self.batch.average_outputs()
         vis = Visualizer(self.task, self.dataset, self.batch, save=True)
         chart = vis.visualize()
-        self.assertEqual(chart.to_dict()["mark"], "bar")
+        self.assertEqual(chart.to_dict()["mark"]["type"], "bar")
         self.assertTupleEqual(chart.data.shape, (168, 4))
         mock_save.assert_called_with(
             str(OUTPUT_FOLDER / f"{self.task.id}.html"), format="html"

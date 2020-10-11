@@ -19,13 +19,3 @@ except KeyError:
     pass
 
 meta = config["meta"]
-
-color_dict = {
-    "black": "k",
-    "red": "r",
-    "blue": "b",
-    "purple": "p",
-    "pink": "v",
-    "white": "w",
-    "green": "g",
-}

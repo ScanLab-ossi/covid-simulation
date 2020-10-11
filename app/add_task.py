@@ -1,24 +1,25 @@
-import streamlit as st
 from copy import deepcopy, copy
-import json
-from yaml import load, Loader
 from pprint import pprint
+
+import streamlit as st
+from yaml import load, Loader
+import pandas as pd
 
 from simulation.dataset import Dataset
 from simulation.task import Task
 from simulation.constants import *
-from simulation.sensitivity_analysis import Analysis
-from app.session_state import get as get_session
+from simulation.analysis import Analysis
+from simulation.metrics import Metrics
+from app.results import get_metrics
+from app.helpers import validate_identifier, label_it
 
 with open(CONFIG_FOLDER / "app.yaml") as f:
     config = load(f, Loader=Loader)
 
-with open(CONFIG_FOLDER / "datasets.json", "r") as f:
-    datasets = json.load(f)
+with open(CONFIG_FOLDER / "datasets.yaml", "r") as f:
+    datasets = load(f, Loader=Loader)
 
 default_task = Task()
-pprint(default_task.data)
-session = get_session(run_id=0)
 
 
 def load_inputs(key, new_task):
@@ -32,10 +33,7 @@ def load_inputs(key, new_task):
                 list(datasets.keys()) if param == "DATASET" else metadata["options"]
             )
             new_task[param] = st.selectbox(
-                param,
-                options=options,
-                index=metadata["default_index"],
-                key=session.run_id,
+                param, options=options, index=metadata["default_index"],
             )
             element_count += 1
         elif metadata["type"] == "continuous":
@@ -47,7 +45,6 @@ def load_inputs(key, new_task):
                     "min_value": metadata["range"].get("min"),
                     "max_value": metadata["range"].get("max"),
                     "step": metadata["range"].get("step"),
-                    "key": session.run_id,
                 },
             )
             element_count += 1
@@ -59,14 +56,10 @@ def load_inputs(key, new_task):
                 # step = 0.05 if isinstance(v, float) else 1
                 new_task[param] = [
                     st.number_input(
-                        "mean",
-                        value=default_task[param][0],
-                        key=f"{param}_mean_{session.run_id}",
+                        "mean", value=default_task[param][0], key=f"{param}_mean",
                     ),
                     st.number_input(
-                        "std",
-                        value=default_task[param][1],
-                        key=f"{param}_std_{session.run_id}",
+                        "std", value=default_task[param][1], key=f"{param}_std",
                     ),
                 ]
                 st.write()
@@ -91,7 +84,7 @@ def load_inputs(key, new_task):
                                 "min_value": metadata["range"].get("min"),
                                 "max_value": metadata["range"].get("max"),
                                 "step": metadata["range"].get("step"),
-                                "key": f"{param}_{factor}_{session.run_id}",
+                                "key": f"{param}_{factor}",
                             },
                         )
                     placeholder = st.empty()
@@ -109,43 +102,23 @@ def load_inputs(key, new_task):
     return new_task, element_count
 
 
-def load_add_task(gcloud):
-    element_count = 0
-    new_task = deepcopy(default_task)
-    st.title("Add simulation run")
-    task_name = st.text_input("Name this simulation run", value=new_task.id)
-    task_id_error = st.empty()
-    if not validate_task_id(task_name):
-        task_id_error.error(
-            "That's not a valid task name. Make sure you use \
-            underscores instead of spaces, and start with a letter"
-        )
-    else:
-        new_task["name"] = task_name
-    reset = st.button("RESET")
-    if reset:
-        session.run_id += 1
+def add_sensitivity(new_task):
     new_task["SENSITIVITY"] = st.checkbox("Run sensitivity analysis")
     if new_task["SENSITIVITY"]:
-        new_task["sensitivity"]["metric"] = st.selectbox(
-            "Pick metric to run sensitivity analysis on:",
-            [x for x in dir(Analysis) if x[0] != "_"],
-            index=1,
+        dataset = Dataset(new_task["DATASET"])
+        metrics = Metrics()
+        new_task["sensitivity"]["metrics"] = []
+        n_metrics = st.number_input(
+            "How many metrics do you want to run your sensitivity analysis on?", 1
         )
-        st.markdown("---")
-    # st.write("## Edit task parameter")
-    _, elem = load_inputs("input", new_task)
-    element_count += elem
-    # st.write(f"count: {repeat}")
-    st.markdown("---")
-    extra_params = st.checkbox("Show extra parameters")
-    if extra_params:
-        # st.write("## Edit extra parameters")
-        _, elem = load_inputs("extra_input", new_task)
-        element_count += elem
-    # grid_css(element_count)
-    st.sidebar.header("Preview of parameters")
+        for i in range(n_metrics):
+            mm, _ = get_metrics(dataset, i)
+            new_task["sensitivity"]["metrics"].insert(i, mm)
+    return new_task
 
+
+def sidebar(new_task, extra_params, edit_paths):
+    st.sidebar.header("Preview of parameters")
     display_json = {k: v for k, v in new_task.data.items() if k in config["input"]}
     extra_display_json = (
         {k: v for k, v in new_task.data.items() if k in config["extra_input"]}
@@ -153,12 +126,15 @@ def load_add_task(gcloud):
         else {}
     )
     st.sidebar.json({"name": new_task["name"], **display_json, **extra_display_json})
+    if edit_paths:
+        st.sidebar.header("Preview of edited state transition")
+        st.sidebar.json(new_task["paths"])
     if new_task["SENSITIVITY"]:
         ss = new_task["sensitivity"]
         active_ranges = {k: v for k, v in ss["ranges"].items() if k in ss["params"]}
         st.sidebar.header("Preview of sensitivity parameters")
         st.sidebar.json(
-            {"metric": ss["metric"], "params": ss["params"], "ranges": active_ranges}
+            {"metrics": ss["metrics"], "params": ss["params"], "ranges": active_ranges}
         )
         times = {
             k: int(((v["max"] - v["min"]) // v["step"]) + 1)
@@ -171,14 +147,95 @@ def load_add_task(gcloud):
                 ({sum(times.values())} times, {iters} iteratons each time). \
                 If this seem like a lot, consider making {max(times, key=times.get)}'s range smaller"
             )
+
+
+# def state_transitions(new_task):
+#     p = new_task["paths"]
+#     for state, data in p.items():
+#         if state in ["white", "black"]:
+#             continue
+#         st.markdown(f"#### {state} → {', '.join(data['children'])}")
+#         if len(data.get("children", [])) == 2:
+#             for i in range(2):
+#                 p[state]["distribution"][i] = st.number_input(
+#                     data["children"][i],
+#                     min_value=0.1,
+#                     max_value=1.0,
+#                     value=data["distribution"][i],
+#                     key=f"{state}_distribution_{i}",
+#                 )
+#         elif len(data.get("children", [])) == 1:
+#             for i, what in enumerate(["mean", "std"]):
+#                 p[state]["duration"][i] = st.number_input(
+#                     f"duration {what}",
+#                     value=data["duration"][i],
+#                     key=f"{state}_duration_{i}",
+#                 )
+#     new_task["paths"] = p
+#     return new_task
+
+
+def add_state_transition(task, gcloud):
+    options = gcloud.get_filelist()
+    st_name = st.selectbox("Select a state transition version", options)
+    if options == []:
+        st.error("You must upload a state transitions configuration file")
+        return task
+    else:
+        gcloud.download(
+            f"state_transitions/{st_name}.csv",
+            destination=CONFIG_FOLDER,
+            bucket_name="simulation_datasets",
+        )
+        df = pd.read_csv(CONFIG_FOLDER / f"{st_name}.csv")
+        task.load_state_transition(df)
+        return task
+
+
+def load_add_task(gcloud):
+    element_count = 0
+    new_task = deepcopy(default_task)
+    st.title("Add simulation run")
+    task_name = st.text_input("Name this simulation run", value=new_task.id)
+    task_id_error = st.empty()
+    valid_id = validate_identifier(task_name)
+    if not valid_id == True:
+        task_id_error.error(valid_id)
+    else:
+        new_task["name"] = task_name
+    new_task = add_state_transition(new_task, gcloud)
+    # edit = st.radio("", ["Edit task parameters", "Edit state transitions"])
+    # reset = st.button("RESET")
+    # if reset:
+    #     print("reset")
+    new_task = add_sensitivity(new_task)
+    # st.write("## Edit task parameter")
+    _, elem = load_inputs("input", new_task)
+    element_count += elem
+    # st.write(f"count: {repeat}")
+    st.markdown("---")
+    extra_params = st.checkbox("Show extra parameters")
+    if extra_params:
+        # st.write("## Edit extra parameters")
+        _, elem = load_inputs("extra_input", new_task)
+        element_count += elem
+    # st.markdown("---")
+    # edit_paths = st.checkbox("Edit state transition")
+    # if edit_paths:
+    #     new_task = state_transitions(new_task)
     # st.markdown("---")
     placeholder = st.empty()
+    sidebar(new_task, extra_params, edit_paths=True)
     submit = st.button("SUBMIT")
     if submit:
         if new_task["SENSITIVITY"]:
             validated, message = validate_sensitivity(new_task)
             if validated:
-                gcloud.add_tasks([new_task])
+                try:
+                    gcloud.add_tasks([new_task])
+                except Exception:
+                    pprint(new_task)
+                    raise Exception
                 placeholder.success(f"Great job! Added new task {label_it(new_task)}")
             else:
                 placeholder.error(message)
@@ -208,8 +265,4 @@ def validate_sensitivity(new_task, error=True, curr_param=None):
         if new_task[param] < range_["min"] or new_task[param] > range_["max"]:
             return False, f"Make sure {param} is within sensitivity range"
     return True, ""
-
-
-def validate_task_id(task_name):
-    return True if task_name.isidentifier() or task_name.isnumeric() else False
 

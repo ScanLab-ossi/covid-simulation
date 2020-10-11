@@ -2,23 +2,23 @@ settings:
   PARALLEL: false # run simulation in parallel, rather than iteratively. iterative seems to run faster locally
   # LOCAL: true # should be true if running locally, false if running in the cloud
   LOCAL_TASK: true # task list according to local config only. skips downloading task list from google cloud
-  UPLOAD: true # upload results to google cloud
+  UPLOAD: false # upload results to google cloud
   SKIP_TESTS: true # skip heavy tests - google cloud and sql
-  VERBOSE: false # how much to print
+  VERBOSE: true # how much to print
 
 meta:
-  DATASET: copenhagen_hops # which dataset to use
-  ITERATIONS: 3 # run experiment X times, so to average chaotic(?) effects. use 1 repetition for working on the model itself
+  DATASET: milan_calls
+  ITERATIONS: 1 # run experiment X times, so to average stochasticity. use 1 repetition for working on the model itself
   SENSITIVITY: false
 
 params:
-  age_dist: [0.15, 0.6, 0.25] # [youngs, adults, olds]
-  number_of_patient_zero: 10 # Arbitrary
+  country: United Kingdom
+  number_of_patient_zero: 1000 # Arbitrary
   # randomize_patient_zero:
   infection_model: 2 # [1, 2, wells_riley]
   alpha_blue: 1.0 # if alpha_blue == 1.0 it will be skipped. float!
-  D_min: 5 # Arbitrary, The minimal threshold (in time) for infection,
-  D_max: 1440 # Arbitrary
+  D_min: 0 # Arbitrary, The minimal threshold (in time) for infection,
+  D_max: 60 # Arbitrary
   P_max: 1.0 # The probability to be infected when the exposure is over the threshold
   p: 0.5106 # ((7.72 + 9.30) / 2) * 0.001 * 60
   q: 1000
@@ -28,23 +28,28 @@ paths:
   green:
     children:
       - blue
+      - purple
+    distribution:
+      - 0.7
+      - 0.3
+  blue:
+    duration: [15, 2]
+    children: [white]
+  purple:
+    children:
       - purple_pink
       - purple_red
     distribution:
-      - 0.3
-      - 0.4
-      - 0.3
-  blue:
-    duration: [20, 6]
-    children: [white]
+      - 0.2
+      - 0.8
   purple_pink:
-    duration: [5, 1.5]
+    duration: [10, 1.5]
     children: [pink]
   purple_red:
-    duration: [5, 1.5]
+    duration: [10, 1.5]
     children: [red]
   pink:
-    duration: [10, 3]
+    duration: [10, 1.5]
     children: [white]
   red:
     children:

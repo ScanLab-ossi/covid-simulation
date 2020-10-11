@@ -6,7 +6,7 @@ from simulation.output import Batch, MultiBatch
 from simulation.building_blocks import BasicBlock
 from simulation.dataset import Dataset
 from simulation.task import Task
-from simulation.constants import color_dict
+from simulation.constants import *
 
 
 class Analysis(BasicBlock):
@@ -15,7 +15,6 @@ class Analysis(BasicBlock):
     ):
         super().__init__(dataset=dataset, task=task)
         self.got_input = isinstance(df, pd.DataFrame)
-        self.not_colors = ["sick", "infected", "infectors"]
 
     def count(
         self,
@@ -30,8 +29,8 @@ class Analysis(BasicBlock):
         # amount / day @ max percent / amount of color / sick
         # day @ specific percent / amount of color / sick
         df_list = batch.summed_list
-        # if grouping not in self.not_colors:
-        #     grouping = color_dict[grouping]
+        if grouping not in df_list[0].columns:
+            df_list = self.sum_groupings(df_list, grouping)
         if percent:
             df_list = [df * 100 / self.dataset.nodes for df in df_list]
         if max_:
@@ -54,6 +53,19 @@ class Analysis(BasicBlock):
             return sum(res) / len(res)
         else:
             return pd.DataFrame({"value": res, "metric": [metric_name] * len(res)})
+
+    def sum_groupings(
+        self, df_list: List[pd.DataFrame], how: str
+    ) -> List[pd.DataFrame]:
+        if how == "red":
+            filter_ = {"regex": r"(intensive|stable)\w+"}
+        elif how == "sick":
+            filter_ = {"items": set(df_list[0].columns) - {"green", "white", "black"}}
+        else:
+            filter_ = {"like": how}
+        for df in df_list:
+            df[how] = df.filter(**filter_).sum(axis="columns")
+        return df_list
 
     def r_0(self, batch: Batch, what: str = "total") -> pd.DataFrame:
         fname = "r_0"
@@ -88,4 +100,3 @@ class Analysis(BasicBlock):
         )
         df["r_thresh"] = 1
         return df
-

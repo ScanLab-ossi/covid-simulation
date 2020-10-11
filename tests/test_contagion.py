@@ -19,7 +19,7 @@ dataset.load_dataset(gcloud=GoogleCloud())
 
 class TestContagion(unittest.TestCase):
     def setUp(self):
-        self.c = Contagion(dataset, task)
+        self.c = Contagion(dataset, task, reproducible=True)
         self.sample_infected = pd.DataFrame(
             {"duration": [1440, 36, 0], "color": [True, False, False]},
             index=[".QP/64EdoTcdkMnmXGVO0A"] * 3,
@@ -56,7 +56,7 @@ class TestContagion(unittest.TestCase):
 
 class TestCSVContagion(unittest.TestCase):
     def setUp(self):
-        self.cc = CSVContagion(dataset, task)
+        self.cc = CSVContagion(dataset, task, reproducible=True)
         self.potential_patients = {
             ".QP/64EdoTcdkMnmXGVO0A",
             "BP51jL2myIMRqfYseLbGfM",
@@ -72,24 +72,25 @@ class TestCSVContagion(unittest.TestCase):
         self.sample_df = pd.DataFrame(
             {"color": [True]}, index=["D8hZWX/ycJMmF4qg1uGkZc"]
         )
-        self.cc.task.update({"D_min": 0, "D_max": 1440, "P_max": 0.8, "alpha_blue": 1})
+        self.cc.task.update(
+            {
+                "D_min": 0,
+                "D_max": 1440,
+                "P_max": 0.8,
+                "alpha_blue": 1,
+                "number_of_patient_zero": 1,
+            }
+        )
         self.cc.task.update
 
     def test_patient_zero(self):
-        self.assertEqual(
-            self.cc.pick_patient_zero(self.potential_patients)
-            - self.potential_patients,
-            set(),
+        print(f"ppz = {self.cc.pick_patient_zero()}")
+        res = pd.DataFrame(
+            [0, 0, "green"],
+            columns=["infection_date", "days_left", "color"],
+            index=["eabfCPikoZg8D1UxBq4NnA"],
         )
-        self.assertEqual(len(self.cc.pick_patient_zero(self.potential_patients)), 10)
-
-    def test_if_patient_zero_arbitrarily_selected(self):
-        self.assertSetEqual(
-            self.cc.pick_patient_zero(
-                None, arbitrary_patient_zero=["MJviZSTPuYw1v0W0cURthY"]
-            ),
-            {"MJviZSTPuYw1v0W0cURthY"},
-        )
+        pdt.assertFrameEqual(self.cc.pick_patient_zero(), res)
 
     # def test_first_circle_of_2_patient_in_specific_date(self):
     #     for i in [1, 2]:

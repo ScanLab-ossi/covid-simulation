@@ -5,7 +5,7 @@ from yaml import load, Loader
 from pprint import pprint
 
 from simulation.task import Task
-from simulation.sensitivity_analysis import Analysis
+from simulation.analysis import Analysis
 from simulation.constants import *
 
 metadata_keys = [
@@ -25,29 +25,11 @@ continuous_params = [
     "P_max",
     "ITERATIONS",
 ]
-distribution_params = [
-    "age_dist",
-    "blue_to_white",
-    "purple_to_red",
-    "red_to_final_state",
-    "P_r",
-]
 categorical_params = ["infection_model"]
 
 
 def make_schema():
     params = {"age_dist": {"type": "array", "items": {"type": "number"}}}
-    for dist in ["blue_to_white", "purple_to_red", "red_to_final_state", "P_r"]:
-        params.update(
-            {
-                dist: {
-                    "type": "array",
-                    "items": {"type": "number"},
-                    "minItems": 2,
-                    "maxItems": 2,
-                }
-            }
-        )
     for integer in [
         "D_min",
         "number_of_patient_zero",
@@ -83,7 +65,7 @@ def make_schema():
         }
     }
     meta["meta"].update({"required": list(meta["meta"]["properties"].keys())})
-
+    # TODO: add paths
     sensitivity = {
         "sensitivity": {
             "type": "object",
@@ -92,9 +74,18 @@ def make_schema():
                     "type": "array",
                     "items": {"type": "string", "enum": continuous_params},
                 },
-                "metric": {
-                    "type": "string",
-                    "enum": [attr for attr in dir(Analysis) if attr[:2] != "__"],
+                "metrics": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "grouping": {"type": "string"},  # enum
+                            "percent": {"type": "integer"},
+                            "amount": {"type": "integer"},
+                            "max_": {"type": "boolean"},
+                            "how": {"type": "string", "enum": ["day", "amount"]},
+                        },
+                    },
                 },
                 "ranges": {
                     "type": "object",

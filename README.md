@@ -31,23 +31,18 @@ Run type-checking: `mypy -p simulation --ignore-missing-imports`
 1. Login, auth and so on.
 2. Set default region: `gcloud config set run/region europe-west4`
 3. Build images and deploy on Google Cloud:
+
 ```
-gcloud builds submit
-gcloud run deploy --image gcr.io/temporal-dynamics/[simulation/app] --platform managed
-```
-or 
-```
-docker tag covid-simulation_simulation:latest eu.gcr.io/temporal-dynamics/simulation:latest
 docker push eu.gcr.io/temporal-dynamics/simulation:latest
 gcloud run deploy simulation --image eu.gcr.io/temporal-dynamics/simulation:latest --region europe-west4 --platform managed
 ```
 
 ```
-docker tag covid-simulation_app:latest eu.gcr.io/temporal-dynamics/app:latest
 docker push eu.gcr.io/temporal-dynamics/app:latest
 gcloud app deploy --image-url=eu.gcr.io/temporal-dynamics/app:latest
 ```
 
+simulation needs to be redeployed with cloud sql enabled and trafic moved. 
 ### Colors and their meaning
 
 | color  | shorthand | meaning                                             |

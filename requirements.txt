@@ -4,6 +4,8 @@ google-cloud-secret-manager
 psycopg2-binary
 numpy>=1.19.0
 pandas
+xlrd
+pyarrow
 jsonschema
 altair
 altair_saver
@@ -11,3 +13,7 @@ pyyaml
 flask
 gunicorn
 streamlit
+mysqlclient
+more_itertools
+sqlalchemy
+Deprecated

@@ -11,6 +11,7 @@ from app.results import load_results
 from app.todo import load_todo
 from app.add_task import load_add_task
 from app.helpers import load_data
+from app.edit_state_transition import load_edit_state_transition
 
 alt.themes.register("streamlit", streamlit_theme)
 alt.themes.enable("streamlit")
@@ -29,13 +30,17 @@ gcloud.get_tasklist()
 
 
 nav_css()
-nav = st.radio("navigation", ["Add Task", "Results", "Tasklist"], index=0)
+nav = st.radio(
+    "navigation", ["Add Task", "Edit State Transition", "Results", "Tasklist"], index=0
+)
 if nav == "Results":
     load_results(gcloud)
 elif nav == "Tasklist":
     load_todo(gcloud)
 elif nav == "Add Task":
     load_add_task(gcloud)
+elif nav == "Edit State Transition":
+    load_edit_state_transition(gcloud)
 
 
 # fig, ax = plt.subplots()

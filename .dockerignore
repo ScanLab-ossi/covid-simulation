@@ -4,7 +4,8 @@ cloudbuild.yaml
 # keyfile.json
 secrets.conf
 # Specific
-**/*.csv
+output/*.csv
+data/*.csv
 !mock_*.csv
 **/*.html
 **/*.pkl

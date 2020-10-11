@@ -4,7 +4,7 @@ metadata:
 input:
   DATASET:
     type: categorical
-    options: dataset.json
+    options: datasets.yaml
     default_index: 2
   ITERATIONS:
     type: continuous
@@ -13,6 +13,19 @@ input:
     type: categorical
     options: [1, 2, "wells_riley"]
     default_index: 1
+  country:
+    type: categorical
+    options:
+      - United Kingdom
+      - Israel
+      - Belgium
+      - Switzerland
+      - Italy
+      - Germany
+      - Norway
+      - Portugal
+      - Czech Republic
+    default_index: 0
   number_of_patient_zero:
     type: continuous
     range: { min: 1 }

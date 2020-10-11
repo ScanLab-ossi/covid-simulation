@@ -1,5 +1,6 @@
 from __future__ import annotations
 from abc import ABC
+from typing import TYPE_CHECKING
 import bz2
 import _pickle as cPickle
 from pathlib import Path
@@ -14,7 +15,7 @@ from simulation.dataset import Dataset
 from simulation.task import Task
 from simulation.helpers import timing
 from simulation.building_blocks import BasicBlock
-from typing import TYPE_CHECKING
+from simulation.metrics import Metrics
 
 if TYPE_CHECKING:
     from simulation.analysis import Analysis
@@ -58,38 +59,33 @@ class Output(BasicBlock):
 
     def __init__(self, dataset: Dataset, task: Task):
         super().__init__(dataset=dataset, task=task)
+        self.df = None
         self.filename: str = str(task.id)
         self.colors: List[str] = list("bprkwg")
         self.summed = {}
-        self.sick = [
-            "blue",
-            "purple_red",
-            "purple_pink",
-            "pink",
-            "stable_black",
-            "intensive_care_white",
-            "stable_white",
-            "intensive_care_black",
-        ]
 
     def __len__(self):
-        return len(self.df.index)
+        if self.df == None:
+            return 0
+        else:
+            return len(self.df.index)
 
-    @timing
     def sum_output(self):
-        return pd.DataFrame(self.summed).T.rename_axis("day", axis="index").fillna(0)
+        metrics = Metrics()
+        df = pd.DataFrame(self.summed).T.rename_axis("day", axis="index").fillna(0)
+        for metric in metrics.states_with_duration:
+            if metric not in df.columns:
+                df[metric] = 0
+        return df
 
     def value_counts(self, day):
         self.summed[day] = dict(self.df["color"].value_counts())
         self.summed[day]["green"] = self.dataset.nodes - sum(self.summed[day].values())
-        self.summed[day]["infected"] = np.count_nonzero(
+        self.summed[day]["infected_daily"] = np.count_nonzero(
             self.df["infection_date"] == day
         )
-        self.summed[day]["infectors"] = len(
+        self.summed[day]["daily_infectors"] = len(
             set().union(*self.df[self.df["infection_date"] == day]["infector"].dropna())
-        )
-        self.summed[day]["sick"] = sum(
-            [v for k, v in self.summed[day].items() if k in self.sick]
         )
 
 

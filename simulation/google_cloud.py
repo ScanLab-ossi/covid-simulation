@@ -7,6 +7,8 @@ from pathlib import Path
 from google.cloud import storage, datastore, secretmanager_v1  # type: ignore
 from google.api_core.exceptions import NotFound  # type: ignore
 import requests
+
+from cachetools import cached, LFUCache
 import numpy as np  # type: ignore
 
 from simulation.constants import *
@@ -17,12 +19,15 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from simulation.output import Batch, MultiBatch
 
+cache = LFUCache(1000)
+
 
 class GoogleCloud:
     def __init__(self):
         self.add_keyfile()
         self.s_client = storage.Client()
         self.ds_client = datastore.Client()
+        # self.bq_client = bigquery.Client()
         self.todo = []
         self.done = []
 
@@ -33,6 +38,7 @@ class GoogleCloud:
                     json.dump(json.loads(os.environ["KEYFILE"]), fp)
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "keyfile.json"
 
+    @cached(cache)
     def get_secrets(self, secrets: List[str]) -> Dict[str, str]:
         secret_client = secretmanager_v1.SecretManagerServiceClient()
         res = {}
@@ -74,8 +80,8 @@ class GoogleCloud:
         blob_name: str,
         destination: Path = DATA_FOLDER,
         bucket_name: str = "simulation_datasets",
+        clean: bool = True,
     ):
-        destination_path = destination / blob_name
         bucket = self.s_client.bucket(bucket_name)
         blob = bucket.blob(blob_name)
         try:
@@ -85,15 +91,32 @@ class GoogleCloud:
             if settings["VERBOSE"]:
                 print("file doesn't exist in cloud storage")
             return
+        if clean:
+            blob_name = blob_name.split("/")[-1]
+        destination_path = destination / blob_name
         if not destination_path.exists():
             blob.download_to_filename(destination_path)
+            if settings["VERBOSE"]:
+                print(
+                    f"finished downloading {blob_name}. thank you for your patience :)"
+                )
         elif os.path.getsize(destination_path) != blob.size:
             blob.download_to_filename(destination_path)
+            if settings["VERBOSE"]:
+                print(
+                    f"finished downloading a newer version of {blob_name}. \
+                        thank you for your patience :)"
+                )
         else:
-            # print(f"{destination_path.name} already exists")
-            pass
-        if settings["VERBOSE"]:
-            print(f"finished downloading {blob_name}. thank you for your patience :)")
+            if settings["VERBOSE"]:
+                print(
+                    f"skipped downloading {destination_path.name}, since it already exists"
+                )
+
+    def get_filelist(self, bucket_name: str = "simulation_datasets"):
+        bucket = self.s_client.bucket(bucket_name)
+        all_blobs = list(bucket.list_blobs(prefix="state_transitions/"))
+        return [blob.name[18:-4] for blob in all_blobs if len(blob.name) > 18]
 
     def get_tasklist(self):
         query = self.ds_client.query(kind="task")
@@ -116,12 +139,9 @@ class GoogleCloud:
                 )
             entity.update(task)
             entities.append(entity)
-        if len(entities) == 1:
-            self.ds_client.put(entities[0])
-        else:
-            batch = self.ds_client.batch()
-            with batch:
-                self.ds_client.put_multi(entities)
+        batch = self.ds_client.batch()
+        with batch:
+            self.ds_client.put_multi(entities)
         print([e.id for e in entities])
         return [e.id for e in entities]
 
@@ -132,3 +152,8 @@ class GoogleCloud:
             self.upload(result.export_path)
         return self.add_tasks(tasks, done=True)
 
+    # @cached(cache)
+    # def query(self, query: str) -> pd.DataFrame:
+    #     query_job = self.bq_client.query(query)
+    #     res = query_job.to_dataframe()
+    #     return res  # Waits for job to complete.

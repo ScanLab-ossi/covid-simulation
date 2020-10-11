@@ -1,5 +1,5 @@
 from datetime import timedelta, date
-from typing import Tuple, Union
+from typing import Tuple, Union, Dict, List
 
 import numpy as np  # type: ignore
 import pandas as pd  # type: ignore
@@ -16,25 +16,43 @@ class StateTransition(BasicBlock):
     def __init__(self, dataset: Dataset, task: Task):
         self.task = task
         self.dataset = dataset
-        self.paths = task.paths
         self.rng = np.random.default_rng()
 
+    # can cache this?
+    def _get_age(
+        self,
+        d: Dict[str, Union[List[str], Dict[str, float], List[float]]],
+        key: str,
+        age: int,
+    ) -> List[float]:
+        age = int(age.split("-")[0]) if isinstance(age, str) else age
+        for k in d[key].keys():
+            if age in range(*[int(x) for x in k.split("-")]):
+                return d[key][k]
+
     def move_one(self, row: pd.Series, day: int) -> pd.Series:
-        if row["infection_date"] > day:
-            return row
         if row["days_left"] > 0:
             row["days_left"] -= 1
             return row
         else:
             while row["days_left"] == 0:
-                d = self.paths[row["color"]]
+                d = self.task["paths"][row["color"]]
                 try:
-                    path_dist = d["distribution"] if len(d["children"]) > 1 else [1]
+                    if len(d["children"]) == 1:
+                        path_dist = [1]
+                    elif isinstance(d["distribution"], dict):
+                        path_dist = self._get_age(d, "distribution", row["age"])
+                    else:
+                        path_dist = d["distribution"]
                     next_state = self.rng.choice(d["children"], 1, p=path_dist).item()
                     row["color"] = next_state
-                    row["days_left"] = self.paths[next_state].get("duration", 0)
-                    if row["days_left"] != 0:
-                        norm = self.rng.normal(*row["days_left"])
+                    duration = self.task["paths"][next_state].get("duration", 0)
+                    if duration == 0:
+                        row["days_left"] = 0
+                    else:
+                        if isinstance(duration, dict):
+                            row["days_left"] = self._get_age(d, "duration", row["age"])
+                        norm = self.rng.normal(*duration)
                         row["days_left"] = int(np.maximum(np.around(norm), 1)) - 1
                 except KeyError:
                     return row

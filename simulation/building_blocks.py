@@ -7,12 +7,20 @@ if TYPE_CHECKING:
     from simulation.output import Output, Batch, MultiBatch
     from simulation.dataset import Dataset
     from simulation.task import Task
+    from simulation.google_cloud import GoogleCloud
 
 
 class BasicBlock(ABC):
     def __init__(self, dataset: Dataset, task: Task):
         self.dataset: Dataset = dataset
         self.task: Task = task
+
+
+class ConnectedBasicBlock(ABC):
+    def __init__(self, dataset: Dataset, task: Task, gcloud: GoogleCloud):
+        self.dataset: Dataset = dataset
+        self.task: Task = task
+        self.gcloud = gcloud
 
 
 class OutputBasicBlock(BasicBlock):
