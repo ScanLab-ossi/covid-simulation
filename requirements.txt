@@ -1,7 +1,7 @@
 google-cloud-storage
 google-cloud-datastore  
 google-cloud-secret-manager
-psycopg2-binary
+# psycopg2-binary
 numpy>=1.19.0
 pandas
 xlrd

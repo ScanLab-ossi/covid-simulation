@@ -221,17 +221,17 @@ class GroupContagion(Contagion):
 
 
 class CSVContagion(Contagion):
-    def pick_patient_zero(self):
-        n_zero = self.task["number_of_patient_zero"]
+    def pick_patient_zero(self, day=0, sick=[]):
+        today = self.dataset.start_date + timedelta(day)
+        potential = self.dataset.ids[today]
+        if sick:
+            potential = list(set(potential) - set(sick))
+        n_zero = min(self.task["number_of_patient_zero"], len(potential))
         zeroes = pd.DataFrame(
-            [[0, 0, "green"]] * n_zero,
+            [[day, 0, "green"]] * n_zero,
             columns=["infection_date", "days_left", "color"],
-            index=self.rng.choice(
-                np.array(self.dataset.ids[self.dataset.start_date]),
-                n_zero,
-                replace=False,
-            ),
-        ).pipe(self._add_age)
+            index=self.rng.choice(potential, n_zero, replace=False),
+        )  # .pipe(self._add_age)
         return zeroes
 
     def contagion(self, df: pd.DataFrame, day: int) -> pd.DataFrame:
@@ -304,7 +304,9 @@ class SQLContagion(Contagion):
         extra = ", hops" if self.dataset.hops == True else ""
         query = f"""SELECT source, destination, `datetime`, duration{extra}
                 FROM datasets.{self.dataset.name} PARTITION ({self.dataset.name}_{curr_date.strftime('%m%d')})
-                WHERE source in {repr(tuple(infector_ids))}""".replace(",)", ")")
+                WHERE source in {repr(tuple(infector_ids))}""".replace(
+            ",)", ")"
+        )
         # AND destination not in {repr(tuple(infector_ids))}"""
 
         contagion_df = self.mysql.query(query).rename(
