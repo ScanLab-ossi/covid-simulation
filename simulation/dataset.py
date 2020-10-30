@@ -6,7 +6,6 @@ import numpy as np  # type: ignore
 
 from simulation.constants import *
 from simulation.google_cloud import GoogleCloud
-from simulation.helpers import timing
 
 
 class Dataset(object):

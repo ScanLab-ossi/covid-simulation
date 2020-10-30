@@ -40,16 +40,21 @@ class ContagionRunner(ConnectedBasicBlock):
             start = datetime.now()
             output = Output(*dt)
             st = StateTransition(*dt)
-            output.df = contagion.pick_patient_zero()
             for day in range(self.dataset.period + 1):
-                output.df = contagion.contagion(output.df, day)
-                output.df = output.df.apply(st.move_one, args=(day,), axis=1)
+                print(f"day {day}")
+                if day in self.task["patient_zeroes_on_days"]:
+                    output.df = output.df.append(
+                        contagion.pick_patient_zero(day, output.df.index.tolist())
+                    )
+                output.df = contagion.contagion(output.df, day).apply(
+                    st.move_one, args=(day,), axis=1
+                )
                 output.value_counts(day)
                 pprint(output.summed[day])
                 analysis = Analysis(*dt)
-                # if settings["LOCAL"] and self.dataset.storage == "sql":
-                #     if input("continue? y/(n)") != "y":
-                #         sys.exit()
+                if settings["INCREMENT"]:
+                    if input("continue? y/(n)") != "y":
+                        sys.exit()
             batch.append_df(output)
             print(f"iteration {i} took {datetime.now() - start}")
         return batch
@@ -132,6 +137,7 @@ class Contagion(BasicBlock):
             .assign(**{"infection_date": day, "days_left": 0, "color": "green"})
         )
 
+    @timing
     def _add_age(self, df, random=False):
         if hasattr(self.dataset, "demography"):
             return df.join(self.dataset.demography.set_index("id"), how="left")
@@ -272,30 +278,40 @@ class SQLContagion(Contagion):
         self.mysql = MySQL(gcloud)
 
     @timing
-    def pick_patient_zero(self):
-        if hasattr(self.dataset, "zeroes"):
+    def pick_patient_zero(self, day=0, sick=[]):
+        if day == 0 and hasattr(self.dataset, "zeroes"):
             potential = self.dataset.zeroes
         else:
+            today = self.dataset.start_date + timedelta(day)
             query = f"""SELECT DISTINCT source 
                     FROM datasets.{self.dataset.name} 
-                    PARTITION ({self.dataset.name}_{self.dataset.start_date.strftime('%m%d')})"""
+                    PARTITION ({self.dataset.name}_{today.strftime('%m%d')})
+                    """
+            # if sick:
+            #     query += f"WHERE source not in {repr(tuple(sick))}"
             potential = self.mysql.query(query)
+            if sick:
+                potential = potential[~potential["source"].isin(sick)]
         n_zero = self.task["number_of_patient_zero"]
         zeroes = pd.DataFrame(
-            [[0, 0, "green"]] * n_zero,
+            [[day, 0, "green"]] * n_zero,
             columns=["infection_date", "days_left", "color"],
             index=potential["source"].sample(n_zero),
-        ).pipe(self._add_age)
+        )  # .pipe(self._add_age)
         return zeroes
 
     def _make_sql_query(self, infector_ids: List[str], curr_date: date) -> pd.DataFrame:
         extra = ", hops" if self.dataset.hops == True else ""
         query = f"""SELECT source, destination, `datetime`, duration{extra}
                 FROM datasets.{self.dataset.name} PARTITION ({self.dataset.name}_{curr_date.strftime('%m%d')})
-                WHERE source in {repr(tuple(infector_ids))}
-                AND destination not in {repr(tuple(infector_ids))}"""
+                WHERE source in {repr(tuple(infector_ids))}""".replace(",)", ")")
+        # AND destination not in {repr(tuple(infector_ids))}"""
+
         contagion_df = self.mysql.query(query).rename(
             columns={"destination": "id", "source": "infector"}
+        )
+        contagion_df = contagion_df[~contagion_df["id"].isin(infector_ids)].reset_index(
+            drop=True
         )
         return contagion_df
 
@@ -321,12 +337,15 @@ class SQLContagion(Contagion):
         contagion_df = pd.concat(
             [
                 self._make_sql_query(list(group), curr_date)
-                for group in chunked(infector_ids, self.task["number_of_patient_zero"])
-            ]
+                for group in chunked(infector_ids, 1000)
+            ],
         )
+        # chunked second param was self.task["number_of_patient_zero"]
         if len(contagion_df) == 0:
             return df
-        df = df.append(contagion_df.pipe(self._infect, day=day).pipe(self._add_age))
+        df = df.append(
+            contagion_df.pipe(self._infect, day=day)
+        )  # .pipe(self._add_age))
         df = df[~df.index.duplicated(keep="first")]
         return df
 

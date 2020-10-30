@@ -59,9 +59,10 @@ class Output(BasicBlock):
 
     def __init__(self, dataset: Dataset, task: Task):
         super().__init__(dataset=dataset, task=task)
-        self.df = None
+        self.df = pd.DataFrame(
+            [], columns=["infection_date", "days_left", "color"]  # , "age"]
+        ).rename_axis(index="source")
         self.filename: str = str(task.id)
-        self.colors: List[str] = list("bprkwg")
         self.summed = {}
 
     def __len__(self):

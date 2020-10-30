@@ -5,15 +5,17 @@ settings:
   UPLOAD: false # upload results to google cloud
   SKIP_TESTS: true # skip heavy tests - google cloud and sql
   VERBOSE: true # how much to print
+  INCREMENT: false # ask before continuing after each day - useful for heavy workloads
 
 meta:
   DATASET: milan_calls
-  ITERATIONS: 1 # run experiment X times, so to average stochasticity. use 1 repetition for working on the model itself
+  ITERATIONS: 3 # run experiment X times, so to average stochasticity. use 1 repetition for working on the model itself
   SENSITIVITY: false
 
 params:
   country: United Kingdom
-  number_of_patient_zero: 1000 # Arbitrary
+  number_of_patient_zero: 1000
+  patient_zeroes_on_days: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
   # randomize_patient_zero:
   infection_model: 2 # [1, 2, wells_riley]
   alpha_blue: 1.0 # if alpha_blue == 1.0 it will be skipped. float!

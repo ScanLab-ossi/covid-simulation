@@ -1,11 +1,8 @@
 from pathlib import Path
-import configparser, os, json
-from typing import List
+import configparser, os
 
 import pandas as pd
 from sqlalchemy import create_engine, engine
-from sqlalchemy.ext.declarative import declarative_base
-from MySQLdb._exceptions import OperationalError
 
 from simulation.constants import *
 from simulation.helpers import timing
@@ -35,7 +32,9 @@ class MySQL:
                 conf["mysql"] = {k: os.environ[k] for k in env_vars}
         else:
             conf.read(conf_file)
-        return {k.lower(): v for k, v in conf.items()}
+        res = {k.lower(): v for k, v in conf.items()}
+        print(res)
+        return res
 
     def get_engine(self) -> engine.Engine:
         CONN_STR = "mysql+mysqldb://{mysql_user}:{mysql_password}@{mysql_host}/datasets?unix_socket=/cloudsql/{mysql_cloudsql_instance}".format(
