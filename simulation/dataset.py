@@ -2,7 +2,6 @@ from datetime import datetime, date
 
 from yaml import load, Loader
 import pandas as pd
-import numpy as np  # type: ignore
 
 from simulation.constants import *
 from simulation.google_cloud import GoogleCloud
@@ -25,7 +24,6 @@ class Dataset(object):
     def _strp(self, d: str) -> date:
         return datetime.strptime(d, "%Y-%m-%d").date()
 
-    # @timing
     def load_dataset(self, gcloud: GoogleCloud):
         if self.storage == "csv":
             gcloud.download(f"{self.name}.csv")
@@ -39,12 +37,16 @@ class Dataset(object):
             self.split = {
                 x.date(): df for x, df in self.data.resample("D", on="datetime")
             }
-            self.ids = {
-                x: list(df[["source", "destination"]].stack().drop_duplicates())
-                for x, df in self.split.items()
-            }
-        if self.groups:
-            self.data["group"] = self.data["group"].apply(eval)
+            if self.groups:
+                self.data["group"] = self.data["group"].apply(eval)
+                self.ids = {
+                    x: list(set.union(*df["group"])) for x, df in self.split.items()
+                }
+            else:
+                self.ids = {
+                    x: list(df[["source", "destination"]].stack().drop_duplicates())
+                    for x, df in self.split.items()
+                }
         if self.name == "milan_calls":
             self.load_helper_dfs(gcloud)
 

@@ -21,7 +21,7 @@ copenhagen_hops:
   end_date: "2020-01-08"
   interval: day
   groups: false
-  hops: true
+  hops: false
 copenhagen_groups:
   storage: csv
   nodes: 692

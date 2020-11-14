@@ -4,27 +4,29 @@ settings:
   LOCAL_TASK: true # task list according to local config only. skips downloading task list from google cloud
   UPLOAD: false # upload results to google cloud
   SKIP_TESTS: true # skip heavy tests - google cloud and sql
-  VERBOSE: true # how much to print
+  VERBOSE: false # how much to print
   INCREMENT: false # ask before continuing after each day - useful for heavy workloads
 
 meta:
-  DATASET: copenhagen_hops
-  ITERATIONS: 3 # run experiment X times, so to average stochasticity. use 1 repetition for working on the model itself
+  DATASET: copenhagen_groups
+  ITERATIONS: 30 # run experiment X times, so to average stochasticity. use 1 repetition for working on the model itself
   SENSITIVITY: false
 
 params:
   country: United Kingdom
-  number_of_patient_zero: 10
+  number_of_patient_zero: 1
   patient_zeroes_on_days: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-  # randomize_patient_zero:
   infection_model: 2 # [1, 2, wells_riley]
   alpha_blue: 1.0 # if alpha_blue == 1.0 it will be skipped. float!
+  max_group_size: 3
+  # max_duration: 60
   D_min: 0 # Arbitrary, The minimal threshold (in time) for infection,
-  D_max: 60 # Arbitrary
-  P_max: 1.0 # The probability to be infected when the exposure is over the threshold
+  D_max: 1440 # Arbitrary
+  P_max: 0.6 # The probability to be infected when the exposure is over the threshold
   p: 0.5106 # ((7.72 + 9.30) / 2) * 0.001 * 60
   q: 1000
   Q: 900
+  squeeze: 1
 
 paths:
   green:
@@ -35,7 +37,7 @@ paths:
       - 0.7
       - 0.3
   blue:
-    duration: [15, 2]
+    duration: [10, 1.5]
     children: [white]
   purple:
     children:

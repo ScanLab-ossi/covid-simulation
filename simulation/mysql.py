@@ -33,7 +33,6 @@ class MySQL:
         else:
             conf.read(conf_file)
         res = {k.lower(): v for k, v in conf.items()}
-        print(res)
         return res
 
     def get_engine(self) -> engine.Engine:

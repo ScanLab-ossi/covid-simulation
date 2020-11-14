@@ -1,19 +1,13 @@
-import json, os, sys
-from datetime import datetime, date, timedelta
-import numpy as np  # type: ignore
-import pandas as pd  # type: ignore
-from pathlib import Path
+import os
 import multiprocessing as mp
-from typing import Union
 from flask import Flask, jsonify
 
-from simulation.helpers import timing, one_array_pickle_to_set, print_settings
+from simulation.helpers import print_settings
 from simulation.constants import *
 from simulation.task import Task
 from simulation.google_cloud import GoogleCloud
 from simulation.dataset import Dataset
 from simulation.contagion import ContagionRunner
-from simulation.output import Output
 from simulation.sensitivity_analysis import SensitivityRunner
 from simulation.visualizer import Visualizer
 from simulation.analysis import Analysis
@@ -48,14 +42,14 @@ def main():
         else:
             result.sum_all_and_concat()
             result.export()
-        # if settings["LOCAL"]:
-        #     visualizer = Visualizer(
-        #         task=task, dataset=dataset, batches=result, save=True
-        #     )
-        #     if task["SENSITIVITY"]:
-        #         visualizer.sensitivity_boxplot()
-        #     else:
-        #         visualizer.visualize()
+        if settings["LOCAL"]:
+            visualizer = Visualizer(
+                task=task, dataset=dataset, batches=result, save=True
+            )
+            if task["SENSITIVITY"]:
+                visualizer.sensitivity_boxplot()
+            else:
+                visualizer.visualize()
         results.append(result)
         tasks.append(task)
     if settings["UPLOAD"]:

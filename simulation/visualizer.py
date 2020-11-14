@@ -58,8 +58,9 @@ class Visualizer(BasicBlock):
                 id_vars="day", var_name="color", value_name="amount"
             )
         else:
+            self.batches.average_outputs()
             summed = (
-                self.batches.average[list(self.colors.keys())]
+                self.batches.average.drop(columns=["infected_daily", "daily_infectors"])
                 .reset_index()
                 .melt(id_vars="day", var_name="color", value_name="amount")
             )

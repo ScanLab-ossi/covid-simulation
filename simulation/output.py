@@ -85,8 +85,9 @@ class Output(BasicBlock):
         self.summed[day]["infected_daily"] = np.count_nonzero(
             self.df["infection_date"] == day
         )
-        self.summed[day]["daily_infectors"] = len(
-            set().union(*self.df[self.df["infection_date"] == day]["infector"].dropna())
+        daily_infectors = self.df[self.df["infection_date"] == day]["infector"].dropna()
+        self.summed[day]["daily_infectors"] = (
+            len(set.union(*daily_infectors)) if len(daily_infectors) != 0 else 0
         )
 
 
