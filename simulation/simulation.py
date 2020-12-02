@@ -47,7 +47,7 @@ def main():
                 task=task, dataset=dataset, batches=result, save=True
             )
             if task["SENSITIVITY"]:
-                visualizer.sensitivity_boxplot()
+                visualizer.sensitivity_boxplots()
             else:
                 visualizer.visualize()
         results.append(result)

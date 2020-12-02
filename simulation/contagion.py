@@ -37,10 +37,12 @@ class ContagionRunner(ConnectedBasicBlock):
             start = datetime.now()
             output = Output(*dt)
             st = StateTransition(*dt)
-            if self.task["squeeze"]:
-                period = self.dataset.period // self.task["squeeze"]
-                if self.dataset.period % self.task["squeeze"] > 0:
+            if self.dataset.squeeze > 1:
+                period = self.dataset.period // self.dataset.squeeze
+                if self.dataset.period % self.dataset.squeeze > 0:
                     period += 1
+            elif self.dataset.squeeze < 1:
+                period = self.dataset.period * round(self.dataset.squeeze ** -1)
             else:
                 period = self.dataset.period + 1
             for day in range(period):
@@ -156,8 +158,8 @@ class Contagion(BasicBlock):
 
 class CSVContagion(Contagion):
     def pick_patient_zero(self, day: int = 0, sick: List[int] = []) -> pd.DataFrame:
-        today = self.dataset.start_date + timedelta(day)
-        potential = self.dataset.ids[today]
+        # today = self.dataset.start_date + timedelta(day) * self.dataset.squeeze
+        potential = self.dataset.ids[day]
         if sick:
             potential = list(set(potential) - set(sick))
         n_zero = min(self.task["number_of_patient_zero"], len(potential))
@@ -171,8 +173,7 @@ class CSVContagion(Contagion):
     def contagion(self, df: pd.DataFrame, day: int) -> pd.DataFrame:
         infectors = self._non_removed(df, day)
         infector_ids = set(infectors.index)
-        curr_date = self.dataset.start_date + timedelta(days=day)
-        today = self.dataset.split[curr_date]
+        today = self.dataset.split[day]
         if self.task.get("max_duration", False):
             today = today[today["duration"] <= self.task["max_duration"]]
         contagion_df = pd.concat(
@@ -211,8 +212,7 @@ class GroupContagion(CSVContagion):
     def contagion(self, df: pd.DataFrame, day: int) -> pd.DataFrame:
         infectors = self._non_removed(df, day)
         infector_ids = set(infectors.index)
-        curr_date = self.dataset.start_date + timedelta(days=day)
-        today = self.dataset.split[curr_date]
+        today = self.dataset.split[day]
         if self.task.get("max_duration", False):
             today = today[today["duration"] <= self.task["max_duration"]]
         if self.task.get("max_group_size", False):
@@ -250,7 +250,7 @@ class SQLContagion(Contagion):
         self.mysql = MySQL(gcloud)
 
     def _squeeze_partitions(self, day: int) -> str:
-        r = range(day * self.task["squeeze"], (day + 1) * self.task["squeeze"])
+        r = range(day * self.dataset.squeeze, (day + 1) * self.dataset.squeeze)
         return ", ".join(
             [
                 f'{self.dataset.name}_{(self.dataset.start_date + timedelta(d)).strftime("%m%d")}'
@@ -261,7 +261,7 @@ class SQLContagion(Contagion):
 
     @timing
     def pick_patient_zero(self, day: int = 0, sick: List[Optional[str]] = []):
-        if day == 0 and hasattr(self.dataset, "zeroes") and self.task["squeeze"] == 1:
+        if day == 0 and hasattr(self.dataset, "zeroes") and self.dataset.squeeze == 1:
             potential = self.dataset.zeroes
         else:
             query = f"""SELECT DISTINCT source 

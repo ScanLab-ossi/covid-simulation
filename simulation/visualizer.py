@@ -118,39 +118,49 @@ class Visualizer(BasicBlock):
     #     return chart
 
     def _sensitivity_boxplot(
-        self, df: Optional[pd.DataFrame] = None, metric: str = None
-    ) -> alt.FacetChart:
+        self,
+        df: Optional[pd.DataFrame] = None,
+        parameter: str = None,
+        steps: bool = False,
+    ) -> alt.FacetChart:  # metric: str = None
         got_input = isinstance(df, pd.DataFrame)
         df = df if got_input else self.batches.summed
+        if not steps:
+            df["step"] = (
+                df["step"].apply(eval)
+                * self.task["sensitivity"]["ranges"][parameter]["step"]
+                + self.task[parameter]
+            )
         df["parameter"] = df["parameter"].replace(
             {
                 param: f"{param}: {self.task[param]}"
                 for param in sorted(self.task["sensitivity"]["params"])
             }
         )
-        step_sort = sorted(set(df["step"].tolist()), key=eval)
+        sort = {"sort": sorted(set(df["step"].tolist()), key=eval)} if steps else {}
+
         chart = (
             alt.Chart(df)
             .mark_boxplot()
             .encode(
-                x=alt.X("step", title=None, sort=step_sort),
-                y=alt.Y("value:Q", title=metric),
-                color=alt.Color("parameter", sort="ascending",),
-                facet=alt.Facet("parameter", title=None),
+                x=alt.X("step:Q", title=None, **sort),
+                y=alt.Y("value:Q"),
+                color=alt.Color("metric", sort="ascending"),
+                facet=alt.Facet("metric", title=parameter),
             )
             .properties(height=300, width=100)
         )
         self._save_chart(chart, "sensitivity")
         return chart
 
-    # def sensitivity_boxplots(self, df: Optional[pd.DataFrame] = None):
-    #     got_input = isinstance(df, pd.DataFrame)
-    #     df = df if got_input else self.batches.summed
-    #     print(df)
-    #     chart = alt.vconcat(
-    #         *[
-    #             self._sensitivity_boxplot(group, metric)
-    #             for metric, group in df.groupby("metric")
-    #         ]
-    #     )
-    #     return chart
+    def sensitivity_boxplots(self, df: Optional[pd.DataFrame] = None):
+        got_input = isinstance(df, pd.DataFrame)
+        df = df if got_input else self.batches.summed
+        chart = alt.vconcat(
+            *[
+                self._sensitivity_boxplot(group, parameter, steps=False)
+                for parameter, group in df.groupby("parameter")
+            ]
+        )
+        self._save_chart(chart, "sensitivity")
+        return chart

@@ -2,6 +2,7 @@ from datetime import datetime, date
 
 from yaml import load, Loader
 import pandas as pd
+import numpy as np
 
 from simulation.constants import *
 from simulation.google_cloud import GoogleCloud
@@ -20,6 +21,7 @@ class Dataset(object):
         self.groups: bool = self.metadata["groups"]
         self.hops: bool = self.metadata["hops"]
         self.period: int = (self.end_date - self.start_date).days
+        self.squeeze: float = self.metadata["squeeze"]
 
     def _strp(self, d: str) -> date:
         return datetime.strptime(d, "%Y-%m-%d").date()
@@ -34,15 +36,30 @@ class Dataset(object):
                 + ["datetime", "duration"]
                 + (["hops"] if self.hops else []),
             )
+            samplesize = f"{self.squeeze}D" if self.squeeze > 1 else "D"
             self.split = {
-                x.date(): df for x, df in self.data.resample("D", on="datetime")
+                i: x[1]
+                for i, x in enumerate(self.data.resample(samplesize, on="datetime"))
             }
             if self.groups:
                 self.data["group"] = self.data["group"].apply(eval)
                 self.ids = {
                     x: list(set.union(*df["group"])) for x, df in self.split.items()
                 }
+                if self.squeeze < 1:
+                    d, i = {}, 0
+                    for df in self.split.values():
+                        for df_frac in np.array_split(
+                            df.sample(frac=1), round(self.squeeze ** -1)
+                        ):
+                            d[i] = df_frac
+                            i += 1
+                    self.split = d
             else:
+                if self.squeeze < 1:
+                    raise ValueError(
+                        "Can't unsqueeze dataset with group interactions in pairwise form"
+                    )
                 self.ids = {
                     x: list(df[["source", "destination"]].stack().drop_duplicates())
                     for x, df in self.split.items()

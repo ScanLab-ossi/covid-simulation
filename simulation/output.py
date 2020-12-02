@@ -82,12 +82,10 @@ class Output(BasicBlock):
     def value_counts(self, day):
         self.summed[day] = dict(self.df["color"].value_counts())
         self.summed[day]["green"] = self.dataset.nodes - sum(self.summed[day].values())
-        self.summed[day]["infected_daily"] = np.count_nonzero(
-            self.df["infection_date"] == day
-        )
-        daily_infectors = self.df[self.df["infection_date"] == day]["infector"].dropna()
+        daily = self.df[self.df["infection_date"] == day]
+        self.summed[day]["infected_daily"] = np.count_nonzero(daily)
         self.summed[day]["daily_infectors"] = (
-            len(set.union(*daily_infectors)) if len(daily_infectors) != 0 else 0
+            len(set.union(*daily["infectors"])) if "infectors" in daily.columns else 0
         )
 
 

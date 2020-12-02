@@ -6,6 +6,7 @@ copenhagen_interactions:
   interval: day
   groups: false
   hops: false
+  squeeze: 1
 mock_data:
   storage: csv
   nodes: 4814
@@ -14,6 +15,7 @@ mock_data:
   interval: day
   groups: false
   hops: false
+  squeeze: 1
 copenhagen_hops:
   storage: csv
   nodes: 692
@@ -22,6 +24,7 @@ copenhagen_hops:
   interval: day
   groups: false
   hops: false
+  squeeze: 1
 copenhagen_groups:
   storage: csv
   nodes: 692
@@ -30,6 +33,7 @@ copenhagen_groups:
   interval: day
   groups: true
   hops: false
+  squeeze: 1
 milan_calls:
   storage: sql
   nodes: 7825568
@@ -38,3 +42,4 @@ milan_calls:
   interval: day
   groups: false
   hops: false
+  squeeze: 1

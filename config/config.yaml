@@ -10,7 +10,7 @@ settings:
 meta:
   DATASET: copenhagen_groups
   ITERATIONS: 30 # run experiment X times, so to average stochasticity. use 1 repetition for working on the model itself
-  SENSITIVITY: false
+  SENSITIVITY: true
 
 params:
   country: United Kingdom
@@ -18,15 +18,14 @@ params:
   patient_zeroes_on_days: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
   infection_model: 2 # [1, 2, wells_riley]
   alpha_blue: 1.0 # if alpha_blue == 1.0 it will be skipped. float!
-  max_group_size: 3
+  # max_group_size: 5
   # max_duration: 60
-  D_min: 0 # Arbitrary, The minimal threshold (in time) for infection,
+  D_min: 10 # Arbitrary, The minimal threshold (in time) for infection,
   D_max: 1440 # Arbitrary
-  P_max: 0.6 # The probability to be infected when the exposure is over the threshold
+  P_max: 0.1 # The probability to be infected when the exposure is over the threshold
   p: 0.5106 # ((7.72 + 9.30) / 2) * 0.001 * 60
   q: 1000
   Q: 900
-  squeeze: 1
 
 paths:
   green:
@@ -34,10 +33,10 @@ paths:
       - blue
       - purple
     distribution:
-      - 0.7
-      - 0.3
+      - 0.75
+      - 0.25
   blue:
-    duration: [10, 1.5]
+    duration: [7.5, 0.9]
     children: [white]
   purple:
     children:
@@ -47,10 +46,10 @@ paths:
       - 0.2
       - 0.8
   purple_pink:
-    duration: [10, 1.5]
+    duration: [2.5, 0.5]
     children: [pink]
   purple_red:
-    duration: [10, 1.5]
+    duration: [2.5, 0.5]
     children: [red]
   pink:
     duration: [10, 1.5]
@@ -87,21 +86,24 @@ paths:
 
 sensitivity:
   params:
-    - D_min
-    - number_of_patient_zero
+    - P_max
   metrics:
-    - grouping: blue # a color, sick, infectors or infected
-      percent: 20
+    - grouping: sick # a color, sick, infectors or infected
+      # percent: 20
       # amount: null
       # max_: true
-      how: day # amount
-    - grouping: sick
-      max_: true
+      how: amount # day
+    - grouping: infected
+      # max_: true
+      how: amount
+    - grouping: infectors
+      # max_: true
       how: amount
   ranges:
     D_min: { step: 5, min: 0, max: 10 }
     D_max: { step: 60, min: 1200, max: 1440 }
-    P_max: { step: 0.1, min: 0.1, max: 1.0 }
+    P_max: { step: 0.1, min: 0.1, max: 0.5 }
     number_of_patient_zero: { step: 5, min: 5, max: 15 }
     ITERATIONS: { step: 5, min: 5, max: 20 }
     alpha_blue: { step: 0.1, min: 0.0, max: 1.0 }
+    max_group_size: { step: 2, min: 1000, max: 1000 }
