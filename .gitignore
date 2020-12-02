@@ -1,6 +1,6 @@
-Dockerfile
-*Dockerfile
-docker-compose.yml
+# Dockerfile
+# *Dockerfile
+# docker-compose.yml
 
 # Specific
 keyfile.json
