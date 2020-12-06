@@ -16,6 +16,12 @@ To run docker containers, make sure you have docker and docker-compose installed
 
 Run docker containers of simulation and streamlit app: `docker-compose up --build [simulation/app]`
 
+### Run on Google Compute Engine
+
+`ssh` into the instance (currently named `instance-2`). 
+
+Run using `python3 -m simulation.simulation`. Don't forget to `git pull` before running!
+
 ### Running Tests
 
 Make sure to install packages needed for testing: `pip install black nose2[coverage] mypy`
@@ -42,7 +48,6 @@ docker push eu.gcr.io/temporal-dynamics/app:latest
 gcloud app deploy --image-url=eu.gcr.io/temporal-dynamics/app:latest
 ```
 
-simulation needs to be redeployed with cloud sql enabled and trafic moved. 
 ### Colors and their meaning
 
 | color  | shorthand | meaning                                             |
