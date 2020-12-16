@@ -33,6 +33,7 @@ class ContagionRunner(ConnectedBasicBlock):
             contagion = CSVContagion(*dt, reproducible)
         else:
             contagion = SQLContagion(reproducible=reproducible, gcloud=self.gcloud, *dt)
+        # TODO: for-loop that pick the id which start the contagion 
         for i in range(self.task["ITERATIONS"]):
             start = datetime.now()
             output = Output(*dt)
@@ -158,6 +159,7 @@ class Contagion(BasicBlock):
 
 class CSVContagion(Contagion):
     def pick_patient_zero(self, day: int = 0, sick: List[int] = []) -> pd.DataFrame:
+        # TODO: pick arbitrary patient
         # today = self.dataset.start_date + timedelta(day) * self.dataset.squeeze
         potential = self.dataset.ids[day]
         if sick:

@@ -12,6 +12,7 @@ class SensitivityRunner(ConnectedBasicBlock):  # (Runner?)
         cr = ContagionRunner(self.dataset, self.task, self.gcloud)
         metabatch = MultiBatch(self.task)
         sa_conf = self.task["sensitivity"]
+        #TODO extract relevant parameters (duration, dist.) from config file.
         for param in sa_conf["params"]:
             print(f"running sensitivity analysis on {param}")
             baseline = self.task[param]

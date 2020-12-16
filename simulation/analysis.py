@@ -28,6 +28,7 @@ class Analysis(BasicBlock):
     ) -> Union[int, pd.DataFrame]:
         # amount / day @ max percent / amount of color / sick
         # day @ specific percent / amount of color / sick
+        # TODO add conuter of final state nodes != Green
         df_list = batch.summed_list
         if grouping not in df_list[0].columns:
             df_list = self.sum_groupings(df_list, grouping)
@@ -100,3 +101,5 @@ class Analysis(BasicBlock):
         )
         df["r_thresh"] = 1
         return df
+    #TODO fix RO function that get Batch as an input
+

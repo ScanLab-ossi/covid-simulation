@@ -131,7 +131,7 @@ class MultiBatch(OutputBase):
     """
     {(param, value, relative_steps): batch}
     """
-
+    # TODO fit to iterations on different zero patients.
     def __init__(self, task: Task):
         super().__init__(task=task)
         self.batches: Dict[Tuple[str, Union[int, float], str], Batch] = {}
