@@ -14,7 +14,7 @@ class TestPostgres(unittest.TestCase):
 
     def test_get_config(self):
         self.assertIsInstance(self.postgres.config, configparser.ConfigParser)
-        self.assertTrue(Path("./secrets.conf").exists())
+        # self.assertTrue(Path("./secrets.conf").exists())
 
     # @mock.patch.dict(
     #     os.environ,
