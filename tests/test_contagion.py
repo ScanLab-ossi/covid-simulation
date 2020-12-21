@@ -84,13 +84,12 @@ class TestCSVContagion(unittest.TestCase):
         self.cc.task.update
 
     def test_patient_zero(self):
-        print(f"ppz = {self.cc.pick_patient_zero()}")
         res = pd.DataFrame(
-            [0, 0, "green"],
+            [[0, 0, "green"]],
             columns=["infection_date", "days_left", "color"],
             index=["eabfCPikoZg8D1UxBq4NnA"],
         )
-        pdt.assertFrameEqual(self.cc.pick_patient_zero(), res)
+        pdt.assert_frame_equal(self.cc.pick_patient_zero(), res)
 
     # def test_first_circle_of_2_patient_in_specific_date(self):
     #     for i in [1, 2]:

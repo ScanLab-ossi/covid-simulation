@@ -66,10 +66,7 @@ class Output(BasicBlock):
         self.summed = {}
 
     def __len__(self):
-        if self.df == None:
-            return 0
-        else:
-            return len(self.df.index)
+        return len(self.df.index)
 
     def sum_output(self):
         metrics = Metrics()
@@ -105,7 +102,7 @@ class Batch(OutputBase):
         else:
             raise StopIteration
 
-    def append_df(self, output: Output):
+    def append_output(self, output: Output):
         self.batch.append(output)
 
     def average_outputs(self):
@@ -131,6 +128,7 @@ class MultiBatch(OutputBase):
     """
     {(param, value, relative_steps): batch}
     """
+
     # TODO fit to iterations on different zero patients.
     def __init__(self, task: Task):
         super().__init__(task=task)

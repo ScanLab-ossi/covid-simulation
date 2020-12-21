@@ -18,29 +18,26 @@ class TestAnalysis(unittest.TestCase):
         self.analysis = Analysis(dataset, task)
 
     def test_count(self):
-        df = self.analysis.count(
-            self.batch, grouping="sick", percent=20, how="day", avg=False
-        )
-        print(f"test_count:\n{df}")
         pdt.assert_frame_equal(
             self.analysis.count(
                 self.batch, grouping="sick", percent=20, how="day", avg=False
             ),
             pd.DataFrame(
-                {"value": [8, 9, 8], "metric": ["day_of_specific_percent_sick"] * 3}
+                {"value": [9, 9, 8], "metric": ["day_of_specific_percent_sick"] * 3}
             ),
         )
-        self.assertEqual(
+        self.assertAlmostEqual(
             self.analysis.count(
                 self.batch, grouping="infectors", amount=41, how="day", avg=True
             ),
-            9.0,
+            8.6,
+            delta=0.1,
         )
         self.assertAlmostEqual(
             self.analysis.count(
                 self.batch, grouping="infected", max_=True, how="amount", avg=True
             ),
-            115.6667,
+            133,
             delta=0.1,
         )
 

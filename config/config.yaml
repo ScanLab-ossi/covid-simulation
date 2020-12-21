@@ -10,7 +10,7 @@ settings:
 meta:
   DATASET: copenhagen_groups
   ITERATIONS: 3 # run experiment X times, so to average stochasticity. use 1 repetition for working on the model itself
-  SENSITIVITY: false
+  SENSITIVITY: true
 
 params:
   country: United Kingdom
@@ -36,7 +36,7 @@ paths:
       - 0.75
       - 0.25
   blue:
-    duration: [7.5, 0.9]
+    duration: [7.5, 1]
     children: [white]
   purple:
     children:
@@ -52,7 +52,7 @@ paths:
     duration: [2.5, 0.5]
     children: [red]
   pink:
-    duration: [10, 1.5]
+    duration: [10, 1]
     children: [white]
   red:
     children:
@@ -65,10 +65,10 @@ paths:
       - stable_black
     distribution: [0.5, 0.5]
   stable_white:
-    duration: [10, 3]
+    duration: [10, 1]
     children: [white]
   stable_black:
-    duration: [10, 3]
+    duration: [10, 1]
     children: [black]
   intensive_care:
     children:
@@ -76,17 +76,19 @@ paths:
       - intensive_care_black
     distribution: [0.5, 0.5]
   intensive_care_white:
-    duration: [10, 3]
+    duration: [10, 1]
     children: [white]
   intensive_care_black:
-    duration: [10, 3]
+    duration: [10, 1]
     children: [black]
   white: {}
   black: {}
 
 sensitivity:
   params:
-    - P_max
+    - purple_pink
+    - blue
+    # - red
   metrics:
     - grouping: sick # a color, sick, infectors or infected
       # percent: 20
@@ -94,9 +96,6 @@ sensitivity:
       # max_: true
       how: amount # day
     - grouping: infected
-      # max_: true
-      how: amount
-    - grouping: infectors
       # max_: true
       how: amount
   ranges:
@@ -107,4 +106,7 @@ sensitivity:
     ITERATIONS: { step: 5, min: 5, max: 20 }
     alpha_blue: { step: 0.1, min: 0.0, max: 1.0 }
     max_group_size: { step: 2, min: 1000, max: 1000 }
-    #TODO add parameters for duration and distribution in state for blue, purple, red, pink... 
+    red: { step: 0.1, min: 0.1, max: 0.3 }
+    purple_pink: { step: 0.5, min: 2, max: 3 }
+    blue: { step: 0.5, min: 7, max: 8 }
+    #TODO add parameters for duration and distribution in state for blue, purple, red, pink...
