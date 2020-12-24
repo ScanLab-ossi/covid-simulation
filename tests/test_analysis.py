@@ -23,7 +23,7 @@ class TestAnalysis(unittest.TestCase):
                 self.batch, grouping="sick", percent=20, how="day", avg=False
             ),
             pd.DataFrame(
-                {"value": [9, 9, 8], "metric": ["day_of_specific_percent_sick"] * 3}
+                {"value": [11, 11, 11], "metric": ["day_of_specific_percent_sick"] * 3}
             ),
         )
         self.assertAlmostEqual(
