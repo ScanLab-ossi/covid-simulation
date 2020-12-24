@@ -57,7 +57,14 @@ class Analysis(BasicBlock):
     def sum_groupings(
         self, df_list: List[pd.DataFrame], how: str
     ) -> List[pd.DataFrame]:
-        non_states = {"infected", "infectors", "infected_daily", "daily_infectors"}
+        # TODO: this function needs to be cleaned up
+        non_states = {
+            "infected",
+            "infectors",
+            "infected_daily",
+            "daily_infectors",
+            "sick",
+        }
         if how == "red":
             filter_ = {"regex": r"(intensive|stable)\w+"}
         elif how == "sick":
@@ -71,7 +78,7 @@ class Analysis(BasicBlock):
         else:
             filter_ = {"like": how}
         for df in df_list:
-            # this adds a column for analysis purposes, but dplicates data
+            # this adds a column for analysis purposes, but duplicates data
             df[how] = df.filter(**filter_).sum(axis="columns")
         return df_list
 
