@@ -15,7 +15,7 @@ meta:
 params:
   country: United Kingdom
   number_of_patient_zero: 1
-  patient_zeroes_on_days: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  patient_zeroes_on_days: [0]
   infection_model: 2 # [1, 2, wells_riley]
   alpha_blue: 1.0 # if alpha_blue == 1.0 it will be skipped. float!
   # max_group_size: 5
@@ -87,25 +87,27 @@ paths:
 sensitivity:
   params:
     - P_max
-    - D_min
+    #- D_min
     # - blue
     # - red
   metrics:
-    - grouping: sick # a color, sick, infectors or infected
-      # percent: 20
-      # amount: null
-      # max_: true
-      how: amount # day
-    - grouping: infected
-      how: amount
+    #- grouping: sick # a color, sick, infectors or infected
+    # percent: 20
+    # amount: null
+    # max_: true
+    # how: amount # day
+    #- grouping: infected
+    # how: amount
     # - grouping: sick
     #   how: day
-    - grouping: not_green
-      how: amount
+    #- grouping: not_green
+    # how: amount
+    - grouping: r_0
+
   ranges:
     D_min: { step: 5, min: 0, max: 50 }
     D_max: { step: 60, min: 1200, max: 1440 }
-    P_max: { step: 0.1, min: 0.1, max: 1.0 }
+    P_max: { step: 0.1, min: 0.3, max: 0.7 }
     number_of_patient_zero: { step: 5, min: 5, max: 15 }
     ITERATIONS: { step: 5, min: 5, max: 20 }
     alpha_blue: { step: 0.1, min: 0.0, max: 1.0 }

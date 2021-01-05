@@ -146,11 +146,24 @@ class MultiBatch(OutputBase):
             batch.sum_all_and_concat()
             for metric in self.task["sensitivity"]["metrics"]:
                 param, value, relative_steps = k
-                results.append(
-                    analysis.count(batch, avg=False, **metric).assign(
-                        **{"step": relative_steps, "parameter": param,}
+                if metric["grouping"] == "r_0":
+                    results.append(
+                        analysis.r_0(batch).assign(
+                            **{
+                                "step": relative_steps,
+                                "parameter": param,
+                            }
+                        )
                     )
-                )
+                else:
+                    results.append(
+                        analysis.count(batch, avg=False, **metric).assign(
+                            **{
+                                "step": relative_steps,
+                                "parameter": param,
+                            }
+                        )
+                    )
         self.summed = pd.concat(results)
 
     def load(self, file_path=None, format_="csv"):

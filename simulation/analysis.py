@@ -11,7 +11,10 @@ from simulation.constants import *
 
 class Analysis(BasicBlock):
     def __init__(
-        self, dataset: Dataset, task: Task, df: Optional[pd.DataFrame] = None,
+        self,
+        dataset: Dataset,
+        task: Task,
+        df: Optional[pd.DataFrame] = None,
     ):
         super().__init__(dataset=dataset, task=task)
         self.got_input = isinstance(df, pd.DataFrame)
@@ -82,38 +85,12 @@ class Analysis(BasicBlock):
             df[how] = df.filter(**filter_).sum(axis="columns")
         return df_list
 
-    def r_0(self, batch: Batch, what: str = "total") -> pd.DataFrame:
-        fname = "r_0"
-        if what == "total":
-            sick = self.sick(batch, "total")
-            infectors = np.array(
-                [len(set().union(*output.df["infector"].dropna())) for output in batch]
-            )
-            return pd.DataFrame(sick["sick"].values / infectors, columns=[fname])
-        elif what == "average":
-            return (
-                pd.concat([self.basic_r_0(output.df) for output in batch])
-                .groupby("infection_date")[["r_0", "r_thresh"]]
-                .mean()
-                .reset_index()
-            )
-
-    def basic_r_0(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df.groupby("infection_date").agg(
-            {
-                "infector": lambda x: len(set().union(*x.dropna())),
-                "final_state": "count",
-            }
-        )
-        df = df.assign(r_0=df["final_state"] / df["infector"])
-        df.index = df.index.astype("datetime64[ns]", copy=False)
-        idx = pd.date_range(self.dataset.start_date, self.dataset.end_date)
-        df = (
-            df.reindex(idx, fill_value=0)
-            .rename_axis("infection_date", axis="index")
-            .reset_index()
-        )
-        df["r_thresh"] = 1
-        return df
-
-    # TODO fix RO function that get Batch as an input
+    def r_0(self, batch: Batch) -> pd.DataFrame:
+        df_list = batch.summed_list
+        res = [
+            (df["infected_daily"] / (df["daily_infectors"]))
+            .replace([np.inf, -np.inf], 0)
+            .mean()
+            for df in df_list
+        ]
+        return pd.DataFrame({"value": res, "metric": ["r_0"] * len(res)})
