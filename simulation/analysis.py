@@ -19,7 +19,7 @@ class Analysis(BasicBlock):
     def count(
         self,
         batch: Batch,
-        grouping: str = "sick",  # a color, sick or infected
+        grouping: str = "sick",  # a color, sick, infected
         percent: int = None,
         amount: int = None,
         max_: bool = True,
@@ -28,7 +28,6 @@ class Analysis(BasicBlock):
     ) -> Union[int, pd.DataFrame]:
         # amount / day @ max percent / amount of color / sick
         # day @ specific percent / amount of color / sick
-        # TODO add conuter of final state nodes != Green
         df_list = batch.summed_list
         if grouping not in df_list[0].columns:
             df_list = self.sum_groupings(df_list, grouping)
@@ -49,7 +48,7 @@ class Analysis(BasicBlock):
                 for df in df_list
             ]
             res = [(df.index[0] if len(df.index) > 0 else np.inf) for df in thresh_dfs]
-        metric_name = f"{'max' if max_ and percent==None and amount==None else 'day_of_specific'}_{'percent'if percent else 'amount'}_{grouping}"
+        metric_name = f"{'max' if max_ and percent==None and amount==None else 'day_of_specific'}_{'percent'if percent else how}_{grouping}"
         if avg:
             return sum(res) / len(res)
         else:
@@ -58,13 +57,28 @@ class Analysis(BasicBlock):
     def sum_groupings(
         self, df_list: List[pd.DataFrame], how: str
     ) -> List[pd.DataFrame]:
+        # TODO: this function needs to be cleaned up
+        non_states = {
+            "infected",
+            "infectors",
+            "infected_daily",
+            "daily_infectors",
+            "sick",
+        }
         if how == "red":
             filter_ = {"regex": r"(intensive|stable)\w+"}
         elif how == "sick":
-            filter_ = {"items": set(df_list[0].columns) - {"green", "white", "black"}}
+            filter_ = {
+                "items": set(df_list[0].columns)
+                - {"green", "white", "black"}
+                - non_states
+            }
+        elif how == "not_green":
+            filter_ = {"items": set(df_list[0].columns) - {"green"} - non_states}
         else:
             filter_ = {"like": how}
         for df in df_list:
+            # this adds a column for analysis purposes, but duplicates data
             df[how] = df.filter(**filter_).sum(axis="columns")
         return df_list
 
@@ -101,5 +115,5 @@ class Analysis(BasicBlock):
         )
         df["r_thresh"] = 1
         return df
-    #TODO fix RO function that get Batch as an input
 
+    # TODO fix RO function that get Batch as an input

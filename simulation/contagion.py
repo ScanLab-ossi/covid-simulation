@@ -33,7 +33,7 @@ class ContagionRunner(ConnectedBasicBlock):
             contagion = CSVContagion(*dt, reproducible)
         else:
             contagion = SQLContagion(reproducible=reproducible, gcloud=self.gcloud, *dt)
-        # TODO: for-loop that pick the id which start the contagion 
+        # TODO: for-loop that pick the id which start the contagion
         for i in range(self.task["ITERATIONS"]):
             start = datetime.now()
             output = Output(*dt)
@@ -62,7 +62,7 @@ class ContagionRunner(ConnectedBasicBlock):
                 if settings["INCREMENT"]:
                     if input("continue? y/(n)") != "y":
                         sys.exit()
-            batch.append_df(output)
+            batch.append_output(output)
             print(f"iteration {i} took {datetime.now() - start}")
         return batch
 

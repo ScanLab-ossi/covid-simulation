@@ -26,10 +26,21 @@ continuous_params = [
     "ITERATIONS",
 ]
 categorical_params = ["infection_model"]
+distributions = ["green", "purple", "red", "stable", "intensive_care"]
+normal_distributions = [
+    "blue",
+    "purple_red",
+    "purple_pink",
+    "pink",
+    "stable_white",
+    "stable_black",
+    "intensive_care_white",
+    "intensive_care_black",
+]
 
 
 def make_schema():
-    params = {"age_dist": {"type": "array", "items": {"type": "number"}}}
+    params = {}
     for integer in [
         "D_min",
         "number_of_patient_zero",
@@ -72,7 +83,12 @@ def make_schema():
             "properties": {
                 "params": {
                     "type": "array",
-                    "items": {"type": "string", "enum": continuous_params},
+                    "items": {
+                        "type": "string",
+                        "enum": continuous_params
+                        + distributions
+                        + normal_distributions,
+                    },
                 },
                 "metrics": {
                     "type": "array",

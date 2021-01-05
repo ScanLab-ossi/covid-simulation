@@ -66,10 +66,7 @@ class Output(BasicBlock):
         self.summed = {}
 
     def __len__(self):
-        if self.df == None:
-            return 0
-        else:
-            return len(self.df.index)
+        return len(self.df.index)
 
     def sum_output(self):
         metrics = Metrics()
@@ -83,9 +80,10 @@ class Output(BasicBlock):
         self.summed[day] = dict(self.df["color"].value_counts())
         self.summed[day]["green"] = self.dataset.nodes - sum(self.summed[day].values())
         daily = self.df[self.df["infection_date"] == day]
-        self.summed[day]["infected_daily"] = np.count_nonzero(daily)
+        self.summed[day]["infected_daily"] = len(daily)
+        notna_infectors = daily[daily["infector"].notna()]["infector"]
         self.summed[day]["daily_infectors"] = (
-            len(set.union(*daily["infectors"])) if "infectors" in daily.columns else 0
+            len(set.union(*notna_infectors)) if len(notna_infectors) > 0 else 0
         )
 
 
@@ -105,7 +103,7 @@ class Batch(OutputBase):
         else:
             raise StopIteration
 
-    def append_df(self, output: Output):
+    def append_output(self, output: Output):
         self.batch.append(output)
 
     def average_outputs(self):
@@ -131,6 +129,7 @@ class MultiBatch(OutputBase):
     """
     {(param, value, relative_steps): batch}
     """
+
     # TODO fit to iterations on different zero patients.
     def __init__(self, task: Task):
         super().__init__(task=task)

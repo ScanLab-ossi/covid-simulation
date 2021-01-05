@@ -24,7 +24,7 @@ Run using `python3 -m simulation.simulation`. Don't forget to `git pull` before 
 
 ### Running Tests
 
-Make sure to install packages needed for testing: `pip install black nose2[coverage] mypy`
+Make sure to install packages needed for testing: `pip install black nose2[coverage_plugin] mypy`
 
 Run tests: `nose2 --with-coverage`
 

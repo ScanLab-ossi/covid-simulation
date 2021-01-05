@@ -8,24 +8,47 @@ from simulation.contagion import ContagionRunner
 
 
 class SensitivityRunner(ConnectedBasicBlock):  # (Runner?)
+    def _times(self, sr: dict) -> int:
+        return int((sr["max"] - sr["min"]) / sr["step"])
+
+    def _steps(self, value: float, baseline: float, step: float) -> str:
+        step = int(round((value - baseline) / step, 1))
+        return f"{('+' if step > 0 else '')}{step}"
+
     def run(self) -> MultiBatch:
         cr = ContagionRunner(self.dataset, self.task, self.gcloud)
-        metabatch = MultiBatch(self.task)
+        multibatch = MultiBatch(self.task)
         sa_conf = self.task["sensitivity"]
-        #TODO extract relevant parameters (duration, dist.) from config file.
         for param in sa_conf["params"]:
             print(f"running sensitivity analysis on {param}")
-            baseline = self.task[param]
-            sr = sa_conf["ranges"][param]
-            times = int((sr["max"] - sr["min"]) / sr["step"])
-            for i in range(int(times) + 1):
-                value = round(sr["min"] + i * sr["step"], 2)  # wierd float stuff
-                print(f"checking when {param} = {value}")
-                self.task.update({param: value})
-                output = Output(self.dataset, self.task)
-                batch = cr.run()
-                step = int(round(self.task[param] - baseline, 1) / sr["step"])
-                relative_steps = f"{('+' if step > 0 else '')}{step}"
-                metabatch.append_batch(batch, param, value, relative_steps)
-            self.task[param] = baseline
-        return metabatch
+            if param not in self.task:
+                sub = [k for k in self.task["paths"][param].keys() if k[0] == "d"][0]
+                baseline = self.task["paths"][param][sub]
+                sr = sa_conf["ranges"][param]
+                times = self._times(sr)
+                for i in range(times + 1):
+                    v = round(sr["min"] + i * sr["step"], 2)
+                    value = (
+                        [v, baseline[1]] if sub == "duration" else [v, round(1 - v, 2)]
+                    )
+                    print(f"checking when {param} {sub} = {value}")
+                    self.task["paths"][param].update({sub: value})
+                    batch = cr.run()
+                    multibatch.append_batch(
+                        batch, param, v, self._steps(v, baseline[0], sr["step"])
+                    )
+                self.task["paths"][param][sub] = baseline
+            else:
+                baseline = self.task[param]
+                sr = sa_conf["ranges"][param]
+                times = self._times(sr)
+                for i in range(times + 1):
+                    value = round(sr["min"] + i * sr["step"], 2)  # wierd float stuff
+                    print(f"checking when {param} = {value}")
+                    self.task.update({param: value})
+                    batch = cr.run()
+                    multibatch.append_batch(
+                        batch, param, value, self._steps(value, baseline, sr["step"])
+                    )
+                self.task[param] = baseline
+        return multibatch
