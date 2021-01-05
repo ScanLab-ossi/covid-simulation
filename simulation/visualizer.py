@@ -126,10 +126,13 @@ class Visualizer(BasicBlock):
         return base
 
     def sensitivity_boxplots(
-        self, df: Optional[pd.DataFrame] = None, steps: bool = True,
+        self,
+        df: Optional[pd.DataFrame] = None,
+        steps: bool = True,
     ) -> alt.FacetChart:  # metric: str = None
         got_input = isinstance(df, pd.DataFrame)
         df = df if got_input else self.batches.summed
+        print(df)
         df["base"] = df["parameter"].apply(self._get_base)
         if not steps:
             df["step"] = (
