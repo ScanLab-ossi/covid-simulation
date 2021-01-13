@@ -9,23 +9,25 @@ settings:
 
 meta:
   DATASET: copenhagen_groups
-  ITERATIONS: 3 # run experiment X times, so to average stochasticity. use 1 repetition for working on the model itself
+  ITERATIONS: 200 # run experiment X times, so to average stochasticity. use 1 repetition for working on the model itself
   SENSITIVITY: true
 
 params:
   country: United Kingdom
   number_of_patient_zero: 1
   patient_zeroes_on_days: [0]
-  infection_model: 2 # [1, 2, wells_riley]
+  infection_model: 3 # [1, 2, 3, wells_riley]
   alpha_blue: 1.0 # if alpha_blue == 1.0 it will be skipped. float!
   # max_group_size: 5
   # max_duration: 60
-  D_min: 10 # Arbitrary, The minimal threshold (in time) for infection,
-  D_max: 1440 # Arbitrary
-  P_max: 0.1 # The probability to be infected when the exposure is over the threshold
+  D_min: 0 # Arbitrary, The minimal threshold (in time) for infection,
+  D_max: 200 # Arbitrary
+  P_max: 0.6 # The probability to be infected when the exposure is over the threshold
   p: 0.5106 # ((7.72 + 9.30) / 2) * 0.001 * 60
   q: 1000
   Q: 900
+  k: 3
+  skew: 0
 
 paths:
   green:
@@ -86,29 +88,31 @@ paths:
 
 sensitivity:
   params:
-    - P_max
+    # - P_max
+    - skew
     #- D_min
     # - blue
     # - red
   metrics:
-    #- grouping: sick # a color, sick, infectors or infected
-    # percent: 20
-    # amount: null
-    # max_: true
-    # how: amount # day
-    #- grouping: infected
-    # how: amount
+    - grouping: sick # a color, sick, infectors or infected
+      # percent: 20
+      # amount: null
+      # max_: true
+      how: amount # day
+    - grouping: infected
+      how: amount
     # - grouping: sick
     #   how: day
-    #- grouping: not_green
-    # how: amount
-    - grouping: r_0
+    - grouping: not_green
+      how: amount
+    # - grouping: r_0
 
   ranges:
     D_min: { step: 5, min: 0, max: 50 }
     D_max: { step: 60, min: 1200, max: 1440 }
     P_max: { step: 0.1, min: 0.3, max: 0.7 }
     number_of_patient_zero: { step: 5, min: 5, max: 15 }
+    skew: { step: 3, min: 0, max: 30 }
     ITERATIONS: { step: 5, min: 5, max: 20 }
     alpha_blue: { step: 0.1, min: 0.0, max: 1.0 }
     max_group_size: { step: 2, min: 1000, max: 1000 }

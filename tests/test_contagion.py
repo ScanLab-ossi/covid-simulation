@@ -36,7 +36,19 @@ class TestContagion(unittest.TestCase):
         piped = self.sample_infected.pipe(self.c._cases)
         pdt.assert_frame_equal(piped, self.sample_infected.replace(0, 0.00001))
 
-    def test_multiply_not_infected_chances(self):
+    def test_multiply_not_infected_chances_scruve(self):
+        self.c.task["skew"] = 0
+        self.c.task["infection_model"] = 3
+        self.assertEqual(
+            self.c._multiply_not_infected_chances(self.sample_infected["duration"]),
+            0.8,
+        )
+        del self.c.task["skew"]
+        self.c.task["infection_model"] = 2
+
+    def test_multiply_not_infected_chances_relu(self):
+        self.c.task["infection_model"] = 2
+        del self.c.task["skew"]
         self.assertEqual(
             self.c._multiply_not_infected_chances(self.sample_infected["duration"]),
             0.804,

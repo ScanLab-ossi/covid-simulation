@@ -24,6 +24,7 @@ continuous_params = [
     "D_max",
     "P_max",
     "ITERATIONS",
+    "skew",
 ]
 categorical_params = ["infection_model"]
 distributions = ["green", "purple", "red", "stable", "intensive_care"]
