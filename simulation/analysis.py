@@ -11,10 +11,7 @@ from simulation.constants import *
 
 class Analysis(BasicBlock):
     def __init__(
-        self,
-        dataset: Dataset,
-        task: Task,
-        df: Optional[pd.DataFrame] = None,
+        self, dataset: Dataset, task: Task, df: Optional[pd.DataFrame] = None,
     ):
         super().__init__(dataset=dataset, task=task)
         self.got_input = isinstance(df, pd.DataFrame)
@@ -37,6 +34,8 @@ class Analysis(BasicBlock):
         if percent:
             df_list = [df * 100 / self.dataset.nodes for df in df_list]
         if max_:
+            # for df in df_list:
+            #     print(df[grouping])
             res = [
                 df[grouping].idxmax() if how == "day" else df[grouping].max()
                 for df in df_list

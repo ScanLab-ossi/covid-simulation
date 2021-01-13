@@ -1,8 +1,8 @@
-from random import choices, sample
 from datetime import datetime, timedelta
 from typing import List, Optional
 import sys
 from pprint import pprint
+import warnings
 
 import numpy as np  # type: ignore
 import numpy.ma as ma  # type: ignore
@@ -85,9 +85,7 @@ class Contagion(BasicBlock):
         elif self.task["infection_model"] == 2:
             hops = df["hops"].values if self.dataset.hops else 1
             df[D_i] = np.where(
-                df[D_i].values >= self.task["D_min"],
-                df[D_i].values / hops,
-                0.00001,
+                df[D_i].values >= self.task["D_min"], df[D_i].values / hops, 0.00001,
             )
         return df
 
@@ -97,17 +95,36 @@ class Contagion(BasicBlock):
         )
 
     def _multiply_not_infected_chances(self, d_i_k: pd.Series) -> float:
-        return 1 - np.prod(
-            1 - np.minimum(d_i_k.values / self.task["D_max"] * self.task["P_max"], 1)
-        )
+        if self.task["infection_model"] == 3:
+            np.seterr(over="raise", divide="raise")
+            mu = (self.task["D_max"] + self.task["D_min"]) / 2
+            P_max = self.task["P_max"]
+            if self.task["skew"] == 0:
+                self.task["skew"] = 0.1
+            for _ in range(10):
+                skew = self.task["skew"]
+                try:
+                    res = 1 - np.prod(
+                        1 - P_max / (1 + np.exp((mu - d_i_k.values) / skew))
+                    )
+                    break
+                except FloatingPointError:
+                    self.task["skew"] *= 10
+            return res
+        elif self.task["infection_model"] == 2:
+            return 1 - np.prod(
+                1
+                - np.minimum(d_i_k.values / self.task["D_max"] * self.task["P_max"], 1)
+            )
+
         # return 1 - np.prod(
         #     1
         #     - self.task["P_max"]
         #     / (
         #         1
         #         + np.exp(
-        #             self.task["D_min"]
-        #             + (self.task["D_max"] - self.task["D_min"]) * d_i_k.values
+        #             -self.task["k"]
+        #             * (d_i_k.values - ((self.task["D_max"] - self.task["D_min"]) / 2))
         #         )
         #     )
         # )
@@ -115,8 +132,7 @@ class Contagion(BasicBlock):
     def _consider_alpha(self, contagion_df: pd.DataFrame) -> pd.DataFrame:
         new_duration = (
             ma.array(
-                contagion_df["duration"].values,
-                mask=contagion_df["color"].values,
+                contagion_df["duration"].values, mask=contagion_df["color"].values,
             )
             * (1 - self.task["alpha_blue"])
         ).data
@@ -140,7 +156,7 @@ class Contagion(BasicBlock):
                 .agg({"duration": "sum", "infector": set})
                 .pipe(self._cases)
             )
-        elif self.task["infection_model"] == 2:
+        elif self.task["infection_model"] in (2, 3):
             contagion_df = (
                 contagion_df[
                     ["susceptible", "duration", "infector"]
@@ -195,11 +211,7 @@ class CSVContagion(Contagion):
         contagion_df = pd.concat(
             [
                 pd.merge(
-                    today,
-                    infectors["color"],
-                    left_on=c,
-                    right_index=True,
-                    how="inner",
+                    today, infectors["color"], left_on=c, right_index=True, how="inner",
                 )
                 for c in ("source", "destination")
             ]
