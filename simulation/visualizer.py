@@ -127,11 +127,11 @@ class Visualizer(BasicBlock):
             base = self.task[parameter]
         return base
 
-    def sensitivity_boxplots(
-        self, df: Optional[pd.DataFrame] = None, steps: bool = True,
-    ) -> alt.FacetChart:  # metric: str = None
-        got_input = isinstance(df, pd.DataFrame)
-        df = df if got_input else self.batches.summed
+    def _sensitivity_boxplot(
+        self,
+        df: Optional[pd.DataFrame] = None,
+        steps: bool = False,
+    ) -> alt.Chart:  # metric: str = None
         df["base"] = df["parameter"].apply(self._get_base)
         if not steps:
             df["step"] = (
@@ -161,7 +161,23 @@ class Visualizer(BasicBlock):
                 # ),
             )
             .properties(height=300, width=150)
-            .facet(column="display_parameter", row="metric")
+            # .facet(column="display_parameter", row="metric")
         )
+        return chart
+
+    def concated_boxplots(
+        self,
+        df: Optional[pd.DataFrame] = None,
+        steps: bool = False,
+    ) -> alt.HConcatChart:
+        got_input = isinstance(df, pd.DataFrame)
+        df = df if got_input else self.batches.summed
+        horizontal = []
+        for x in df["parameter"].drop_duplicates():
+            vertical = []
+            for _, g in df[df["parameter"] == x].groupby("metric"):
+                vertical.append(self._sensitivity_boxplot(g, steps))
+            horizontal.append(alt.vconcat(*vertical))
+        chart = alt.hconcat(*horizontal)
         self._save_chart(chart, "sensitivity")
         return chart

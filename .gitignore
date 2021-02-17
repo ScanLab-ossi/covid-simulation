@@ -3,6 +3,7 @@
 # docker-compose.yml
 
 # Specific
+.vscode/*
 keyfile.json
 secrets.conf
 *.csv

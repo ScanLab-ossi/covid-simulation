@@ -43,11 +43,11 @@ class TestVisualizer(unittest.TestCase):
         )
 
     @patch.object(alt.Chart, "save")
-    def test_sensitivity_boxplot(self, mock_save):
+    def test_concated_boxplots(self, mock_save):
         vis = Visualizer(self.task, self.dataset, self.multibatch, save=True)
-        chart = vis.sensitivity_boxplots()
-        self.assertEqual(chart.to_dict()["spec"]["mark"], "boxplot")
-        self.assertTupleEqual(chart.data.shape, (36, 6))
+        chart = vis.concated_boxplots()
+        self.assertIn("hconcat", chart.to_dict())
+        # self.assertTupleEqual(chart.data.shape, (36, 6))
         # mock_save.assert_called_with(
         #     str(OUTPUT_FOLDER / f"{self.task.id}_sensitivity.html"), format="html"
         # )

@@ -16,13 +16,13 @@ params:
   country: United Kingdom
   number_of_patient_zero: 1
   patient_zeroes_on_days: [0]
-  infection_model: 3 # [1, 2, 3, wells_riley]
+  infection_model: 2 # [1, 2, 3, wells_riley]
   alpha_blue: 1.0 # if alpha_blue == 1.0 it will be skipped. float!
   # max_group_size: 5
   # max_duration: 60
-  D_min: 0 # Arbitrary, The minimal threshold (in time) for infection,
+  D_min: 5 # Arbitrary, The minimal threshold (in time) for infection,
   D_max: 200 # Arbitrary
-  P_max: 0.6 # The probability to be infected when the exposure is over the threshold
+  P_max: 0.5 # The probability to be infected when the exposure is over the threshold
   p: 0.5106 # ((7.72 + 9.30) / 2) * 0.001 * 60
   q: 1000
   Q: 900
@@ -45,8 +45,8 @@ paths:
       - purple_pink
       - purple_red
     distribution:
-      - 0.2
       - 0.8
+      - 0.2
   purple_pink:
     duration: [2.5, 0.5]
     children: [pink]
@@ -89,8 +89,8 @@ paths:
 sensitivity:
   params:
     # - P_max
-    - skew
-    #- D_min
+    # - skew
+    - D_min
     # - blue
     # - red
   metrics:
@@ -108,7 +108,7 @@ sensitivity:
     # - grouping: r_0
 
   ranges:
-    D_min: { step: 5, min: 0, max: 50 }
+    D_min: { step: 5, min: 5, max: 200 }
     D_max: { step: 60, min: 1200, max: 1440 }
     P_max: { step: 0.1, min: 0.3, max: 0.7 }
     number_of_patient_zero: { step: 5, min: 5, max: 15 }
