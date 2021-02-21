@@ -145,6 +145,8 @@ class Visualizer(BasicBlock):
             lambda x: "{}: {}".format(x[0], x[1]), axis=1
         )
         sort = {"sort": sorted(set(df["step"].tolist()), key=eval)} if steps else {}
+        range_ = self.task["sensitivity"]["ranges"][df.iloc[0]["parameter"]]
+        width = (range_["max"] - range_["min"]) * 20 / range_["step"]
         chart = (
             alt.Chart(df)
             .mark_boxplot()
@@ -160,7 +162,7 @@ class Visualizer(BasicBlock):
                 #     ),
                 # ),
             )
-            .properties(height=300, width=150)
+            .properties(height=300, width=width)
             # .facet(column="display_parameter", row="metric")
         )
         return chart
