@@ -1,7 +1,6 @@
 from __future__ import annotations
 from abc import ABC
-from typing import TYPE_CHECKING
-import bz2
+import bz2, json
 import _pickle as cPickle
 from pathlib import Path
 from typing import Union, List, Optional, Tuple, Dict
@@ -16,36 +15,37 @@ from simulation.task import Task
 from simulation.helpers import timing
 from simulation.building_blocks import BasicBlock
 from simulation.metrics import Metrics
-
-if TYPE_CHECKING:
-    from simulation.analysis import Analysis
+from simulation.visualizer import Visualizer
+from simulation.analysis import Analysis
 
 
 class OutputBase(ABC):
-    def __init__(self, task: Task):
+    def __init__(self, dataset: Dataset, task: Task):
+        self.dataset = dataset
         self.task = task
         self.filename: str = str(task.id)
+        self.visualizer = Visualizer(task, dataset, save=True)
 
-    def export(
-        self,
-        filename: Optional[str] = None,
-        what: str = "summed",
-        format_: str = "csv",
-    ):
-        filename = self.filename if filename == None else filename
-        # average, concated, df
-        if not hasattr(self, what):
-            raise AttributeError(f'you haven\'t created attribute "{what}" yet')
-        self.export_path = (
-            OUTPUT_FOLDER / f"{filename}.{'pbz2' if format_ == 'pickle' else 'csv'}"
-        )
-        if format_ == "pickle":
-            with bz2.BZ2File(self.export_path, "w") as f:
-                cPickle.dump(getattr(self, what), f)
-        elif format_ == "csv":
-            getattr(self, what).to_csv(
-                self.export_path, index=(False if hasattr(self, "batches") else True)
-            )
+    def export(self, *what: str, table_format: str = "csv"):
+        for attr in what:
+            if not hasattr(self, attr):
+                raise AttributeError(f'you haven\'t created attribute "{attr}" yet')
+            if isinstance(d := getattr(self, attr), dict):
+                if isinstance(self, MultiBatch):
+                    for param, s in d.items():
+                        for step, output in s.items():
+                            d[param][step] = output.mean_and_std
+                with open(OUTPUT_FOLDER / f"{self.filename}.json", "w") as fp:
+                    json.dump(d, fp)
+            if isinstance(d := getattr(self, attr), pd.DataFrame):
+                if table_format == "pickle":
+                    with bz2.BZ2File(OUTPUT_FOLDER / f"{self.filename}.pbz2", "w") as f:
+                        cPickle.dump(d, f)
+                elif table_format == "csv":
+                    d.to_csv(
+                        OUTPUT_FOLDER / f"{self.filename}.csv",
+                        index=(False if hasattr(self, "batches") else True),
+                    )
 
     def load_pickle(self, file_path: Path) -> Union[Batch, MultiBatch]:
         data = cPickle.load(bz2.BZ2File(file_path, "rb"))
@@ -54,21 +54,21 @@ class OutputBase(ABC):
 
 class Output(BasicBlock):
     """
-    result of one iteration
+    Result of one iteration
     """
 
-    def __init__(self, dataset: Dataset, task: Task):
+    def __init__(self, dataset: Dataset, task: Task, loaded: Optional[dict] = None):
         super().__init__(dataset=dataset, task=task)
         self.df = pd.DataFrame(
             [], columns=["infection_date", "days_left", "color"]  # , "age"]
         ).rename_axis(index="source")
         self.filename: str = str(task.id)
-        self.summed = {}
+        self.summed = loaded if loaded else {}
 
     def __len__(self):
         return len(self.df.index)
 
-    def sum_output(self):
+    def sum_output(self) -> pd.DataFrame:
         metrics = Metrics()
         df = pd.DataFrame(self.summed).T.rename_axis("day", axis="index").fillna(0)
         for metric in metrics.states_with_duration:
@@ -76,7 +76,7 @@ class Output(BasicBlock):
                 df[metric] = 0
         return df
 
-    def value_counts(self, day):
+    def value_counts(self, day: int):
         self.summed[day] = dict(self.df["color"].value_counts())
         self.summed[day]["green"] = self.dataset.nodes - sum(self.summed[day].values())
         daily = self.df[self.df["infection_date"] == day]
@@ -88,9 +88,37 @@ class Output(BasicBlock):
 
 
 class Batch(OutputBase):
-    def __init__(self, task: Task):
-        super().__init__(task=task)
-        self.batch: List[Optional[Output]] = []
+    """
+    Results of all iterations with the same config
+
+
+    Attributes
+    ----------
+    batch : List[Output]
+        list of one Output per iteration
+    mean_and_std : Dict[str, Dict]
+        {mean: {}, std: {}}
+        where each is a dict of mean / std value per state per day of all iterations
+    summed_output_list : List[pd.DataFrame]
+
+    Methods
+    -------
+    append_output()
+    export()
+    load()
+    sum_batch() :
+        add attrs mean_and_std, summed_output_list
+
+    Inherited
+    ---------
+    Attributes: task, dataset
+    Methods: export()
+    """
+
+    def __init__(self, dataset: Dataset, task: Task, init: Optional[dict] = None):
+        super().__init__(dataset=dataset, task=task)
+        self.mean_and_std = init if init else {}
+        self.batch = []
 
     def __iter__(self):
         self.n = 0
@@ -106,70 +134,135 @@ class Batch(OutputBase):
     def append_output(self, output: Output):
         self.batch.append(output)
 
-    def average_outputs(self):
-        self.average = self.summed.groupby("day").mean()
+    def _sum_output_list(self) -> List[pd.DataFrame]:
+        return [output.sum_output() for output in self.batch]
 
-    def sum_all_and_concat(self):
-        self.summed_list = [output.sum_output() for output in self.batch]
-        self.summed = pd.concat(self.summed_list)
+    def sum_batch(self, how: List[str] = ["summed_output_list", "mean_and_std"]):
+        # sum types: list of dfs for some other part in code, concated dfs?, mean_and_std
+        if "summed_output_list" in how:
+            self.summed_output_list = self._sum_output_list()
+        if "mean_and_std" in how:
+            sol = getattr(self, "summed_output_list", self._sum_output_list())
+            concated = pd.concat(sol).groupby(self.dataset.interval)
+            self.mean_and_std = {
+                "mean": concated.mean().to_dict(),
+                "std": concated.std().to_dict(),
+            }
 
-    def load(self, file_path=None, format_="csv"):
+    def load(self, file_path=None, format_="json"):
         if not file_path:
             file_path = OUTPUT_FOLDER / f"{self.task.id}.{format_}"
-        if format_ == "csv":
-            if not file_path:
-                file_path = OUTPUT_FOLDER / f"{self.task.id}.csv"
-            self.summed = pd.read_csv(file_path).set_index("day")
-            self.summed_list = np.array_split(self.summed, self.task["ITERATIONS"])
-        elif format_ == "pickle":
-            return self.load_pickle(file_path)
+        if file_path.suffix == ".json":
+            with open(file_path, "r") as f:
+                self.mean_and_std = json.load(f)
+        else:
+            if file_path.suffix == ".csv":
+                concated_df = pd.read_csv(file_path).set_index("day")
+            elif file_path.suffix == ".pbz2":
+                concated_df = summed = self.load_pickle(file_path)
+            self.summed_output_list = np.array_split(
+                concated_df, self.task["ITERATIONS"]
+            )
+
+    def visualize(self):
+        df = (
+            pd.DataFrame(self.mean_and_std["mean"])
+            .drop(columns=["infected_daily", "daily_infectors"])
+            .reset_index()
+            .rename(columns={"index": "day"})
+            .melt(id_vars="day", var_name="color", value_name="amount")
+        )
+        df["day"] = df["day"].astype(int)
+        return self.visualizer.stacked_bar(df)
 
 
 class MultiBatch(OutputBase):
     """
-    {(param, value, relative_steps): batch}
+    Results of all iterations with all configs
+
+    Attributes
+    ----------
+    batches : Dict[str, Dict[Union[int, float], Batch]]
+        {param: {step: Batch, step: ...}, ...}
+        list of one Output per iteration
+    summed_analysis : pd.DataFrame
+        value | metric | step | parameter
+
+    Methods
+    -------
+    append_batch()
+    analysis_sum()
+    load()
+    visualize()
+
+    Inherited
+    ---------
+    Attributes: task, dataset, visualizer
+    Methods: export()
     """
 
-    # TODO fit to iterations on different zero patients.
-    def __init__(self, task: Task):
-        super().__init__(task=task)
-        self.batches: Dict[Tuple[str, Union[int, float], str], Batch] = {}
+    def __init__(self, dataset: Dataset, task: Task):
+        super().__init__(dataset=dataset, task=task)
+        self.batches: Dict[str, Dict[Union[int, float], Batch]] = {}
+        self.analysis = Analysis(self.dataset, self.task)
+        self.summed_analysis = pd.DataFrame(
+            columns=["value", "metric", "step", "parameter"]
+        )
 
-    def append_batch(
-        self, batch: Batch, param: str, value: Union[int, float], relative_steps: str
-    ):
-        self.batches[(param, value, relative_steps)] = batch
-
-    def analysis_sum(self, analysis: Analysis) -> pd.DataFrame:
+    def append_batch(self, batch: Batch, param: str, step: Union[int, float]):
+        batch.sum_batch()
         results = []
-        for k, batch in self.batches.items():
-            batch.sum_all_and_concat()
-            for metric in self.task["sensitivity"]["metrics"]:
-                param, value, relative_steps = k
-                if metric["grouping"] == "r_0":
-                    results.append(
-                        analysis.r_0(batch).assign(
-                            **{
-                                "step": relative_steps,
-                                "parameter": param,
-                            }
-                        )
-                    )
-                else:
-                    results.append(
-                        analysis.count(batch, avg=False, **metric).assign(
-                            **{
-                                "step": relative_steps,
-                                "parameter": param,
-                            }
-                        )
-                    )
-        self.summed = pd.concat(results)
+        for metric in self.task["sensitivity"]["metrics"]:
+            if metric["grouping"] == "r_0":
+                # FIXME: results += self.analysis.r_0(batch)
+                pass
+            else:
+                results += self.analysis.group_count(batch, **metric)
+        results = (
+            pd.DataFrame(results, columns=["value", "metric"])
+            .reset_index(drop=True)
+            .assign(**{"step": step, "parameter": param})
+        )
+        self.summed_analysis = self.summed_analysis.append(results)
+        del batch.summed_output_list
+        self.batches.setdefault(param, {})[step] = batch
 
-    def load(self, file_path=None, format_="csv"):
+    def load(self, file_path=None, format_="json"):
         if not file_path:
             file_path = OUTPUT_FOLDER / f"{self.task.id}.{format_}"
-        if format_ == "csv":
-            self.summed = pd.read_csv(file_path, dtype={"step": str})
-        elif format_ == "pickle":
-            return self.load_pickle(file_path)
+        if file_path.suffix == ".csv":
+            self.batches = pd.read_csv(file_path, dtype={"step": str})
+        elif file_path.suffix == ".pbz2":
+            self.batches = self.load_pickle(file_path)
+        elif file_path.suffix == ".json":
+            self.batches = {}
+            with open(file_path, "r") as f:
+                d = json.load(f)
+            for param, d_ in d.items():
+                self.batches[param] = {}
+                for step, batch in d_.items():
+                    self.batches[param][step] = Batch(
+                        self.dataset, self.task, init=batch
+                    )
+
+    def _prep_for_vis(self, param: str) -> pd.DataFrame:
+        to_concat = [
+            pd.DataFrame(self.batches[param][step]["mean"]).assign(**{"step": step})
+            for step in self.batches[param].keys()
+        ]
+        return (
+            pd.concat(to_concat)
+            .drop(columns=["infected_daily", "daily_infectors"])
+            .reset_index()
+            .rename(columns={"index": "day"})
+            .melt(id_vars=["day", "step"], var_name="color", value_name="amount")
+        )
+
+    def visualize(self, how: List[str] = ["boxplots", "stacked_bars"]):
+        for vis in how:
+            if vis == "stacked_bars":
+                for param in self.batches.keys():
+                    self.visualizer.stacked_bar(self._prep_for_vis(param), param=param)
+            if vis == "boxplots":
+                self.summed_analysis["step"] = self.summed_analysis["step"].astype(int)
+                self.visualizer.boxplots(self.summed_analysis)

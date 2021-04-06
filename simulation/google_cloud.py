@@ -1,13 +1,13 @@
 from __future__ import annotations
 from datetime import datetime
-import os, subprocess, json
+import os, subprocess, json, mimetypes
 from typing import List, Tuple, Dict, Union
 from pathlib import Path
+from glob import glob
 
 from google.cloud import storage, datastore, secretmanager_v1  # type: ignore
 from google.api_core.exceptions import NotFound  # type: ignore
 import requests
-
 from cachetools import cached, LFUCache
 import numpy as np  # type: ignore
 
@@ -54,24 +54,21 @@ class GoogleCloud:
     def upload(
         self, filename: Path, new_name: str = None, bucket_name: str = "simulation_runs"
     ):
-        """
-        Expect `filename` to be output.csv_path, whereas `new_name` without extension
-        """
-        then = datetime.now()
         bucket = self.s_client.bucket(bucket_name)
         blob_name = f"{new_name}.csv" if new_name else filename.name
         blob = bucket.blob(blob_name)
+        mimetype = mimetypes.guess_type(filename)[0]
         with open(filename, "rb") as f:
             file_size = os.path.getsize(filename)
             if file_size < 10_485_760:  # 10MB
-                blob.upload_from_file(f, content_type="text/csv")
+                blob.upload_from_file(f, content_type=mimetype)
             else:
                 url = blob.create_resumable_upload_session(
-                    content_type="text/csv", size=file_size
+                    content_type=mimetype, size=file_size
                 )
                 res = requests.put(url, data=f)
                 res.raise_for_status()
-        print(f"uploaded {blob_name} to {bucket.name}. took {datetime.now() - then}")
+        print(f"uploaded {blob_name} to {bucket.name}")
         return blob.self_link
 
     # @timing
@@ -145,11 +142,13 @@ class GoogleCloud:
         print([e.id for e in entities])
         return [e.id for e in entities]
 
-    def write_results(
-        self, tasks: List[Task], results: List[Union[Batch, MultiBatch]]
-    ) -> List[int]:
-        for result in results:
-            self.upload(result.export_path)
+    def write_results(self, tasks: List[Task]) -> List[int]:
+        for t in tasks:
+            for f in glob(str(OUTPUT_FOLDER / f"{self.task.id}*")):
+                if "html" in f:
+                    self.upload(f, bucket_name="simulation_runs/visualizations")
+                else:
+                    self.upload(f)
         return self.add_tasks(tasks, done=True)
 
     # @cached(cache)

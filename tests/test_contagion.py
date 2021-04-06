@@ -12,7 +12,7 @@ from simulation.dataset import Dataset
 from simulation.google_cloud import GoogleCloud
 from simulation.constants import settings
 
-task = Task()
+task = Task(test=True)
 dataset = Dataset("mock_data")
 dataset.load_dataset(gcloud=GoogleCloud())
 
@@ -62,7 +62,8 @@ class TestContagion(unittest.TestCase):
 
     def test_is_infected(self):
         npt.assert_array_equal(
-            self.c._is_infected(pd.Series([1.0, 0.0])), np.array([True, False]),
+            self.c._is_infected(pd.Series([1.0, 0.0])),
+            np.array([True, False]),
         )
 
 
@@ -136,5 +137,6 @@ class TestSQLContagion(unittest.TestCase):
 
     def test_sql_query_contagion(self):
         self.assertEqual(
-            len(self.sc.contagion(self.potential_patients, "2012-03-29")), 7942,
+            len(self.sc.contagion(self.potential_patients, "2012-03-29")),
+            7942,
         )

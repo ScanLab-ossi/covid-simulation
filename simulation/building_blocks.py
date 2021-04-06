@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Optional
 from simulation.constants import OUTPUT_FOLDER
 
 if TYPE_CHECKING:
-    from simulation.output import Output, Batch, MultiBatch
+    from simulation.output import Output, Batch
     from simulation.dataset import Dataset
     from simulation.task import Task
     from simulation.google_cloud import GoogleCloud

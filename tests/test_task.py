@@ -8,23 +8,20 @@ from simulation.task import Task
 from simulation.analysis import Analysis
 from simulation.constants import *
 
+
 metadata_keys = [
     "dataset",
-    "repetitions",
     "start_date",
     "end_date",
     "output_url",
-    "machine_version",
     "done",
 ]
 continuous_params = [
     "number_of_patient_zero",
-    "alpha_blue",
     "D_min",
     "D_max",
     "P_max",
     "ITERATIONS",
-    "skew",
 ]
 categorical_params = ["infection_model"]
 distributions = ["green", "purple", "red", "stable", "intensive_care"]
@@ -49,7 +46,7 @@ def make_schema():
         "infection_model",
     ]:
         params.update({integer: {"type": "integer"}})
-    params.update({k: {"type": "number"} for k in ["P_max", "alpha_blue"]})
+    params.update({"P_max": {"type": "number"}})
     params = {"params": {"type": "object", "properties": params}}
     params["params"].update({"required": list(params["params"]["properties"].keys())})
 
@@ -130,15 +127,16 @@ def make_schema():
 
 class TestTask(unittest.TestCase):
     def setUp(self):
-        self.t = Task()
+        self.t = Task(test=True)
 
     def test_yaml(self):
-        self.assertTrue((CONFIG_FOLDER / "config.yaml").exists())
-        with open(CONFIG_FOLDER / "config.yaml") as f:
-            self.yaml_config = load(f, Loader=Loader)
-        schema = make_schema()
-        # pprint(schema)
-        validate(instance=self.yaml_config, schema=schema)
+        for folder in (CONFIG_FOLDER, TEST_FOLDER):
+            self.assertTrue((folder / "config.yaml").exists())
+            with open(folder / "config.yaml") as f:
+                self.yaml_config = load(f, Loader=Loader)
+            schema = make_schema()
+            # pprint(schema)
+            validate(instance=self.yaml_config, schema=schema)
 
     def test_id(self):
         self.assertLess(self.t.id, 10000000000000000)

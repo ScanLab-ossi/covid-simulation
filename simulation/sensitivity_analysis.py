@@ -16,12 +16,12 @@ class SensitivityRunner(ConnectedBasicBlock):  # (Runner?)
         return f"{('+' if step > 0 else '')}{step}"
 
     def run(self) -> MultiBatch:
-        cr = ContagionRunner(self.dataset, self.task, self.gcloud)
-        multibatch = MultiBatch(self.task)
+        cr = ContagionRunner(dataset=self.dataset, task=self.task, gcloud=self.gcloud)
+        multibatch = MultiBatch(task=self.task, dataset=self.dataset)
         sa_conf = self.task["sensitivity"]
         for param in sa_conf["params"]:
             print(f"running sensitivity analysis on {param}")
-            if param not in self.task:
+            if param not in self.task.keys():
                 sub = [k for k in self.task["paths"][param].keys() if k[0] == "d"][0]
                 baseline = self.task["paths"][param][sub]
                 sr = sa_conf["ranges"][param]
@@ -35,8 +35,8 @@ class SensitivityRunner(ConnectedBasicBlock):  # (Runner?)
                     self.task["paths"][param].update({sub: value})
                     batch = cr.run()
                     multibatch.append_batch(
-                        batch, param, v, self._steps(v, baseline[0], sr["step"])
-                    )
+                        batch=batch, param=f"{param}__{sub}", step=v
+                    )  # self._steps(v, baseline[0], sr["step"])
                 self.task["paths"][param][sub] = baseline
             else:
                 baseline = self.task[param]
@@ -47,8 +47,6 @@ class SensitivityRunner(ConnectedBasicBlock):  # (Runner?)
                     print(f"checking when {param} = {value}")
                     self.task.update({param: value})
                     batch = cr.run()
-                    multibatch.append_batch(
-                        batch, param, value, self._steps(value, baseline, sr["step"])
-                    )
+                    multibatch.append_batch(batch=batch, param=param, step=value)
                 self.task[param] = baseline
         return multibatch

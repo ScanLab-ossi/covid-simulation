@@ -12,8 +12,8 @@ from simulation.constants import *
 class TestAnalysis(unittest.TestCase):
     def setUp(self):
         dataset = Dataset("copenhagen_hops")
-        task = Task()
-        self.batch = Batch(task)
+        task = Task(test=True)
+        self.batch = Batch(dataset, task)
         self.batch.load(TEST_FOLDER / "mock_summed_batch.csv", format_="csv")
         self.analysis = Analysis(dataset, task)
 

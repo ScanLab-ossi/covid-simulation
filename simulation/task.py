@@ -1,7 +1,7 @@
 from pathlib import Path
 from collections import UserDict
 from datetime import datetime
-from typing import Union, Optional
+from typing import Union, Optional, List
 
 from yaml import load, Loader
 import pandas as pd  # type: ignore
@@ -16,20 +16,22 @@ class Task(UserDict):
     Config for each simulation run.
     """
 
-    def __init__(self, data: dict = {}, done: bool = False):
+    def __init__(self, data: dict = {}, done: bool = False, test: bool = False):
         super().__init__(dict(data))
-        self.id: int = data.id if isinstance(data, Entity) else np.random.randint(
-            1e15, 1e16
+        self.id: int = (
+            data.id if isinstance(data, Entity) else np.random.randint(1e15, 1e16)
         )
         self.setdefault("done", done)
         self.setdefault("start_date", datetime.now())
-        self.load_config()
-        self.load_country_info()
+        self.load_config(test=test)
+        if self.get("country"):
+            self.load_country_info()
         # if settings["LOCAL"]:
         #     self.load_state_transition()
 
-    def load_config(self):
-        with open(CONFIG_FOLDER / "config.yaml") as f:
+    def load_config(self, test: bool = False):
+        p = (TEST_FOLDER if test else CONFIG_FOLDER) / "config.yaml"
+        with open(p) as f:
             config = load(f, Loader=Loader)
         for k, v in {
             **config["meta"],
@@ -66,3 +68,25 @@ class Task(UserDict):
                 self["paths"][k]["distribution"] = v
             elif "duration" in self["paths"][k]:
                 self["paths"][k]["duration"] = v
+
+    def variants(self) -> List[str]:
+        return [k for k in self.keys() if k.startswith("variant_")]
+
+    # @property
+    # def D_min(self):
+
+    # @property
+    # def D_max(self):
+    #     #TODO:
+
+    # @property
+    # def P_max(self):
+    #     #TODO:
+
+    # @property
+    # def number_of_patient_zero(self):
+    #     #TODO:
+
+    # @property
+    # def patient_zeroes_on_days(self):
+    #     #TODO:

@@ -23,7 +23,7 @@ def main():
         if len(tasklist) == 0:
             print("you've picked LOCAL_TASK=False, but no tasks are waiting")
             return []
-    tasks, results = [], []
+    tasks = []
     for task in tasklist:
         print(f"starting task {task.id}")
         print_settings()
@@ -36,24 +36,15 @@ def main():
         )
         result = runner.run()
         if task["SENSITIVITY"]:
-            analysis = Analysis(dataset, task)
-            result.analysis_sum(analysis)
-            result.export()
+            result.export("batches", "summed_analysis")
+            result.visualize()
         else:
-            result.sum_all_and_concat()
-            result.export()
-        if settings["LOCAL"]:
-            visualizer = Visualizer(
-                task=task, dataset=dataset, batches=result, save=True
-            )
-            if task["SENSITIVITY"]:
-                visualizer.concated_boxplots()
-            else:
-                visualizer.visualize()
-        results.append(result)
+            result.sum_batch()
+            result.export("mean_and_std")
+            result.visualize()
         tasks.append(task)
     if settings["UPLOAD"]:
-        return gcloud.write_results(tasks, results)
+        return gcloud.write_results(tasks)
 
 
 # if settings["PARALLEL"]:

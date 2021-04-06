@@ -1,8 +1,8 @@
-from datetime import datetime, date
+from datetime import date, datetime
 
-from yaml import load, Loader
-import pandas as pd
 import numpy as np
+import pandas as pd
+from yaml import Loader, load
 
 from simulation.constants import *
 from simulation.google_cloud import GoogleCloud
@@ -28,7 +28,8 @@ class Dataset(object):
 
     def load_dataset(self, gcloud: GoogleCloud):
         if self.storage == "csv":
-            gcloud.download(f"{self.name}.csv")
+            if not (DATA_FOLDER / f"{self.name}.csv").exists():
+                gcloud.download(f"{self.name}.csv")
             self.data = pd.read_csv(
                 DATA_FOLDER / f"{self.name}.csv",
                 parse_dates=["datetime"],

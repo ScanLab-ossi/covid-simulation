@@ -4,6 +4,7 @@
 
 # Specific
 .vscode/*
+output/*.json
 keyfile.json
 secrets.conf
 *.csv

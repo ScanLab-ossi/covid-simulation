@@ -1,29 +1,33 @@
 settings:
-  PARALLEL: false
-  LOCAL_TASK: true
-  UPLOAD: false
-  SKIP_TESTS: true
-  VERBOSE: true
-  INCREMENT: false
+  PARALLEL: false # run simulation in parallel, rather than iteratively. iterative seems to run faster locally
+  # LOCAL: true # should be true if running locally, false if running in the cloud
+  LOCAL_TASK: true # task list according to local config only. skips downloading task list from google cloud
+  UPLOAD: false # upload results to google cloud
+  SKIP_TESTS: true # skip heavy tests - google cloud and sql
+  VERBOSE: false # how much to print
+  INCREMENT: false # ask before continuing after each day - useful for heavy workloads
 
 meta:
   DATASET: copenhagen_groups
-  ITERATIONS: 3
+  ITERATIONS: 3 # run experiment X times, so to average stochasticity. use 1 repetition for working on the model itself
   SENSITIVITY: true
 
 params:
-  infection_model: 4
-  variant_a:
-    j: 1
-    number_of_patient_zero: 5
-    patient_zeroes_on_days: [0]
-  variant_b:
-    j: 2
-    number_of_patient_zero: 5
-    patient_zeroes_on_days: [0]
-  D_min: 5
-  D_max: 200
-  P_max: 0.5
+  country: United Kingdom
+  number_of_patient_zero: 1
+  patient_zeroes_on_days: [0]
+  infection_model: 2 # [1, 2, 3, wells_riley]
+  alpha_blue: 1.0 # if alpha_blue == 1.0 it will be skipped. float!
+  # max_group_size: 5
+  # max_duration: 60
+  D_min: 5 # Arbitrary, The minimal threshold (in time) for infection,
+  D_max: 200 # Arbitrary
+  P_max: 0.5 # The probability to be infected when the exposure is over the threshold
+  p: 0.5106 # ((7.72 + 9.30) / 2) * 0.001 * 60
+  q: 1000
+  Q: 900
+  k: 3
+  skew: 0
 
 paths:
   green:
@@ -84,16 +88,27 @@ paths:
 
 sensitivity:
   params:
+    # - P_max
+    # - skew
     - D_min
+    # - blue
+    # - red
   metrics:
-    - grouping: sick
-      how: amount
+    - grouping: sick # a color, sick, infectors or infected
+      # percent: 20
+      # amount: null
+      # max_: true
+      how: amount # day
     - grouping: infected
       how: amount
+    # - grouping: sick
+    #   how: day
     - grouping: not_green
       how: amount
+    # - grouping: r_0
+
   ranges:
-    D_min: { step: 5, min: 5, max: 15 }
+    D_min: { step: 5, min: 5, max: 30 } # 200 FIXME:
     D_max: { step: 60, min: 1200, max: 1440 }
     P_max: { step: 0.1, min: 0.3, max: 0.7 }
     number_of_patient_zero: { step: 5, min: 5, max: 15 }
@@ -104,3 +119,4 @@ sensitivity:
     red: { step: 0.1, min: 0.1, max: 0.3 }
     purple_pink: { step: 0.5, min: 2, max: 3 }
     blue: { step: 0.5, min: 7, max: 8 }
+    #TODO add parameters for duration and distribution in state for blue, purple, red, pink...

@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch
 import _pickle as cPickle
 from datetime import date
+import json
 
 import pandas as pd
 import numpy as np
@@ -37,8 +38,8 @@ sample_summed_df = pd.DataFrame(
 class TestOutput(unittest.TestCase):
     def setUp(self):
         dataset = Dataset("mock_data")
-        self.task = Task()
-        self.output = Output(dataset, self.task)
+        task = Task(test=True)
+        self.output = Output(dataset, task)
 
     def test_len(self):
         self.output.df = sample_df
@@ -61,30 +62,23 @@ class TestOutput(unittest.TestCase):
 class TestBatch(unittest.TestCase):
     def setUp(self):
         dataset = Dataset("mock_data")
-        self.task = Task()
-        self.batch = Batch(self.task)
+        task = Task(test=True)
+        self.batch = Batch(dataset, task)
         for df in np.array_split(
             pd.read_csv(TEST_FOLDER / "mock_summed_batch.csv").groupby("day"), 3
         ):
-            o = Output(dataset, self.task)
+            o = Output(dataset, task)
             o.df = df
             self.batch.append_output(o)
 
-    # def test_average_outputs(self):
-    #     self.batch.sum_all_and_concat()
-    #     self.batch.average_outputs()
-    #     pdt.assert_frame_equal(sample_summed_df, self.batch.average)
-
     @patch.object(cPickle, "dump")
-    @patch.object(pd.DataFrame, "to_csv")
-    def test_export(self, mock_to_csv, mock_to_pickle):
+    @patch.object(json, "dump")
+    def test_export(self, mock_to_json, mock_to_pickle):
         with self.assertRaises(AttributeError):
             self.output.export(how="test")
         self.average = sample_df
-        self.batch.sum_all_and_concat()
+        self.batch.sum_batch()
         # self.batch.export(what="summed", format_="pickle")
-        self.batch.export(what="summed", format_="csv")
+        self.batch.export("mean_and_std")
         # mock_to_pickle.assert_called_once_with(OUTPUT_FOLDER / f"{self.task.id}.pkl")
-        mock_to_csv.assert_called_once_with(
-            OUTPUT_FOLDER / f"{self.task.id}.csv", index=True
-        )
+        mock_to_json.assert_called_once()
