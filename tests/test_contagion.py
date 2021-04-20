@@ -54,17 +54,13 @@ class TestContagion(unittest.TestCase):
             0.804,
         )
 
-    def test_consider_alpha(self):
-        pdt.assert_frame_equal(
-            self.c._consider_alpha(self.sample_infected),
-            self.sample_infected.replace(36, 18),
-        )
-
     def test_is_infected(self):
-        npt.assert_array_equal(
-            self.c._is_infected(pd.Series([1.0, 0.0])),
-            np.array([True, False]),
+        x = (
+            self.c._is_infected(pd.DataFrame({"duration": [0.4, 0.2]}))
+            .isin([True, False])
+            .all()["duration"]
         )
+        self.assertTrue(x)
 
 
 class TestCSVContagion(unittest.TestCase):
@@ -98,11 +94,11 @@ class TestCSVContagion(unittest.TestCase):
 
     def test_patient_zero(self):
         res = pd.DataFrame(
-            [[0, 0, "green"]],
-            columns=["infection_date", "days_left", "color"],
+            [[0, 0, "green", "variant_a"]],
+            columns=["infection_date", "days_left", "color", "variant"],
             index=["eabfCPikoZg8D1UxBq4NnA"],
         )
-        pdt.assert_frame_equal(self.cc.pick_patient_zero(), res)
+        pdt.assert_frame_equal(self.cc.pick_patient_zero(variant="variant_a"), res)
 
     # def test_first_circle_of_2_patient_in_specific_date(self):
     #     for i in [1, 2]:

@@ -1,19 +1,27 @@
 from yaml import load, Loader
+
 from simulation.constants import CONFIG_FOLDER
 
 
-class Metrics:
+class States:
     def __init__(self):
-        self.not_colors = {"infected_daily", "daily_infectors"}
-        self.aggregate_colors = {"stable", "intensive_care", "red", "purple"}
         with open(CONFIG_FOLDER / "config.yaml") as f:
             config = load(f, Loader=Loader)
         self.states = {k for k in config["paths"].keys()}
-        self.states_with_duration = self.states - self.aggregate_colors
-        self.all = sorted(self.not_colors | self.aggregate_colors | self.states)
+        self.non_states = {
+            "infected",
+            "infectors",
+            "infected_daily",
+            "daily_infectors",
+            "sick",
+        }
+        self.aggregate_states = {"stable", "intensive_care", "red", "purple"}
+        self.sick_states = self.states - {"green", "white", "black"} - self.non_states
+        self.states_with_duration = self.states - self.aggregate_states
+        self.all = sorted(self.non_states | self.aggregate_states | self.states)
 
     @staticmethod
-    def decrypt_colors(color: str, replace=False) -> str:
+    def decrypt_states(color: str) -> str:
         d = {
             "blue": "asymptomatic",
             "pink": "mild symptoms",

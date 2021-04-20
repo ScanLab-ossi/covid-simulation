@@ -17,7 +17,7 @@ class TestAnalysis(unittest.TestCase):
         self.batch.load(TEST_FOLDER / "mock_summed_batch.csv", format_="csv")
         self.analysis = Analysis(dataset, task)
 
-    @unittest.skipIf(True, "Dunno what happened")  # FIXME:
+    @unittest.skipIf(True, "Dunno what happened")  # FIXME: fix count test
     def test_count(self):
         pdt.assert_frame_equal(
             self.analysis.count(
@@ -44,4 +44,4 @@ class TestAnalysis(unittest.TestCase):
 
     def test_r_0(self):
         pass
-        # TODO
+        # TODO: build test for r_0

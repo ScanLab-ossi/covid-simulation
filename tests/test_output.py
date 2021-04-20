@@ -53,7 +53,7 @@ class TestOutput(unittest.TestCase):
         #     self.output.df.append(sample_df)
 
     def test_sum_output(self):
-        # TODO:
+        # TODO: test sum output
         # self.assertEqual(summed.shape, (396, 3))  # 66 days in mockdata * 6 colors
         # self.assertEqual(summed.columns.tolist(), ["color", "day", "amount"])
         pass

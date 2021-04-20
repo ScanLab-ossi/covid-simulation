@@ -71,22 +71,3 @@ class Task(UserDict):
 
     def variants(self) -> List[str]:
         return [k for k in self.keys() if k.startswith("variant_")]
-
-    # @property
-    # def D_min(self):
-
-    # @property
-    # def D_max(self):
-    #     #TODO:
-
-    # @property
-    # def P_max(self):
-    #     #TODO:
-
-    # @property
-    # def number_of_patient_zero(self):
-    #     #TODO:
-
-    # @property
-    # def patient_zeroes_on_days(self):
-    #     #TODO:

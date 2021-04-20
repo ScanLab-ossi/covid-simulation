@@ -1,13 +1,13 @@
 from __future__ import annotations
+
 from abc import ABC
-from typing import TYPE_CHECKING, Optional
-from simulation.constants import OUTPUT_FOLDER
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from simulation.output import Output, Batch
     from simulation.dataset import Dataset
-    from simulation.task import Task
     from simulation.google_cloud import GoogleCloud
+    from simulation.output import Batch, Output
+    from simulation.task import Task
 
 
 class BasicBlock(ABC):

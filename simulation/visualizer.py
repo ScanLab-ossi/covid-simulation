@@ -9,7 +9,7 @@ from simulation.constants import *
 from simulation.dataset import Dataset
 from simulation.task import Task
 from simulation.building_blocks import BasicBlock
-from simulation.metrics import Metrics
+from simulation.states import States
 
 if TYPE_CHECKING:
     from simulation.output import Batch, MultiBatch
@@ -21,7 +21,6 @@ class Visualizer(BasicBlock):
     def __init__(self, task: Task, dataset: Dataset, save: bool = False):
         super().__init__(dataset=dataset, task=task)
         self.save = save
-        self.filename = str(self.task.id)
         self.colors = {
             "blue": "#0068c9",
             "purple_red": "#ff2b2b",
@@ -41,7 +40,7 @@ class Visualizer(BasicBlock):
             chart.save(
                 str(
                     OUTPUT_FOLDER
-                    / f"{self.filename}{f'_{suffix}' if suffix else ''}.html"
+                    / f"{self.task.id}{f'_{suffix}' if suffix else ''}.html"
                 ),
                 format="html",
             )
@@ -65,7 +64,7 @@ class Visualizer(BasicBlock):
         if not include_green:
             df = df[df["color"] != "green"]
             self.colors.pop("green")
-        df["color"] = df["color"].apply(Metrics.decrypt_colors)
+        df["color"] = df["color"].apply(States.decrypt_states)
         # add to chart if title wanted: , **({} if got_input else {"title": self.dataset.name}))
         chart = (
             alt.Chart(df)
@@ -76,7 +75,7 @@ class Visualizer(BasicBlock):
                 color=alt.Color(
                     "color",
                     scale=alt.Scale(
-                        domain=[Metrics.decrypt_colors(c) for c in self.colors.keys()],
+                        domain=[States.decrypt_states(c) for c in self.colors.keys()],
                         range=list(self.colors.values()),
                     ),
                 ),

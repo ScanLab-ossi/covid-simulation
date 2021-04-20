@@ -1,16 +1,18 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
-import pandas as pd
+
+from typing import TYPE_CHECKING, List, Optional, Union
+
 import numpy as np
-from typing import Optional, List, Union
+import pandas as pd
 
 from simulation.building_blocks import BasicBlock
+from simulation.constants import *
 from simulation.dataset import Dataset
 from simulation.task import Task
-from simulation.constants import *
+from simulation.states import States
 
 if TYPE_CHECKING:
-    from simulation.output import Batch, MultiBatch
+    from simulation.output import Batch
 
 
 class Analysis(BasicBlock):
@@ -22,11 +24,12 @@ class Analysis(BasicBlock):
     ):
         super().__init__(dataset=dataset, task=task)
         self.got_input = isinstance(df, pd.DataFrame)
+        self.states = States()
 
     def count(
         self,
         df: pd.DataFrame,
-        grouping: str = "sick",  # a color, sick, infected
+        grouping: str = "sick",  # a color, , infected
         percent: int = None,
         amount: int = None,
         max_: bool = True,
@@ -55,21 +58,12 @@ class Analysis(BasicBlock):
 
     def sum_groupings(self, df: pd.DataFrame, how: str) -> pd.DataFrame:
         # TODO: this function needs to be cleaned up
-        non_states = {
-            "infected",
-            "infectors",
-            "infected_daily",
-            "daily_infectors",
-            "sick",
-        }
         if how == "red":
             filter_ = {"regex": r"(intensive|stable)\w+"}
         elif how == "sick":
-            filter_ = {
-                "items": set(df.columns) - {"green", "white", "black"} - non_states
-            }
+            filter_ = {"items": set(df.columns) - self.states.sick_states}
         elif how == "not_green":
-            filter_ = {"items": set(df.columns) - {"green"} - non_states}
+            filter_ = {"items": set(df.columns) - {"green"} - self.states.non_states}
         else:
             filter_ = {"like": how}
         # this adds a column for analysis purposes, but duplicates data

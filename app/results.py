@@ -8,16 +8,16 @@ from simulation.visualizer import Visualizer
 from simulation.output import Batch
 from simulation.dataset import Dataset
 from simulation.analysis import Analysis
-from simulation.metrics import Metrics
+from simulation.states import States
 
 
 def get_metrics(dataset: Dataset, v=None):
-    m = Metrics()
+    m = states()
     metrics = {}
     metrics["grouping"] = st.selectbox(
         "Select a result to group by",
         options=m.all,
-        format_func=Metrics.decrypt_colors,
+        format_func=States.decrypt_states,
         key=v,
     )
     percent_or_amount = st.radio(

@@ -1,8 +1,6 @@
 import sys
-import warnings
 from datetime import datetime, timedelta
 from math import prod
-from pprint import pprint
 from typing import List, Optional
 
 import numpy as np  # type: ignore
@@ -52,9 +50,10 @@ class ContagionRunner(ConnectedBasicBlock):
             for day in range(self._squeeze()):
                 for variant in self.task.variants():
                     if day in self.task[variant]["patient_zeroes_on_days"]:
+                        # TODO: do you need to explicitly loop for each variant? or can it all be done at once?
                         output.df = output.df.append(
                             contagion.pick_patient_zero(
-                                variant, day, output.df.index.tolist()
+                                variant=variant, day=day, sick=output.df.index.tolist()
                             )
                         )
                 output.df = contagion.contagion(output.df, day).apply(
@@ -65,7 +64,7 @@ class ContagionRunner(ConnectedBasicBlock):
                     pass
                     # print(f"day {day}")
                     # pprint(output.summed[day])
-                analysis = Analysis(*dt)
+                # analysis = Analysis(*dt)
                 if settings["INCREMENT"]:
                     if input("continue? y/(n)") != "y":
                         sys.exit()
@@ -123,7 +122,7 @@ class Contagion(BasicBlock):
         vec_choice = np.vectorize(
             lambda x: self.rng.choice([True, False], 1, p=[x, 1 - x])
         )
-        return df[vec_choice(contagion_df["duration"].values)]
+        return df[vec_choice(df["duration"].values)]
 
     def _multiply_not_infected_chances(self, d_i_k: pd.Series) -> float:
         if self.task["infection_model"] == 3:
@@ -180,10 +179,12 @@ class Contagion(BasicBlock):
         return df
 
     def _is_infected_variants(self, df: pd.DataFrame) -> pd.DataFrame:
-        durs = df.groupby("susceptible").sum("duration")
+        # FIXME: not sum, union!
+        durs = df.groupby("susceptible").sum() - df.groupby("susceptible").mult()
+        durs2 = durs.sum("duration")
         df = df[
             df["susceptible"].isin(
-                durs[durs["duration"] > self.rng.random(len(durs))].index
+                durs2[durs2["duration"] > self.rng.random(len(durs2))].index
             )
         ]
         return df
@@ -216,22 +217,26 @@ class Contagion(BasicBlock):
             contagion_df = (
                 contagion_df.set_index("susceptible")
                 .pipe(self._cases)
-                .groupby("susceptible")
-                .agg({"duration": self._multiply_not_infected_chances, "infector": set})
+                .groupby(["susceptible", "variant"])
+                .agg(
+                    {"duration": self._multiply_not_infected_chances}
+                )  # drops infector
+                .reset_index(level="variant")
                 .pipe(self._is_infected)
             )
         elif self.task["infection_model"] == 4:
             contagion_df = (
                 contagion_df.pipe(self._cases)
                 .groupby(["susceptible", "variant"])
-                .agg({"duration": self._multiply_not_infected_chances, "infector": set})
-                .reset_index()
+                .agg(
+                    {"duration": self._multiply_not_infected_chances}
+                )  # drops infector
+                .reset_index(level="variant")
                 .pipe(self._is_infected_variants)
                 .pipe(self._which_variant)
             )
         infected = (
             contagion_df.drop(columns=["duration"])
-            .set_index("susceptible")
             .rename_axis(index=["infected"])
             .assign(**{"infection_date": day, "days_left": 0, "color": "green"})
         )
@@ -254,7 +259,7 @@ class Contagion(BasicBlock):
             df = df[df["duration"] <= self.task["max_duration"]]
         if self.task.get("max_group_size", False):
             df = df[df["group"].str.len() <= self.task["max_group_size"]]
-        return df.reset_index(drop=True)
+        return df
 
 
 class CSVContagion(Contagion):
@@ -270,6 +275,7 @@ class CSVContagion(Contagion):
             columns: infection_date | days_left | color | variant [| age]
         """
         # TODO: pick arbitrary patient
+        # TODO:
         # today = self.dataset.start_date + timedelta(day) * self.dataset.squeeze
         potential = self.dataset.ids[day]
         if sick:
@@ -334,24 +340,27 @@ class GroupContagion(CSVContagion):
             infection_date | days_left | color | variant
         day : int
         """
-        infectors = self._non_removed(df, day)
-        infector_ids = set(infectors.index)
-        today = self.dataset.split[day].pipe(self._filter_max)
-        today["infector"] = today["group"].apply(lambda x: x & infector_ids)
+        infector_ids = set(self._non_removed(df, day).index)
+        today = self.dataset.split[day]
+        today["infector"] = today["group"].apply(lambda x: list(x & infector_ids))
         today = today[today["infector"].str.len() > 0].reset_index()
         if len(today) == 0:
             return df
-        today["infector"] = today["infector"].apply(list)
         today["susceptible"] = today["group"].apply(
             lambda x: list(x - set(infector_ids))
         )
         today = today[today["susceptible"].str.len() > 0]
         if len(today) == 0:
             return df
-        contagion_df = (
-            today.explode("infector")
-            .join(df[["variant"]], on="infector")
-            .groupby(["index", "variant"])
+        today = today.explode("infector").join(df[["variant"]], on="infector")
+        filtered = today.pipe(self._filter_max)
+        # TODO: add option for strict filtering (remove), in addition to current light filtering (break up)
+        non_filtered = today[~today.index.isin(filtered)].drop(
+            columns=["group", "index"]
+        )
+        non_filtered["infector"] = non_filtered["infector"].apply(lambda x: (x,))
+        filtered = (
+            filtered.groupby(["index", "variant"])
             .agg(
                 {
                     "duration": "sum",
@@ -361,12 +370,13 @@ class GroupContagion(CSVContagion):
                 }
             )
             .reset_index("variant")
-            .explode("susceptible")
-            .reset_index(drop=True)
         )
-        if len(contagion_df) == 0:
+        today = (
+            filtered.append(non_filtered).explode("susceptible").reset_index(drop=True)
+        )
+        if len(today) == 0:
             return df
-        df = df.append(contagion_df.pipe(self._infect, day=day))
+        df = df.append(today.pipe(self._infect, day=day))
         # .pipe(self._add_age))
         df = df[~df.index.duplicated(keep="first")]
         return df
@@ -470,4 +480,65 @@ today : pd.DataFrame
         Name: duration, dtype: int64
         Name: group, dtype: object
             set of nodes in group meeting
+"""
+"""
+    @timing
+    def contagion(self, df: pd.DataFrame, day: int) -> pd.DataFrame:
+        ""
+        Parameters
+        ----------
+        df : pd.DataFrame
+            infection_date | days_left | color | variant
+        day : int
+        ""
+        infectors = self._non_removed(df, day)
+        infector_ids = set(infectors.index)
+        today = self.dataset.split[day]
+        # .pipe(self._filter_max)
+        today["infector"] = today["group"].apply(lambda x: list(x & infector_ids))
+        today = today[today["infector"].str.len() > 0].reset_index()
+        if len(today) == 0:
+            return df
+        today["susceptible"] = today["group"].apply(
+            lambda x: list(x - set(infector_ids))
+        )
+        today = pd.concat(today[today["susceptible"].str.len() > 0].apply(self.sum_groups, axis=1).tolist())
+        if len(today) == 0:
+            return df
+        contagion_df = (
+            .groupby(["index", "variant"])
+            .agg(
+                {
+                    "duration": "sum",
+                    "infector": tuple,
+                    "susceptible": "first",
+                    "datetime": "first",
+                }
+            )
+            .reset_index("variant")
+            .explode("susceptible")
+            .reset_index(drop=True)
+        )
+        if len(contagion_df) == 0:
+            return df
+        df = df.append(contagion_df.pipe(self._infect, day=day))
+        # .pipe(self._add_age))
+        df = df[~df.index.duplicated(keep="first")]
+        return df
+    def sum_groups(self, s: pd.Series, infectors: pd.DataFrame) -> pd.DataFrame:
+        res = (
+            infectors[infectors["index"].isin(s["infector"])]
+            .groupby("variant")
+            .agg(
+                **{
+                    "duration": pd.NamedAgg(column="variant", aggfunc="count"),
+                    "infector": pd.NamedAgg(column="index", aggfunc="first"),
+                }
+            )
+        ).reset_index()
+        res["susceptible"] = [s["susceptible"]] * len(res)
+        res["duration"] *= s["duration"]
+        res["index"] = s["index"]
+        res["infector"] = res["infector"].str[0]
+        return res
 """

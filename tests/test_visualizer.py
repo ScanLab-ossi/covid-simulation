@@ -47,7 +47,7 @@ class TestVisualizer(unittest.TestCase):
 
     @patch.object(alt.Chart, "save")
     def test_boxplot(self, mock_save):
-        chart = self.(self.multibatch.summed_analysis)
+        chart = self.multibatch.summed_analysis
         self.assertIn("hconcat", chart.to_dict())
         # self.assertTupleEqual(chart.data.shape, (36, 6))
         # mock_save.assert_called_with(

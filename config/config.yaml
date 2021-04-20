@@ -1,9 +1,9 @@
 settings:
   PARALLEL: false
   LOCAL_TASK: true
-  UPLOAD: false
+  UPLOAD: true
   SKIP_TESTS: true
-  VERBOSE: true
+  VERBOSE: false
   INCREMENT: false
 
 meta:
@@ -12,15 +12,15 @@ meta:
   SENSITIVITY: true
 
 params:
-  infection_model: 4
+  infection_model: 2
   variant_a:
     j: 1
-    number_of_patient_zero: 5
+    number_of_patient_zero: 1
     patient_zeroes_on_days: [0]
-  variant_b:
-    j: 2
-    number_of_patient_zero: 5
-    patient_zeroes_on_days: [0]
+  # variant_b:
+  #   j: 2
+  #   number_of_patient_zero: 5
+  #   patient_zeroes_on_days: [0]
   D_min: 5
   D_max: 200
   P_max: 0.5

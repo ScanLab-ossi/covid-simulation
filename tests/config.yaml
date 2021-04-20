@@ -14,18 +14,21 @@ meta:
 
 params:
   country: United Kingdom
-  number_of_patient_zero: 1
-  patient_zeroes_on_days: [0]
-  infection_model: 2 # [1, 2, 3, wells_riley]
+  infection_model: 2 #[1,2,3,4]
   alpha_blue: 1.0 # if alpha_blue == 1.0 it will be skipped. float!
+  variant_a:
+    j: 1
+    number_of_patient_zero: 1
+    patient_zeroes_on_days: [0]
+  variant_b:
+    j: 2
+    number_of_patient_zero: 5
+    patient_zeroes_on_days: [0]
   # max_group_size: 5
   # max_duration: 60
   D_min: 5 # Arbitrary, The minimal threshold (in time) for infection,
   D_max: 200 # Arbitrary
   P_max: 0.5 # The probability to be infected when the exposure is over the threshold
-  p: 0.5106 # ((7.72 + 9.30) / 2) * 0.001 * 60
-  q: 1000
-  Q: 900
   k: 3
   skew: 0
 

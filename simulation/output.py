@@ -1,10 +1,8 @@
 from __future__ import annotations
 from abc import ABC
-import bz2, json
-import _pickle as cPickle
+import gzip, json, pickle
 from pathlib import Path
-from typing import Union, List, Optional, Tuple, Dict
-from datetime import datetime
+from typing import Union, List, Optional, Dict
 
 import pandas as pd  # type: ignore
 import numpy as np  # type: ignore
@@ -14,7 +12,7 @@ from simulation.dataset import Dataset
 from simulation.task import Task
 from simulation.helpers import timing
 from simulation.building_blocks import BasicBlock
-from simulation.metrics import Metrics
+from simulation.states import States
 from simulation.visualizer import Visualizer
 from simulation.analysis import Analysis
 
@@ -23,7 +21,6 @@ class OutputBase(ABC):
     def __init__(self, dataset: Dataset, task: Task):
         self.dataset = dataset
         self.task = task
-        self.filename: str = str(task.id)
         self.visualizer = Visualizer(task, dataset, save=True)
 
     def export(self, *what: str, table_format: str = "csv"):
@@ -35,43 +32,58 @@ class OutputBase(ABC):
                     for param, s in d.items():
                         for step, output in s.items():
                             d[param][step] = output.mean_and_std
-                with open(OUTPUT_FOLDER / f"{self.filename}.json", "w") as fp:
+                with open(OUTPUT_FOLDER / f"{self.task.id}.json", "w") as fp:
                     json.dump(d, fp)
             if isinstance(d := getattr(self, attr), pd.DataFrame):
                 if table_format == "pickle":
-                    with bz2.BZ2File(OUTPUT_FOLDER / f"{self.filename}.pbz2", "w") as f:
-                        cPickle.dump(d, f)
+                    with gzip.GzipFile(OUTPUT_FOLDER / f"{self.task.id}.pgz", "w") as f:
+                        pickle.dump(d, f)
                 elif table_format == "csv":
                     d.to_csv(
-                        OUTPUT_FOLDER / f"{self.filename}.csv",
+                        OUTPUT_FOLDER / f"{self.task.id}.csv",
                         index=(False if hasattr(self, "batches") else True),
                     )
 
     def load_pickle(self, file_path: Path) -> Union[Batch, MultiBatch]:
-        data = cPickle.load(bz2.BZ2File(file_path, "rb"))
+        data = pickle.load(gzip.GzipFile(file_path, "rb"))
         return data
 
 
 class Output(BasicBlock):
     """
     Result of one iteration
+
+    Attributes
+    ----------
+    df : pd.DataFrame
+        infection_date | days_left | color | variant | infector
+    summed : dict
+    variant_summed :
+
     """
 
     def __init__(self, dataset: Dataset, task: Task, loaded: Optional[dict] = None):
         super().__init__(dataset=dataset, task=task)
         self.df = pd.DataFrame(
-            [], columns=["infection_date", "days_left", "color"]  # , "age"]
+            [],
+            columns=[
+                "infection_date",
+                "days_left",
+                "color",
+                "variant",
+                "infector",
+            ],
         ).rename_axis(index="source")
-        self.filename: str = str(task.id)
         self.summed = loaded if loaded else {}
+        self.variant_summed = {}
+        self.states = States()  # TODO: move states to BasicBlock
 
     def __len__(self):
         return len(self.df.index)
 
     def sum_output(self) -> pd.DataFrame:
-        metrics = Metrics()
         df = pd.DataFrame(self.summed).T.rename_axis("day", axis="index").fillna(0)
-        for metric in metrics.states_with_duration:
+        for metric in self.states.states_with_duration:
             if metric not in df.columns:
                 df[metric] = 0
         return df
@@ -85,6 +97,20 @@ class Output(BasicBlock):
         self.summed[day]["daily_infectors"] = (
             len(set.union(*notna_infectors)) if len(notna_infectors) > 0 else 0
         )
+        self.variant_summed[day] = {}
+        self.variant_summed[day]["infected"] = (
+            self.df.groupby("variant")["color"].count().to_dict()
+        )
+        self.variant_summed[day]["infected_daily"] = (
+            daily.groupby("variant")["color"].count().to_dict()
+        )
+        self.variant_summed[day]["sick"] = (
+            self.df[self.df["color"].isin(self.states.sick_states)]
+            .groupby("variant")["color"]
+            .count()
+            .to_dict()
+        )
+        pass
 
 
 class Batch(OutputBase):
@@ -159,7 +185,7 @@ class Batch(OutputBase):
             if file_path.suffix == ".csv":
                 concated_df = pd.read_csv(file_path).set_index("day")
             elif file_path.suffix == ".pbz2":
-                concated_df = summed = self.load_pickle(file_path)
+                concated_df = self.load_pickle(file_path)
             self.summed_output_list = np.array_split(
                 concated_df, self.task["ITERATIONS"]
             )

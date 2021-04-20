@@ -9,7 +9,6 @@ from simulation.dataset import Dataset
 from simulation.task import Task
 from simulation.constants import *
 from simulation.analysis import Analysis
-from simulation.metrics import Metrics
 from app.results import get_metrics
 from app.helpers import validate_identifier, label_it
 
@@ -33,7 +32,9 @@ def load_inputs(key, new_task):
                 list(datasets.keys()) if param == "DATASET" else metadata["options"]
             )
             new_task[param] = st.selectbox(
-                param, options=options, index=metadata["default_index"],
+                param,
+                options=options,
+                index=metadata["default_index"],
             )
             element_count += 1
         elif metadata["type"] == "continuous":
@@ -56,10 +57,14 @@ def load_inputs(key, new_task):
                 # step = 0.05 if isinstance(v, float) else 1
                 new_task[param] = [
                     st.number_input(
-                        "mean", value=default_task[param][0], key=f"{param}_mean",
+                        "mean",
+                        value=default_task[param][0],
+                        key=f"{param}_mean",
                     ),
                     st.number_input(
-                        "std", value=default_task[param][1], key=f"{param}_std",
+                        "std",
+                        value=default_task[param][1],
+                        key=f"{param}_std",
                     ),
                 ]
                 st.write()
@@ -106,7 +111,6 @@ def add_sensitivity(new_task):
     new_task["SENSITIVITY"] = st.checkbox("Run sensitivity analysis")
     if new_task["SENSITIVITY"]:
         dataset = Dataset(new_task["DATASET"])
-        metrics = Metrics()
         new_task["sensitivity"]["metrics"] = []
         n_metrics = st.number_input(
             "How many metrics do you want to run your sensitivity analysis on?", 1
@@ -265,4 +269,3 @@ def validate_sensitivity(new_task, error=True, curr_param=None):
         if new_task[param] < range_["min"] or new_task[param] > range_["max"]:
             return False, f"Make sure {param} is within sensitivity range"
     return True, ""
-

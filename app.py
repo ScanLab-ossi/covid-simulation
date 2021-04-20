@@ -19,7 +19,6 @@ alt.themes.enable("streamlit")
 gcloud = GoogleCloud()
 gcloud.get_tasklist()
 
-# TODO:
 # fix name!
 # more config validation?
 # dataset metadata
