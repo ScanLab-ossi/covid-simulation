@@ -1,6 +1,5 @@
 import sys
 from datetime import datetime, timedelta
-from math import prod
 from typing import List, Optional
 
 import numpy as np  # type: ignore

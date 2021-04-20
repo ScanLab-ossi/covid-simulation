@@ -98,6 +98,9 @@ class Output(BasicBlock):
         self.summed[day]["daily_infectors"] = (
             len(set.union(*notna_infectors)) if len(notna_infectors) > 0 else 0
         )
+        self.summed[day]["sick"] = len(
+            self.df[self.df["color"].isin(self.states.sick_states)]
+        )
         self.variant_summed[day] = {}
         self.variant_summed[day]["infected"] = (
             self.df.groupby("variant")["color"].count().to_dict()
@@ -194,7 +197,7 @@ class Batch(OutputBase):
     def visualize(self):
         df = (
             pd.DataFrame(self.mean_and_std["mean"])
-            .drop(columns=["infected_daily", "daily_infectors"])
+            .drop(columns=["infected_daily", "daily_infectors", "sick"])
             .reset_index()
             .rename(columns={"index": "day"})
             .melt(id_vars="day", var_name="color", value_name="amount")
@@ -279,7 +282,7 @@ class MultiBatch(OutputBase):
         ]
         return (
             pd.concat(to_concat)
-            .drop(columns=["infected_daily", "daily_infectors"])
+            .drop(columns=["infected_daily", "daily_infectors", "sick"])
             .reset_index()
             .rename(columns={"index": "day"})
             .melt(id_vars=["day", "step"], var_name="color", value_name="amount")
@@ -291,5 +294,5 @@ class MultiBatch(OutputBase):
                 for param in self.batches.keys():
                     self.visualizer.stacked_bar(self._prep_for_vis(param), param=param)
             if vis == "boxplots":
-                self.summed_analysis["step"] = self.summed_analysis["step"].astype(int)
+                self.summed_analysis["step"] = self.summed_analysis["step"]
                 self.visualizer.boxplots(self.summed_analysis)

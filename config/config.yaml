@@ -1,14 +1,14 @@
 settings:
   PARALLEL: false
   LOCAL_TASK: true
-  UPLOAD: true
+  UPLOAD: false
   SKIP_TESTS: true
   VERBOSE: false
   INCREMENT: false
 
 meta:
   DATASET: copenhagen_groups
-  ITERATIONS: 3
+  ITERATIONS: 5
   SENSITIVITY: true
 
 params:
@@ -84,7 +84,7 @@ paths:
 
 sensitivity:
   params:
-    - D_min
+    - green
   metrics:
     - grouping: sick
       how: amount
@@ -104,3 +104,4 @@ sensitivity:
     red: { step: 0.1, min: 0.1, max: 0.3 }
     purple_pink: { step: 0.5, min: 2, max: 3 }
     blue: { step: 0.5, min: 7, max: 8 }
+    green: {step: 0.1, min: 0.1, max: 0.3}
