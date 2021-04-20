@@ -25,16 +25,17 @@ class OutputBase(ABC):
 
     def export(self, *what: str, table_format: str = "csv"):
         for attr in what:
+            d = getattr(self, attr)
             if not hasattr(self, attr):
                 raise AttributeError(f'you haven\'t created attribute "{attr}" yet')
-            if isinstance(d := getattr(self, attr), dict):
+            if isinstance(d, dict):
                 if isinstance(self, MultiBatch):
                     for param, s in d.items():
                         for step, output in s.items():
                             d[param][step] = output.mean_and_std
                 with open(OUTPUT_FOLDER / f"{self.task.id}.json", "w") as fp:
                     json.dump(d, fp)
-            if isinstance(d := getattr(self, attr), pd.DataFrame):
+            if isinstance(d, pd.DataFrame):
                 if table_format == "pickle":
                     with gzip.GzipFile(OUTPUT_FOLDER / f"{self.task.id}.pgz", "w") as f:
                         pickle.dump(d, f)
