@@ -12,16 +12,14 @@ from simulation.dataset import Dataset
 from simulation.task import Task
 from simulation.helpers import timing
 from simulation.building_blocks import BasicBlock
-from simulation.states import States
 from simulation.visualizer import Visualizer
 from simulation.analysis import Analysis
 
 
-class OutputBase(ABC):
+class OutputBase(BasicBlock):
     def __init__(self, dataset: Dataset, task: Task):
-        self.dataset = dataset
-        self.task = task
-        self.visualizer = Visualizer(task, dataset, save=True)
+        super().__init__(dataset=dataset, task=task)
+        self.visualizer = Visualizer(dataset, task, save=True)
 
     def export(self, *what: str, table_format: str = "csv"):
         for attr in what:
@@ -63,7 +61,12 @@ class Output(BasicBlock):
 
     """
 
-    def __init__(self, dataset: Dataset, task: Task, loaded: Optional[dict] = None):
+    def __init__(
+        self,
+        dataset: Dataset,
+        task: Task,
+        loaded: Optional[dict] = None,
+    ):
         super().__init__(dataset=dataset, task=task)
         self.df = pd.DataFrame(
             [],
@@ -77,7 +80,6 @@ class Output(BasicBlock):
         ).rename_axis(index="source")
         self.summed = loaded if loaded else {}
         self.variant_summed = {}
-        self.states = States()  # TODO: move states to BasicBlock
 
     def __len__(self):
         return len(self.df.index)
@@ -221,7 +223,6 @@ class MultiBatch(OutputBase):
     Methods
     -------
     append_batch()
-    analysis_sum()
     load()
     visualize()
 

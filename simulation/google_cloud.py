@@ -143,8 +143,8 @@ class GoogleCloud:
         return [e.id for e in entities]
 
     def write_results(self, tasks: List[Task]) -> List[int]:
-        for t in tasks:
-            for f in glob(str(OUTPUT_FOLDER / f"{self.task.id}*")):
+        for task in tasks:
+            for f in glob(str(OUTPUT_FOLDER / f"{task.id}*")):
                 if "html" in f:
                     self.upload(f, bucket_name="simulation_runs/visualizations")
                 else:

@@ -7,25 +7,12 @@ import pandas as pd
 
 from simulation.building_blocks import BasicBlock
 from simulation.constants import *
-from simulation.dataset import Dataset
-from simulation.task import Task
-from simulation.states import States
 
 if TYPE_CHECKING:
     from simulation.output import Batch
 
 
 class Analysis(BasicBlock):
-    def __init__(
-        self,
-        dataset: Dataset,
-        task: Task,
-        df: Optional[pd.DataFrame] = None,
-    ):
-        super().__init__(dataset=dataset, task=task)
-        self.got_input = isinstance(df, pd.DataFrame)
-        self.states = States()
-
     def count(
         self,
         df: pd.DataFrame,

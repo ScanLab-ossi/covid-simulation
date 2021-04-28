@@ -1,10 +1,7 @@
-import pandas as pd  # type: ignore
-import numpy as np  # type: ignore
-
 from simulation.building_blocks import ConnectedBasicBlock
-from simulation.output import Output, MultiBatch
 from simulation.constants import *
 from simulation.contagion import ContagionRunner
+from simulation.output import MultiBatch
 
 
 class SensitivityRunner(ConnectedBasicBlock):  # (Runner?)
@@ -16,8 +13,8 @@ class SensitivityRunner(ConnectedBasicBlock):  # (Runner?)
         return f"{('+' if step > 0 else '')}{step}"
 
     def run(self) -> MultiBatch:
-        cr = ContagionRunner(dataset=self.dataset, task=self.task, gcloud=self.gcloud)
-        multibatch = MultiBatch(task=self.task, dataset=self.dataset)
+        cr = ContagionRunner(self.dataset, self.task, self.states, self.gcloud)
+        multibatch = MultiBatch(self.dataset, self.task, self.states)
         sa_conf = self.task["sensitivity"]
         for param in sa_conf["params"]:
             print(f"running sensitivity analysis on {param}")

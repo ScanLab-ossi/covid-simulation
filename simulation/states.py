@@ -20,8 +20,7 @@ class States:
         self.states_with_duration = self.states - self.aggregate_states
         self.all = sorted(self.non_states | self.aggregate_states | self.states)
 
-    @staticmethod
-    def decrypt_states(color: str) -> str:
+    def decrypt_states(self, color: str) -> str:
         d = {
             "blue": "asymptomatic",
             "pink": "mild symptoms",

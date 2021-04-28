@@ -9,21 +9,19 @@ from simulation.output import Batch, MultiBatch
 from simulation.dataset import Dataset
 from simulation.visualizer import Visualizer
 from simulation.task import Task
-from simulation.analysis import Analysis
 from simulation.constants import *
 
 
 class TestVisualizer(unittest.TestCase):
     @patch.object(pd.DataFrame, "to_csv")
     def setUp(self, mock_to_csv):
-        self.dataset = Dataset("copenhagen_hops")
-        self.task = Task()
-        self.batch = Batch(self.dataset, self.task)
+        dt = Dataset("copenhagen_hops"), Task(test=True)
+        self.batch = Batch(*dt)
         self.batch.load(TEST_FOLDER / "mock_summed_batch.csv", format_="csv")
-        self.multibatch = MultiBatch(self.dataset, self.task)
+        self.multibatch = MultiBatch(*dt)
         self.multibatch.load(file_path=TEST_FOLDER / "mock_multibatch.json")
         self.multibatch.analysis_sum()
-        self.vis = Visualizer(self.task, self.dataset, save=True)
+        self.vis = Visualizer(*dt, save=True)
         print(self.multibatch.batches)
 
     @patch.object(alt.Chart, "save")

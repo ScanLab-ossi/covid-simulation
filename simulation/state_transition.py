@@ -4,20 +4,12 @@ from typing import Tuple, Union, Dict, List
 import numpy as np  # type: ignore
 import pandas as pd  # type: ignore
 
-from simulation.dataset import Dataset
-from simulation.task import Task
-from simulation.output import Output
 from simulation.helpers import timing
-from simulation.building_blocks import BasicBlock
+from simulation.building_blocks import RandomBasicBlock
 from simulation.constants import *
 
 
-class StateTransition(BasicBlock):
-    def __init__(self, dataset: Dataset, task: Task):
-        self.task = task
-        self.dataset = dataset
-        self.rng = np.random.default_rng()
-
+class StateTransition(RandomBasicBlock):
     # can cache this?
     def _get_age(
         self,

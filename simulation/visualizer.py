@@ -9,16 +9,12 @@ from simulation.constants import *
 from simulation.dataset import Dataset
 from simulation.task import Task
 from simulation.building_blocks import BasicBlock
-from simulation.states import States
-
-if TYPE_CHECKING:
-    from simulation.output import Batch, MultiBatch
 
 alt.data_transformers.disable_max_rows()
 
 
 class Visualizer(BasicBlock):
-    def __init__(self, task: Task, dataset: Dataset, save: bool = False):
+    def __init__(self, dataset: Dataset, task: Task, save: bool = False):
         super().__init__(dataset=dataset, task=task)
         self.save = save
         self.colors = {
@@ -64,7 +60,7 @@ class Visualizer(BasicBlock):
         if not include_green:
             df = df[df["color"] != "green"]
             self.colors.pop("green")
-        df["color"] = df["color"].apply(States.decrypt_states)
+        df["color"] = df["color"].apply(self.states.decrypt_states)
         # add to chart if title wanted: , **({} if got_input else {"title": self.dataset.name}))
         chart = (
             alt.Chart(df)
@@ -75,7 +71,9 @@ class Visualizer(BasicBlock):
                 color=alt.Color(
                     "color",
                     scale=alt.Scale(
-                        domain=[States.decrypt_states(c) for c in self.colors.keys()],
+                        domain=[
+                            self.states.decrypt_states(c) for c in self.colors.keys()
+                        ],
                         range=list(self.colors.values()),
                     ),
                 ),

@@ -8,8 +8,8 @@ settings:
 
 meta:
   DATASET: copenhagen_groups
-  ITERATIONS: 5
-  SENSITIVITY: true
+  ITERATIONS: 3
+  SENSITIVITY: false
 
 params:
   infection_model: 2
@@ -21,7 +21,7 @@ params:
   #   j: 2
   #   number_of_patient_zero: 5
   #   patient_zeroes_on_days: [0]
-  D_min: 5
+  D_min: 50
   D_max: 200
   P_max: 0.5
 
@@ -31,8 +31,8 @@ paths:
       - blue
       - purple
     distribution:
-      - 0.75
-      - 0.25
+      - 0.8
+      - 0.2
   blue:
     duration: [7.5, 1]
     children: [white]
@@ -93,7 +93,7 @@ sensitivity:
     - grouping: not_green
       how: amount
   ranges:
-    D_min: { step: 5, min: 5, max: 15 }
+    D_min: { step: 20, min: 5, max: 105 }
     D_max: { step: 60, min: 1200, max: 1440 }
     P_max: { step: 0.1, min: 0.3, max: 0.7 }
     number_of_patient_zero: { step: 5, min: 5, max: 15 }
@@ -104,4 +104,4 @@ sensitivity:
     red: { step: 0.1, min: 0.1, max: 0.3 }
     purple_pink: { step: 0.5, min: 2, max: 3 }
     blue: { step: 0.5, min: 7, max: 8 }
-    green: {step: 0.1, min: 0.1, max: 0.3}
+    green: {step: 0.1, min: 0.1, max: 0.9}

@@ -1,16 +1,14 @@
-import unittest
-from unittest.mock import patch
-import _pickle as cPickle
-from datetime import date
 import json
+import unittest
+from datetime import date
+from unittest.mock import patch
 
-import pandas as pd
+import _pickle as cPickle
 import numpy as np
-import pandas.testing as pdt
-
-from simulation.output import Output, Batch, MultiBatch
-from simulation.dataset import Dataset
+import pandas as pd
 from simulation.constants import *
+from simulation.dataset import Dataset
+from simulation.output import Batch, Output
 from simulation.task import Task
 
 output_columns = [
@@ -37,9 +35,7 @@ sample_summed_df = pd.DataFrame(
 
 class TestOutput(unittest.TestCase):
     def setUp(self):
-        dataset = Dataset("mock_data")
-        task = Task(test=True)
-        self.output = Output(dataset, task)
+        self.output = Output(Dataset("mock_data"), Task(test=True))
 
     def test_len(self):
         self.output.df = sample_df

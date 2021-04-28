@@ -1,13 +1,13 @@
 import sys
 from datetime import datetime, timedelta
 from typing import List, Optional
+from math import exp, log
 
 import numpy as np  # type: ignore
 import pandas as pd  # type: ignore
 from more_itertools import chunked, powerset  # type: ignore
 
-from simulation.analysis import Analysis
-from simulation.building_blocks import BasicBlock, ConnectedBasicBlock
+from simulation.building_blocks import RandomBasicBlock, ConnectedBasicBlock
 from simulation.constants import *
 from simulation.dataset import Dataset
 from simulation.google_cloud import GoogleCloud
@@ -72,12 +72,7 @@ class ContagionRunner(ConnectedBasicBlock):
         return batch
 
 
-class Contagion(BasicBlock):
-    def __init__(self, dataset: Dataset, task: Task, reproducible: bool = False):
-        super().__init__(dataset=dataset, task=task)
-        self.reproducible = reproducible
-        self.rng = np.random.default_rng(42 if self.reproducible else None)
-
+class Contagion(RandomBasicBlock):
     def _cases(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Parameters
@@ -159,7 +154,11 @@ class Contagion(BasicBlock):
             curr_dist = df["duration"].iloc[i:].tolist()
             this = df["duration"].iloc[i]
             df.iloc[i, df.columns.get_loc("duration")] = this - sum(
-                [prod(x) for x in powerset(curr_dist) if len(x) > 1 and this in x]
+                [
+                    exp(sum(map(log, x)))
+                    for x in powerset(curr_dist)
+                    if len(x) > 1 and this in x
+                ]
             )
         df["duration"] = df["duration"] * 1 / df["duration"].sum()
         return df

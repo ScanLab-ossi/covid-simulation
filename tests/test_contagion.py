@@ -19,7 +19,7 @@ dataset.load_dataset(gcloud=GoogleCloud())
 
 class TestContagion(unittest.TestCase):
     def setUp(self):
-        self.c = Contagion(dataset, task, reproducible=True)
+        self.c = Contagion(dataset, task)
         self.sample_infected = pd.DataFrame(
             {"duration": [1440, 36, 0], "color": [True, False, False]},
             index=[".QP/64EdoTcdkMnmXGVO0A"] * 3,

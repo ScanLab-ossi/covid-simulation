@@ -1,20 +1,19 @@
 import os
-import multiprocessing as mp
+
 from flask import Flask, jsonify
 
-from simulation.helpers import print_settings
 from simulation.constants import *
-from simulation.task import Task
-from simulation.google_cloud import GoogleCloud
-from simulation.dataset import Dataset
 from simulation.contagion import ContagionRunner
+from simulation.dataset import Dataset
+from simulation.google_cloud import GoogleCloud
+from simulation.dropbox import Dropbox
+from simulation.helpers import print_settings
 from simulation.sensitivity_analysis import SensitivityRunner
-from simulation.visualizer import Visualizer
-from simulation.analysis import Analysis
+from simulation.task import Task
 
 
 def main():
-    gcloud = GoogleCloud()
+    gcloud, dropbox = GoogleCloud(), Dropbox()
     if settings["LOCAL_TASK"]:
         tasklist = [Task()]
     else:
@@ -30,9 +29,9 @@ def main():
         dataset = Dataset(task["DATASET"])
         dataset.load_dataset(gcloud=gcloud)
         runner = (
-            SensitivityRunner(dataset, task, gcloud)
+            SensitivityRunner(dataset, task)
             if task["SENSITIVITY"]
-            else ContagionRunner(dataset, task, gcloud)
+            else ContagionRunner(dataset, task)
         )
         result = runner.run()
         if task["SENSITIVITY"]:
@@ -44,7 +43,9 @@ def main():
             result.visualize()
         tasks.append(task)
     if settings["UPLOAD"]:
-        return gcloud.write_results(tasks)
+        dropbox.write_results(tasks)
+        return
+        # return gcloud.write_results(tasks)
 
 
 # if settings["PARALLEL"]:
