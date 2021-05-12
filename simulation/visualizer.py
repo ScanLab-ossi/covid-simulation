@@ -61,24 +61,29 @@ class Visualizer(BasicBlock):
             df = df[df["color"] != "green"]
             self.colors.pop("green")
         df["color"] = df["color"].apply(self.states.decrypt_states)
+        df["amount"] = df["amount"] / self.dataset.nodes
         # add to chart if title wanted: , **({} if got_input else {"title": self.dataset.name}))
+        domain = [self.states.decrypt_states(c) for c in self.colors.keys()]
         chart = (
             alt.Chart(df)
             .mark_bar(size=(9 if self.dataset.period > 30 else 15))
             .encode(
                 x=f"{self.dataset.interval}:O",
-                y="amount",
+                y=alt.Y(
+                    "amount:Q",
+                    axis=alt.Axis(format="%"),
+                    scale=alt.Scale(domain=(0, 1)),
+                ),
                 color=alt.Color(
                     "color",
-                    scale=alt.Scale(
-                        domain=[
-                            self.states.decrypt_states(c) for c in self.colors.keys()
-                        ],
-                        range=list(self.colors.values()),
-                    ),
+                    scale=alt.Scale(domain=domain, range=list(self.colors.values())),
                 ),
                 order="order:O",
-                tooltip=["color", "amount", f"{self.dataset.interval}"],
+                tooltip=[
+                    "color",
+                    alt.Tooltip("amount:Q", format="%"),
+                    f"{self.dataset.interval}",
+                ],
             )
         )
         if not interactive and param:
@@ -100,7 +105,12 @@ class Visualizer(BasicBlock):
             .mark_boxplot()
             .encode(
                 x=alt.X("step:N", title=None),
-                y=alt.Y("value:Q", title=None),
+                y=alt.Y(
+                    "value:Q",
+                    title=None,
+                    axis=alt.Axis(format="%"),
+                    scale=alt.Scale(domain=(0, 1)),
+                ),
                 color=alt.Color("metric", sort="ascending"),
             )
             .properties(height=300, width=width)
@@ -109,11 +119,13 @@ class Visualizer(BasicBlock):
 
     def boxplots(self, df: pd.DataFrame) -> alt.HConcatChart:
         horizontal = []
-        for x in df["parameter"].drop_duplicates():
+        for param in df["parameter"].drop_duplicates():
             vertical = []
-            for _, g in df[df["parameter"] == x].groupby("metric"):
+            for _, g in df[df["parameter"] == param].groupby("metric"):
                 vertical.append(self.boxplot(g))
-            horizontal.append(alt.vconcat(*vertical))
+            horizontal.append(
+                alt.vconcat(*vertical).properties(title=" ".join(param.split("__")))
+            )
         chart = alt.hconcat(*horizontal)
         self._save_chart(chart, "sensitivity")
         return chart

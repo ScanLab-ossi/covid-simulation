@@ -1,19 +1,23 @@
 from __future__ import annotations
-from abc import ABC
-import gzip, json, pickle
+
+import gzip
+import json
+import pickle
 from pathlib import Path
-from typing import Union, List, Optional, Dict
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
-import pandas as pd  # type: ignore
 import numpy as np  # type: ignore
+import pandas as pd  # type: ignore
 
+from simulation.building_blocks import BasicBlock
 from simulation.constants import *
 from simulation.dataset import Dataset
-from simulation.task import Task
 from simulation.helpers import timing
-from simulation.building_blocks import BasicBlock
+from simulation.task import Task
 from simulation.visualizer import Visualizer
-from simulation.analysis import Analysis
+
+if TYPE_CHECKING:
+    from simulation.sensitivity_analysis import Analysis
 
 
 class OutputBase(BasicBlock):
@@ -35,11 +39,13 @@ class OutputBase(BasicBlock):
                     json.dump(d, fp)
             if isinstance(d, pd.DataFrame):
                 if table_format == "pickle":
-                    with gzip.GzipFile(OUTPUT_FOLDER / f"{self.task.id}.pgz", "w") as f:
+                    with gzip.GzipFile(
+                        OUTPUT_FOLDER / f"{self.task.id}_{attr}.pgz", "w"
+                    ) as f:
                         pickle.dump(d, f)
                 elif table_format == "csv":
                     d.to_csv(
-                        OUTPUT_FOLDER / f"{self.task.id}.csv",
+                        OUTPUT_FOLDER / f"{self.task.id}_{attr}.csv",
                         index=(False if hasattr(self, "batches") else True),
                     )
 
@@ -79,7 +85,21 @@ class Output(BasicBlock):
             ],
         ).rename_axis(index="source")
         self.summed = loaded if loaded else {}
-        self.variant_summed = {}
+        self.variant_summed = {}  # TODO: add not_green count
+
+    def set_first(self):
+        if not hasattr(self, "first"):
+            self.first = self.df[self.df["infection_date"] == 0].index[0]
+
+    def set_damage_assessment(self):
+        damage = sum(
+            [
+                v
+                for k, v in self.summed[self.dataset.period].items()
+                if k not in ({"green"} | self.states.non_states)
+            ]
+        )
+        self.damage_assessment = [self.first, damage]
 
     def __len__(self):
         return len(self.df.index)
@@ -95,11 +115,12 @@ class Output(BasicBlock):
         self.summed[day] = dict(self.df["color"].value_counts())
         self.summed[day]["green"] = self.dataset.nodes - sum(self.summed[day].values())
         daily = self.df[self.df["infection_date"] == day]
-        self.summed[day]["infected_daily"] = len(daily)
+        self.summed[day]["daily_infected"] = len(daily)
         notna_infectors = daily[daily["infector"].notna()]["infector"]
         self.summed[day]["daily_infectors"] = (
             len(set.union(*notna_infectors)) if len(notna_infectors) > 0 else 0
         )
+        self.summed[day]["daily_blue"] = len(daily[daily["color"] == "blue"])
         self.summed[day]["sick"] = len(
             self.df[self.df["color"].isin(self.states.sick_states)]
         )
@@ -107,7 +128,7 @@ class Output(BasicBlock):
         self.variant_summed[day]["infected"] = (
             self.df.groupby("variant")["color"].count().to_dict()
         )
-        self.variant_summed[day]["infected_daily"] = (
+        self.variant_summed[day]["daily_infected"] = (
             daily.groupby("variant")["color"].count().to_dict()
         )
         self.variant_summed[day]["sick"] = (
@@ -169,7 +190,10 @@ class Batch(OutputBase):
     def _sum_output_list(self) -> List[pd.DataFrame]:
         return [output.sum_output() for output in self.batch]
 
-    def sum_batch(self, how: List[str] = ["summed_output_list", "mean_and_std"]):
+    def sum_batch(
+        self,
+        how: List[str] = ["summed_output_list", "mean_and_std", "damage_assessment"],
+    ):
         # sum types: list of dfs for some other part in code, concated dfs?, mean_and_std
         if "summed_output_list" in how:
             self.summed_output_list = self._sum_output_list()
@@ -180,6 +204,11 @@ class Batch(OutputBase):
                 "mean": concated.mean().to_dict(),
                 "std": concated.std().to_dict(),
             }
+        if "damage_assessment" in how:
+            self.damage_assessment = pd.DataFrame(
+                [o.damage_assessment for o in self.batch],
+                columns=["patient_zero", "not_green"],
+            )
 
     def load(self, file_path=None, format_="json"):
         if not file_path:
@@ -199,7 +228,7 @@ class Batch(OutputBase):
     def visualize(self):
         df = (
             pd.DataFrame(self.mean_and_std["mean"])
-            .drop(columns=["infected_daily", "daily_infectors", "sick"])
+            .drop(columns=["daily_infected", "daily_infectors", "sick"])
             .reset_index()
             .rename(columns={"index": "day"})
             .melt(id_vars="day", var_name="color", value_name="amount")
@@ -232,16 +261,18 @@ class MultiBatch(OutputBase):
     Methods: export()
     """
 
-    def __init__(self, dataset: Dataset, task: Task):
+    def __init__(self, dataset: Dataset, task: Task, analysis: Analysis):
         super().__init__(dataset=dataset, task=task)
         self.batches: Dict[str, Dict[Union[int, float], Batch]] = {}
-        self.analysis = Analysis(self.dataset, self.task)
         self.summed_analysis = pd.DataFrame(
             columns=["value", "metric", "step", "parameter"]
         )
+        self.analysis = analysis
+        self.damage_assessment = pd.DataFrame(columns=["patient_zero", "not_green"])
 
     def append_batch(self, batch: Batch, param: str, step: Union[int, float]):
         batch.sum_batch()
+        self.damage_assessment = self.damage_assessment.append(batch.damage_assessment)
         results = []
         for metric in self.task["sensitivity"]["metrics"]:
             if metric["grouping"] == "r_0":
@@ -283,7 +314,7 @@ class MultiBatch(OutputBase):
         ]
         return (
             pd.concat(to_concat)
-            .drop(columns=["infected_daily", "daily_infectors", "sick"])
+            .drop(columns=["daily_infected", "daily_infectors", "sick"])
             .reset_index()
             .rename(columns={"index": "day"})
             .melt(id_vars=["day", "step"], var_name="color", value_name="amount")

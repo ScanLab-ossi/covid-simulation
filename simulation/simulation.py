@@ -26,6 +26,8 @@ def main():
     for task in tasklist:
         print(f"starting task {task.id}")
         print_settings()
+        if settings["UPLOAD"]:
+            dropbox.upload(CONFIG_FOLDER / "config.yaml", task.id)
         dataset = Dataset(task["DATASET"])
         dataset.load_dataset(gcloud=gcloud)
         runner = (
@@ -35,11 +37,11 @@ def main():
         )
         result = runner.run()
         if task["SENSITIVITY"]:
-            result.export("batches", "summed_analysis")
+            result.export("batches", "summed_analysis", "damage_assessment")
             result.visualize()
         else:
             result.sum_batch()
-            result.export("mean_and_std")
+            result.export("mean_and_std", "damage_assessment")
             result.visualize()
         tasks.append(task)
     if settings["UPLOAD"]:

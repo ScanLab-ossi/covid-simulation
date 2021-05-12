@@ -11,7 +11,7 @@ class States:
         self.non_states = {
             "infected",
             "infectors",
-            "infected_daily",
+            "daily_infected",
             "daily_infectors",
             "sick",
         }
@@ -23,8 +23,13 @@ class States:
     def decrypt_states(self, color: str) -> str:
         d = {
             "blue": "asymptomatic",
-            "pink": "mild symptoms",
-            "purple": "pre-symptomatic",
+            "pink": "mild symptoms, quarantined",
+            "purple_pink": "pre mild symptoms",
+            "purple_red": "pre severe symptoms",
+            "stable_black": "stable, before relapse",
+            "stable_white": "stable, before recovery",
+            "intensive_care_white": "ICU, before recovery",
+            "intensive_care_white": "ICU, before relapse",
             "red": "severe symptoms, hospitalized",
             "white": "recovered",
             "black": "deceased",

@@ -1,5 +1,4 @@
-from datetime import timedelta, date
-from typing import Tuple, Union, Dict, List
+from typing import Union, Dict, List
 
 import numpy as np  # type: ignore
 import pandas as pd  # type: ignore
@@ -22,7 +21,7 @@ class StateTransition(RandomBasicBlock):
             if age in range(*[int(x) for x in k.split("-")]):
                 return d[key][k]
 
-    def move_one(self, row: pd.Series, day: int) -> pd.Series:
+    def move_one(self, row: pd.Series) -> pd.Series:
         if row["days_left"] > 0:
             row["days_left"] -= 1
             return row

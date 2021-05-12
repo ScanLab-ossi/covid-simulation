@@ -33,9 +33,9 @@ class Dropbox:
                 f"{(str(id) + '_' if str(id) not in source.name else '')}{source.name}"
             )
             self.dbx.files_upload(f.read(), f"{base_path}/{today}/{dest}")
+        print("wrote to dropbox")
 
     def write_results(self, tasks: List[Task]):
         for task in tasks:
             for f in glob(str(OUTPUT_FOLDER / f"{task.id}*.html")):
                 self.upload(Path(f), task.id)
-            self.upload(CONFIG_FOLDER / "config.yaml", task.id)

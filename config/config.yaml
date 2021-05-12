@@ -1,15 +1,15 @@
 settings:
   PARALLEL: false
   LOCAL_TASK: true
-  UPLOAD: false
+  UPLOAD: true
   SKIP_TESTS: true
   VERBOSE: false
   INCREMENT: false
 
 meta:
   DATASET: copenhagen_groups
-  ITERATIONS: 3
-  SENSITIVITY: false
+  ITERATIONS: 200
+  SENSITIVITY: true
 
 params:
   infection_model: 2
@@ -24,6 +24,7 @@ params:
   D_min: 50
   D_max: 200
   P_max: 0.5
+  # max_group_size: 2
 
 paths:
   green:
@@ -86,12 +87,11 @@ sensitivity:
   params:
     - green
   metrics:
-    - grouping: sick
-      how: amount
-    - grouping: infected
-      how: amount
+  # usualy: sick, infected, notgreen
+    - grouping: black
+    - grouping: daily_blue
+      cumsum: true
     - grouping: not_green
-      how: amount
   ranges:
     D_min: { step: 20, min: 5, max: 105 }
     D_max: { step: 60, min: 1200, max: 1440 }
