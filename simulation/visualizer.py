@@ -2,7 +2,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from typing import Union, Optional
 
-import altair as alt  # type: ignore
+import altair as alt
+from altair.vegalite.v4.schema.channels import Tooltip  # type: ignore
 import pandas as pd  # type: ignore
 
 from simulation.constants import *
@@ -17,11 +18,13 @@ class Visualizer(BasicBlock):
     def __init__(self, dataset: Dataset, task: Task, save: bool = False):
         super().__init__(dataset=dataset, task=task)
         self.save = save
-        self.colors = {
+        self.old_colors = {
             "blue": "#0068c9",
+            "purple": "#70349e",
             "purple_red": "#ff2b2b",
             "purple_pink": "#70349e",
             "pink": "#e83e8c",
+            "red": "#ff2b2b",
             "stable_black": "#fd7e14",
             "stable_white": "#faca2b",
             "intensive_care_black": "#555867",
@@ -29,6 +32,21 @@ class Visualizer(BasicBlock):
             "black": "#292a31",
             "white": "#e7e8e9",
             "green": "#09ab3b",
+        }
+        self.colors = {
+            "blue": "#2166ac",
+            "purple_red": "#d6604d",
+            "purple_pink": "#d6604d",
+            "purple": "#d6604d",  #
+            "pink": "#d6604d",
+            "red": "#b2182b",  #
+            "stable_black": "#b2182b",
+            "stable_white": "#b2182b",
+            "intensive_care_black": "#b2182b",
+            "intensive_care_white": "#b2182b",
+            "black": "#515151",
+            "white": "#e7e8e9",
+            "green": "#92c5de",
         }
 
     def _save_chart(self, chart: alt.Chart, suffix: str = None):
@@ -41,12 +59,41 @@ class Visualizer(BasicBlock):
                 format="html",
             )
 
+    def _prep_for_stacked(
+        self,
+        df: pd.DataFrame,
+        include_green: bool,
+        simplified: bool,
+    ):
+        if not include_green:
+            df = df[df["color"] != "green"]
+            self.colors.pop("green")
+        if simplified:
+            df["color"] = (
+                df["color"]
+                .replace(self.states.get_filter("red")["regex"], "red", regex=True)
+                .replace("purple.*", "purple", regex=True)
+            )
+            self.colors = {
+                k: v
+                for k, v in self.colors.items()
+                if k in list(df["color"].drop_duplicates())
+            }
+        df["order"] = df["color"].replace(
+            {val: i for i, val in enumerate(self.colors.keys())}
+        )
+        df["color"] = df["color"].apply(self.states.decrypt_states)
+        df["amount"] = df["amount"] / self.dataset.nodes
+        # add to chart if title wanted: , **({} if got_input else {"title": self.dataset.name}))
+        return df
+
     def stacked_bar(
         self,
         df: pd.DataFrame,
         param: str = None,
         include_green: bool = True,
         interactive: bool = False,
+        simplified: bool = True,
     ) -> alt.Chart:
         """
         Parameters
@@ -54,16 +101,8 @@ class Visualizer(BasicBlock):
         df : pd.DataFrame
             {dataset.interval} | amount | color
         """
-        df["order"] = df["color"].replace(
-            {val: i for i, val in enumerate(self.colors.keys())}
-        )
-        if not include_green:
-            df = df[df["color"] != "green"]
-            self.colors.pop("green")
-        df["color"] = df["color"].apply(self.states.decrypt_states)
-        df["amount"] = df["amount"] / self.dataset.nodes
-        # add to chart if title wanted: , **({} if got_input else {"title": self.dataset.name}))
-        domain = [self.states.decrypt_states(c) for c in self.colors.keys()]
+        df = self._prep_for_stacked(df, include_green, simplified)
+        domain = [self.states.decrypt_states(c) for c in self.colors]
         chart = (
             alt.Chart(df)
             .mark_bar(size=(9 if self.dataset.period > 30 else 15))
@@ -97,23 +136,38 @@ class Visualizer(BasicBlock):
         return chart
 
     def boxplot(self, df: pd.DataFrame) -> alt.Chart:
+        # domain, range_ = list(self.colors.keys()), list(self.colors.values())
+        color = [v for k, v in self.colors.items() if k in df["metric"].iloc[0]][0]
+        df["color"] = [v for k, v in self.colors.items() if k in df["metric"].iloc[0]][
+            0
+        ]
         param = df.iloc[0]["parameter"].split("__")[0]
-        range_ = self.task["sensitivity"]["ranges"][param]
-        width = (range_["max"] - range_["min"]) * 20 / range_["step"]
+        # range_ = self.task["sensitivity"]["ranges"][param]
+        # width = (range_["max"] - range_["min"]) * 20 / range_["step"]
         chart = (
-            alt.Chart(df)
-            .mark_boxplot()
-            .encode(
-                x=alt.X("step:N", title=None),
-                y=alt.Y(
-                    "value:Q",
-                    title=None,
-                    axis=alt.Axis(format="%"),
-                    scale=alt.Scale(domain=(0, 1)),
+            alt.LayerChart(df)
+            .encode(x="step:O")
+            .add_layers(
+                alt.Chart()
+                .mark_boxplot(median=False, color=color)
+                .encode(
+                    x=alt.X("step:N", title=None),
+                    y=alt.Y(
+                        "value:Q",
+                        title=df["metric"].iloc[0],
+                        axis=alt.Axis(format="%"),
+                        # scale=alt.Scale(domain=(0, 1), clamp=True),
+                    ),
+                    # color=alt.Color("color", scale=None),
                 ),
-                color=alt.Color("metric", sort="ascending"),
+                alt.Chart()
+                .transform_aggregate(
+                    mean="mean(value)",
+                    groupby=["step"],
+                )
+                .mark_tick(color="white", width=15, thickness=2.5)
+                .encode(y="mean:Q", tooltip=alt.Tooltip("mean:Q", format="%")),
             )
-            .properties(height=300, width=width)
         )
         return chart
 

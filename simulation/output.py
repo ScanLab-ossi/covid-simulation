@@ -111,10 +111,9 @@ class Output(BasicBlock):
                 df[metric] = 0
         return df
 
-    def value_counts(self, day: int):
+    def _regular_count(self, day: int, daily: pd.DataFrame):
         self.summed[day] = dict(self.df["color"].value_counts())
         self.summed[day]["green"] = self.dataset.nodes - sum(self.summed[day].values())
-        daily = self.df[self.df["infection_date"] == day]
         self.summed[day]["daily_infected"] = len(daily)
         notna_infectors = daily[daily["infector"].notna()]["infector"]
         self.summed[day]["daily_infectors"] = (
@@ -124,6 +123,8 @@ class Output(BasicBlock):
         self.summed[day]["sick"] = len(
             self.df[self.df["color"].isin(self.states.sick_states)]
         )
+
+    def _variant_count(self, day: int, daily: pd.DataFrame):
         self.variant_summed[day] = {}
         self.variant_summed[day]["infected"] = (
             self.df.groupby("variant")["color"].count().to_dict()
@@ -137,7 +138,11 @@ class Output(BasicBlock):
             .count()
             .to_dict()
         )
-        pass
+
+    def value_counts(self, day: int):
+        daily = self.df[self.df["infection_date"] == day]
+        self._regular_count(day, daily)
+        self._variant_count(day, daily)
 
 
 class Batch(OutputBase):
@@ -226,9 +231,9 @@ class Batch(OutputBase):
             )
 
     def visualize(self):
+        df = pd.DataFrame(self.mean_and_std["mean"])
         df = (
-            pd.DataFrame(self.mean_and_std["mean"])
-            .drop(columns=["daily_infected", "daily_infectors", "sick"])
+            df.drop(columns=self.states.non_states & set(df.columns))
             .reset_index()
             .rename(columns={"index": "day"})
             .melt(id_vars="day", var_name="color", value_name="amount")
@@ -312,9 +317,9 @@ class MultiBatch(OutputBase):
             pd.DataFrame(self.batches[param][step]["mean"]).assign(**{"step": step})
             for step in self.batches[param].keys()
         ]
+        df = pd.concat(to_concat)
         return (
-            pd.concat(to_concat)
-            .drop(columns=["daily_infected", "daily_infectors", "sick"])
+            df.drop(columns=self.states.non_states & set(df.columns))
             .reset_index()
             .rename(columns={"index": "day"})
             .melt(id_vars=["day", "step"], var_name="color", value_name="amount")

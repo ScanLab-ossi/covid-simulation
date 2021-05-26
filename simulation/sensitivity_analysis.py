@@ -84,16 +84,10 @@ class Analysis(BasicBlock):
 
     def sum_groupings(self, df: pd.DataFrame, how: str) -> pd.DataFrame:
         # TODO: this function needs to be cleaned up
-        if how == "red":
-            filter_ = {"regex": r"(intensive|stable)\w+"}
-        elif how == "sick":
-            filter_ = {"items": set(df.columns) - self.states.sick_states}
-        elif how == "not_green":
-            filter_ = {"items": set(df.columns) - {"green"} - self.states.non_states}
-        else:
-            filter_ = {"like": how}
         # this adds a column for analysis purposes, but duplicates data
-        df[how] = df.filter(**filter_).sum(axis="columns")
+        df[how] = df.filter(**self.states.get_filter(how, df.columns)).sum(
+            axis="columns"
+        )
         return df
 
     def r_0(self, batch: Batch) -> pd.DataFrame:

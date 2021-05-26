@@ -1,12 +1,11 @@
-from pathlib import Path
 from collections import UserDict
 from datetime import datetime
-from typing import Union, Optional, List
+from typing import List, Optional
 
-from yaml import load, Loader
-import pandas as pd  # type: ignore
 import numpy as np  # type: ignore
+import pandas as pd  # type: ignore
 from google.cloud.datastore import Entity  # type: ignore
+from yaml import Loader, load
 
 from simulation.constants import *
 

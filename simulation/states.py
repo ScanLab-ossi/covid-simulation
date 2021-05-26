@@ -1,4 +1,5 @@
-from yaml import load, Loader
+from yaml import Loader, load
+from typing import Optional, List
 
 from simulation.constants import CONFIG_FOLDER
 
@@ -13,6 +14,7 @@ class States:
             "infectors",
             "daily_infected",
             "daily_infectors",
+            "daily_blue",
             "sick",
         }
         self.aggregate_states = {"stable", "intensive_care", "red", "purple"}
@@ -39,3 +41,13 @@ class States:
             return f"{color} ({d[color]})"
         except KeyError:
             return color
+
+    def get_filter(self, how: str, l: Optional[List[str]] = None):
+        if how == "red":
+            return {"regex": r"(intensive|stable)\w+"}
+        elif how == "sick":
+            return {"items": set(l) - self.sick_states}
+        elif how == "not_green":
+            return {"items": set(l) - {"green"} - self.non_states}
+        else:
+            return {"like": how}

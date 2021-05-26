@@ -6,6 +6,7 @@ from yaml import Loader, load
 
 from simulation.constants import *
 from simulation.google_cloud import GoogleCloud
+from simulation.task import Task
 
 
 class Dataset(object):
@@ -21,7 +22,6 @@ class Dataset(object):
         self.groups: bool = self.metadata["groups"]
         self.hops: bool = self.metadata["hops"]
         self.period: int = (self.end_date - self.start_date).days
-        self.squeeze: float = self.metadata["squeeze"]
 
     def _strp(self, d: str) -> date:
         return datetime.strptime(d, "%Y-%m-%d").date()
@@ -37,7 +37,8 @@ class Dataset(object):
                 + ["datetime", "duration"]
                 + (["hops"] if self.hops else []),
             )
-            samplesize = f"{self.squeeze}D" if self.squeeze > 1 else "D"
+            task = Task()
+            samplesize = f"{task['squeeze']}D" if task["squeeze"] > 1 else "D"
             self.split = {
                 i: x[1]
                 for i, x in enumerate(self.data.resample(samplesize, on="datetime"))
@@ -47,17 +48,17 @@ class Dataset(object):
                 self.ids = {
                     x: list(set.union(*df["group"])) for x, df in self.split.items()
                 }
-                if self.squeeze < 1:
+                if task["squeeze"] < 1:
                     d, i = {}, 0
                     for df in self.split.values():
                         for df_frac in np.array_split(
-                            df.sample(frac=1), round(self.squeeze ** -1)
+                            df.sample(frac=1), round(task["squeeze"] ** -1)
                         ):
                             d[i] = df_frac
                             i += 1
                     self.split = d
             else:
-                if self.squeeze < 1:
+                if task["squeeze"] < 1:
                     raise ValueError(
                         "Can't unsqueeze dataset with group interactions in pairwise form"
                     )

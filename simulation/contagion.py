@@ -218,7 +218,7 @@ class CSVContagion(Contagion):
             columns: infection_date | days_left | color | variant [| age]
         """
         # TODO: pick arbitrary patient
-        # today = self.dataset.start_date + timedelta(day) * self.dataset.squeeze
+        # today = self.dataset.start_date + timedelta(day) * self.task['squeeze']
         potential = self.dataset.ids[day]
         if sick:
             potential = list(set(potential) - set(sick))
@@ -330,7 +330,7 @@ class SQLContagion(Contagion):
         self.mysql = MySQL(gcloud)
 
     def _squeeze_partitions(self, day: int) -> str:
-        r = range(day * self.dataset.squeeze, (day + 1) * self.dataset.squeeze)
+        r = range(day * self.task["squeeze"], (day + 1) * self.task["squeeze"])
         return ", ".join(
             [
                 f'{self.dataset.name}_{(self.dataset.start_date + timedelta(d)).strftime("%m%d")}'
@@ -342,7 +342,7 @@ class SQLContagion(Contagion):
     @timing
     def pick_patient_zero(self, day: int = 0, sick: List[Optional[str]] = []):
         # TODO: add variant
-        if day == 0 and hasattr(self.dataset, "zeroes") and self.dataset.squeeze == 1:
+        if day == 0 and hasattr(self.dataset, "zeroes") and self.task["squeeze"] == 1:
             potential = self.dataset.zeroes
         else:
             query = f"""SELECT DISTINCT source 
@@ -416,12 +416,12 @@ class ContagionRunner(ConnectedBasicBlock):
     """Runs one batch"""
 
     def _squeeze(self) -> int:
-        if self.dataset.squeeze > 1:
-            period = int(self.dataset.period // self.dataset.squeeze)
-            if self.dataset.period % self.dataset.squeeze > 0:
+        if self.task["squeeze"] > 1:
+            period = int(self.dataset.period // self.task["squeeze"])
+            if self.dataset.period % self.task["squeeze"] > 0:
                 period += 1
-        elif self.dataset.squeeze < 1:
-            period = self.dataset.period * round(self.dataset.squeeze ** -1)
+        elif self.task["squeeze"] < 1:
+            period = self.dataset.period * round(self.task["squeeze"] ** -1)
         else:
             period = self.dataset.period + 1
         return period
