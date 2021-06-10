@@ -35,7 +35,8 @@ class Dropbox:
             self.dbx.files_upload(f.read(), f"{base_path}/{today}/{dest}")
         print("wrote to dropbox")
 
-    def write_results(self, tasks: List[Task]):
-        for task in tasks:
-            for f in glob(str(OUTPUT_FOLDER / f"{task.id}*.html")):
-                self.upload(Path(f), task.id)
+    def write_results(self, task: Task):
+        for f in glob(str(OUTPUT_FOLDER / f"{task.id}*.html")):
+            self.upload(Path(f), task.id)
+        for f in glob(str(OUTPUT_FOLDER / f"{task.id}*.csv")):
+            self.upload(Path(f), task.id)

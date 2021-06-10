@@ -22,7 +22,6 @@ def main():
         if len(tasklist) == 0:
             print("you've picked LOCAL_TASK=False, but no tasks are waiting")
             return []
-    tasks = []
     for task in tasklist:
         print(f"starting task {task.id}")
         print_settings(task)
@@ -43,11 +42,10 @@ def main():
             result.sum_batch()
             result.export("mean_and_std", "damage_assessment")
             result.visualize()
-        tasks.append(task)
-    if settings["UPLOAD"]:
-        dropbox.write_results(tasks)
-        return
-        # return gcloud.write_results(tasks)
+        if settings["UPLOAD"]:
+            dropbox.write_results(task)
+    return []
+    # return gcloud.write_results(tasks)
 
 
 app = Flask(__name__)
