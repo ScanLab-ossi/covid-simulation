@@ -9,8 +9,8 @@ altair
 altair_saver
 pyyaml
 flask
-gunicorn
-streamlit
+#gunicorn
+#streamlit
 mysqlclient
 more_itertools
 sqlalchemy
@@ -18,3 +18,5 @@ Deprecated
 google-cloud-storage
 google-cloud-datastore  
 google-cloud-secret-manager
+networkx
+matplotlib

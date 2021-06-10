@@ -32,6 +32,8 @@ def one_array_pickle_to_set(pickle_file_name):
     return set_from_arr
 
 
-def print_settings():
-    print(*(f"{k} = {v}" for k, v in {**meta, **settings}.items()), sep="\n")
-    logging.info("\n".join(f"{k} = {v}" for k, v in {**meta, **settings}.items()))
+def print_settings(task):
+    print(f"DATASET = {task['DATASET']}")
+    print(f"ITERATIONS = {task['ITERATIONS']}")
+    print(f"SENSITIVITY = {task['SENSITIVITY']}")
+    print(*(f"{k} = {v}" for k, v in settings.items()), sep="\n")

@@ -3,13 +3,13 @@ settings:
   LOCAL_TASK: true
   UPLOAD: false
   SKIP_TESTS: true
-  VERBOSE: false
+  VERBOSE: true
   INCREMENT: false
 
 meta:
-  DATASET: copenhagen_groups
-  ITERATIONS: 10
-  SENSITIVITY: false
+  DATASET: 0
+  ITERATIONS: 3
+  SENSITIVITY: true
 
 params:
   infection_model: 2
@@ -21,80 +21,34 @@ params:
   #   j: 2
   #   number_of_patient_zero: 5
   #   patient_zeroes_on_days: [0]
-  D_min: 50
+  D_min: 0
   D_max: 200
-  P_max: 0.5
+  P_max: 0.05
   # max_group_size: 2
-  squeeze: 0.5
+  beta: 0.5
+  squeeze: 1
+  window_size: 288
 
 paths:
   green:
-    children:
-      - blue
-      - purple
-    distribution:
-      - 0.8
-      - 0.2
+    duration: [10, 1]
+    children: [blue]
   blue:
-    duration: [7.5, 1]
-    children: [white]
-  purple:
-    children:
-      - purple_pink
-      - purple_red
-    distribution:
-      - 0.8
-      - 0.2
-  purple_pink:
-    duration: [2.5, 0.5]
-    children: [pink]
-  purple_red:
-    duration: [2.5, 0.5]
-    children: [red]
-  pink:
     duration: [10, 1]
     children: [white]
-  red:
-    children:
-      - stable
-      - intensive_care
-    distribution: [0.5, 0.5]
-  stable:
-    children:
-      - stable_white
-      - stable_black
-    distribution: [0.5, 0.5]
-  stable_white:
-    duration: [10, 1]
-    children: [white]
-  stable_black:
-    duration: [10, 1]
-    children: [black]
-  intensive_care:
-    children:
-      - intensive_care_white
-      - intensive_care_black
-    distribution: [0.5, 0.5]
-  intensive_care_white:
-    duration: [10, 1]
-    children: [white]
-  intensive_care_black:
-    duration: [10, 1]
-    children: [black]
   white: {}
-  black: {}
 
 sensitivity:
   params:
-    - green
+    - beta
   metrics:
   # usualy: sick, infected, notgreen
-    - grouping: black
+    - grouping: white
     - grouping: daily_blue
       cumsum: true
     - grouping: not_green
   ranges:
-    D_min: { step: 20, min: 5, max: 105 }
+    D_min: { step: 5, min: 5, max: 5 }
     D_max: { step: 60, min: 1200, max: 1440 }
     P_max: { step: 0.1, min: 0.3, max: 0.7 }
     number_of_patient_zero: { step: 5, min: 5, max: 15 }
@@ -107,3 +61,4 @@ sensitivity:
     blue: { step: 0.5, min: 7, max: 8 }
     green: {step: 0.1, min: 0.1, max: 0.9}
     squeeze: {step: 0.5, min: 0.5, max: 2.0}
+    beta: {step: 0.1, min: 0.5, max: 0.5}

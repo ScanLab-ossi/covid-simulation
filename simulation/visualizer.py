@@ -84,7 +84,16 @@ class Visualizer(BasicBlock):
         )
         df["color"] = df["color"].apply(self.states.decrypt_states)
         df["amount"] = df["amount"] / self.dataset.nodes
-        # add to chart if title wanted: , **({} if got_input else {"title": self.dataset.name}))
+        # df.to_csv("AAAAA.csv")
+        # if not self.dataset.real and self.task["window_size"] == 1:
+        #     interval = pd.interval_range(-1, len(df), freq=12 * 24)
+        #     df = df.groupby([pd.cut(df["day"], interval), "order", "step", "color"])[
+        #         "amount"
+        #     ].mean()
+        #     df = df.reset_index(["order", "step", "color"])
+        #     df = df.reset_index(drop=True)
+        #     df = df.reset_index()
+        #     df = df.rename(columns={"index": "day"})
         return df
 
     def stacked_bar(
@@ -99,7 +108,7 @@ class Visualizer(BasicBlock):
         Parameters
         ----------
         df : pd.DataFrame
-            {dataset.interval} | amount | color
+            day | amount | color
         """
         df = self._prep_for_stacked(df, include_green, simplified)
         domain = [self.states.decrypt_states(c) for c in self.colors]
@@ -107,7 +116,7 @@ class Visualizer(BasicBlock):
             alt.Chart(df)
             .mark_bar(size=(9 if self.dataset.period > 30 else 15))
             .encode(
-                x=f"{self.dataset.interval}:O",
+                x=f"day:O",
                 y=alt.Y(
                     "amount:Q",
                     axis=alt.Axis(format="%"),
@@ -118,11 +127,7 @@ class Visualizer(BasicBlock):
                     scale=alt.Scale(domain=domain, range=list(self.colors.values())),
                 ),
                 order="order:O",
-                tooltip=[
-                    "color",
-                    alt.Tooltip("amount:Q", format="%"),
-                    f"{self.dataset.interval}",
-                ],
+                tooltip=["color", alt.Tooltip("amount:Q", format="%"), "day"],
             )
         )
         if not interactive and param:
@@ -131,7 +136,8 @@ class Visualizer(BasicBlock):
                 .properties(title=param)
                 .configure_title(anchor="middle")
             )
-        self.colors["green"] = "#09ab3b"
+        if not include_green:
+            self.colors["green"] = "#09ab3b"
         self._save_chart(chart, suffix=param)
         return chart
 

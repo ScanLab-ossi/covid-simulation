@@ -95,7 +95,7 @@ class Output(BasicBlock):
         damage = sum(
             [
                 v
-                for k, v in self.summed[self.dataset.period].items()
+                for k, v in self.summed[max(self.summed)].items()
                 if k not in ({"green"} | self.states.non_states)
             ]
         )
@@ -116,6 +116,7 @@ class Output(BasicBlock):
         self.summed[day]["green"] = self.dataset.nodes - sum(self.summed[day].values())
         self.summed[day]["daily_infected"] = len(daily)
         notna_infectors = daily[daily["infector"].notna()]["infector"]
+        # FIXME: we stooped keeping daily_infectors, so this will always return 0
         self.summed[day]["daily_infectors"] = (
             len(set.union(*notna_infectors)) if len(notna_infectors) > 0 else 0
         )
@@ -204,7 +205,7 @@ class Batch(OutputBase):
             self.summed_output_list = self._sum_output_list()
         if "mean_and_std" in how:
             sol = getattr(self, "summed_output_list", self._sum_output_list())
-            concated = pd.concat(sol).groupby(self.dataset.interval)
+            concated = pd.concat(sol).groupby("day")
             self.mean_and_std = {
                 "mean": concated.mean().to_dict(),
                 "std": concated.std().to_dict(),

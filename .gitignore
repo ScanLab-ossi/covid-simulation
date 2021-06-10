@@ -17,6 +17,7 @@ secrets.conf
 leftovers.py
 data/*.feather
 *.xlsx
+*.png
 
 *.ipynb
 !notebooks/*.ipynb

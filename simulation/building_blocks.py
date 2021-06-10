@@ -19,6 +19,8 @@ class BasicBlock(ABC):
     def __init__(self, dataset: Dataset, task: Task):
         self.dataset: Dataset = dataset
         self.task: Task = task
+        if self.task["DATASET"] != self.dataset.name:
+            raise
         self.states = States()
 
 

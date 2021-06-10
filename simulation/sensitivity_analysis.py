@@ -1,4 +1,5 @@
 from __future__ import annotations
+from simulation.helpers import timing
 
 from typing import TYPE_CHECKING, List, Optional, Union
 

@@ -1,40 +1,213 @@
-copenhagen_interactions:
-  storage: csv
-  nodes: 692
-  start_date: "2019-12-11"
-  end_date: "2020-01-08"
-  interval: day
-  groups: false
-  hops: false
-mock_data:
-  storage: csv
-  nodes: 4814
-  start_date: "2012-03-26"
-  end_date: "2012-05-31"
-  interval: day
-  groups: false
-  hops: false
-copenhagen_hops:
-  storage: csv
-  nodes: 692
-  start_date: "2019-12-11"
-  end_date: "2020-01-08"
-  interval: day
-  groups: false
-  hops: false
 copenhagen_groups:
-  storage: csv
-  nodes: 692
-  start_date: "2019-12-11"
-  end_date: "2020-01-08"
-  interval: day
+  end_date: '2020-01-08'
   groups: true
   hops: false
-milan_calls:
-  storage: sql
-  nodes: 7825568
-  start_date: "2012-03-26"
-  end_date: "2012-05-31"
-  interval: day
+  nodes: 692
+  start_date: '2019-12-11'
+  storage: csv
+  real: true
+copenhagen_hops:
+  end_date: '2020-01-08'
   groups: false
   hops: false
+  nodes: 692
+  start_date: '2019-12-11'
+  storage: csv
+  real: true
+copenhagen_interactions:
+  end_date: '2020-01-08'
+  groups: false
+  hops: false
+  nodes: 692
+  start_date: '2019-12-11'
+  storage: csv
+  real: true
+milan_calls:
+  end_date: '2012-05-31'
+  groups: false
+  hops: false
+  nodes: 7825568
+  start_date: '2012-03-26'
+  storage: sql
+  real: true
+mock_data:
+  groups: false
+  hops: false
+  nodes: 4814
+  storage: csv
+  real: true
+random_test_raw:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+0:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+1:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+2:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+3:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+4:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+5:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+6:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+7:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+8:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+9:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+10:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+11:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+12:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+13:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+14:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+15:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+16:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+17:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+18:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+19:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+20:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+21:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+22:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+23:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+24:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+25:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+26:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+27:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+28:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+29:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+30:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+31:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+32:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+33:
+  groups: false
+  hops: false
+  storage: csv
+  real: false

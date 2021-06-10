@@ -71,7 +71,7 @@ class GoogleCloud:
         print(f"uploaded {blob_name} to {bucket.name}")
         return blob.self_link
 
-    # @timing
+    @timing
     def download(
         self,
         blob_name: str,
@@ -87,6 +87,7 @@ class GoogleCloud:
             # if input("doesn't exist in cloud. should i upload? [y/N] ")
             if settings["VERBOSE"]:
                 print("file doesn't exist in cloud storage")
+                raise FileNotFoundError
             return
         if clean:
             blob_name = blob_name.split("/")[-1]

@@ -1,6 +1,6 @@
 ### Running locally
 
-Use `Python>=3.7`
+Use `Python==3.7`
 
 Make sure to install all dependencies: `pip install -r requirements.txt`
 
@@ -21,6 +21,8 @@ Run docker containers of simulation and streamlit app: `docker-compose up --buil
 `ssh` into the instance (currently named `instance-2`). 
 
 Run using `python3 -m simulation.simulation`. Don't forget to `git pull` before running!
+
+Run in `screen -S screen-name` so process won't die. Rename is possible with `Ctrl+A , :` followed by `sessionname name`.
 
 ### Running Tests
 

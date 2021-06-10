@@ -159,14 +159,14 @@ class Contagion(RandomBasicBlock):
                 .pipe(self._is_infected)
             )
         elif self.task["infection_model"] in (2, 3):
-            contagion_df = contagion_df.set_index("susceptible")
-            contagion_df = contagion_df.pipe(self._cases)
-            contagion_df = contagion_df.groupby(["susceptible", "variant"])
-            contagion_df = contagion_df.agg(
-                {"duration": self._multiply_not_infected_chances}
-            )  # drops infector
-            contagion_df = contagion_df.reset_index(level="variant")
-            contagion_df = contagion_df.pipe(self._is_infected)
+            contagion_df = (
+                contagion_df.set_index("susceptible")
+                .pipe(self._cases)
+                .groupby(["susceptible", "variant"])
+                .agg({"duration": self._multiply_not_infected_chances})
+                .reset_index(level="variant")
+                .pipe(self._is_infected)
+            )
         elif self.task["infection_model"] == 4:
             contagion_df = (
                 contagion_df.pipe(self._cases)
@@ -178,6 +178,13 @@ class Contagion(RandomBasicBlock):
                 .pipe(self._is_infected_variants)
                 .pipe(self._which_variant)
             )
+        elif self.task["infection_model"] == 5:
+            contagion_df["duration"] = self.task["beta"]
+            contagion_df = (
+                contagion_df.pipe(self._is_infected)
+                .drop(columns=["infector", "datetime"])
+                .set_index("susceptible")
+            )
         infected = (
             contagion_df.drop(columns=["duration"])
             .rename_axis(index=["infected"])
@@ -185,7 +192,6 @@ class Contagion(RandomBasicBlock):
         )
         return infected
 
-    @timing
     def _add_age(self, df: pd.DataFrame, random: bool = False) -> pd.DataFrame:
         if hasattr(self.dataset, "demography"):
             return df.join(self.dataset.demography.set_index("id"), how="left")
@@ -206,7 +212,6 @@ class Contagion(RandomBasicBlock):
 
 
 class CSVContagion(Contagion):
-    @timing
     def pick_patient_zero(
         self, variant: str, day: int = 0, sick: List[int] = []
     ) -> pd.DataFrame:
@@ -231,24 +236,25 @@ class CSVContagion(Contagion):
         return zeroes
 
     def contagion(self, df: pd.DataFrame, day: int) -> pd.DataFrame:
-        infectors = self._non_removed(df)
+        """
+        Parameters
+        ----------
+        df : pd.DataFrame
+            infection_date | days_left | color | variant
+        day : int
+        """
+        infector_ids = self._non_removed(df)
         # FIXME: broken cuz _non_removed returns a set and not a df
-        infector_ids = set(infectors.index)
         today = self.dataset.split[day]
+        has_duration = "duration" in today.columns
         if self.task.get("max_duration", False):
             today = today[today["duration"] <= self.task["max_duration"]]
-        contagion_df = pd.concat(
-            [
-                pd.merge(
-                    today,
-                    infectors["color"],
-                    left_on=c,
-                    right_index=True,
-                    how="inner",
-                )
-                for c in ("source", "destination")
-            ]
-        )
+        contagion_df = today[
+            (
+                today["source"].isin(infector_ids)
+                | today["destination"].isin(infector_ids)
+            )
+        ]
         infected = contagion_df[
             ~(
                 contagion_df["source"].isin(infector_ids)
@@ -256,25 +262,29 @@ class CSVContagion(Contagion):
             )
         ]
         stacked = infected[["source", "destination"]].stack()
-        contagion_df = infected.join(
-            stacked[stacked.isin(infector_ids)]
-            .reset_index(drop=True, level=1)
-            .rename("infector")
-        ).melt(
-            id_vars=["datetime", "duration", "color", "infector"]
-            + (["hops"] if self.dataset.hops else []),
-            value_name="susceptible",
+        id_vars = list(set(infected.columns) & {"color", "duration", "hops"})
+        contagion_df = (
+            infected.join(
+                stacked[stacked.isin(infector_ids)]
+                .reset_index(drop=True, level=1)
+                .rename("infector")
+            )
+            .melt(
+                id_vars=["datetime", "infector"] + id_vars,
+                value_name="susceptible",
+            )
+            .drop(columns=["variable"])
         )
+        contagion_df["variant"] = "variant_a"  # FIXME!!!!
         contagion_df = contagion_df[~contagion_df["susceptible"].isin(infector_ids)]
         if len(contagion_df) == 0:
             return df
-        df = df.append(contagion_df.pipe(self._infect, day=day).pipe(self._add_age))
+        df = df.append(contagion_df.pipe(self._infect, day=day))
         df = df[~df.index.duplicated(keep="first")]
         return df
 
 
 class GroupContagion(CSVContagion):
-    @timing
     def contagion(self, df: pd.DataFrame, day: int) -> pd.DataFrame:
         """
         Parameters
@@ -339,7 +349,6 @@ class SQLContagion(Contagion):
             ]
         )
 
-    @timing
     def pick_patient_zero(self, day: int = 0, sick: List[Optional[str]] = []):
         # TODO: add variant
         if day == 0 and hasattr(self.dataset, "zeroes") and self.task["squeeze"] == 1:
@@ -379,7 +388,6 @@ class SQLContagion(Contagion):
         ].reset_index(drop=True)
         return contagion_df
 
-    @timing
     def contagion(self, df: pd.DataFrame, day: int) -> pd.DataFrame:
         """
         df : pd.DataFrame

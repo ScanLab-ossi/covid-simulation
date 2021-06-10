@@ -15,7 +15,7 @@ from simulation.task import Task
 def main():
     gcloud, dropbox = GoogleCloud(), Dropbox()
     if settings["LOCAL_TASK"]:
-        tasklist = [Task()]
+        tasklist = [Task({"DATASET": i}) for i in range(34)]
     else:
         gcloud.get_tasklist()
         tasklist = gcloud.todo
@@ -25,10 +25,10 @@ def main():
     tasks = []
     for task in tasklist:
         print(f"starting task {task.id}")
-        print_settings()
+        print_settings(task)
         if settings["UPLOAD"]:
             dropbox.upload(CONFIG_FOLDER / "config.yaml", task.id)
-        dataset = Dataset(task["DATASET"])
+        dataset = Dataset(task["DATASET"], task=task)
         dataset.load_dataset(gcloud=gcloud)
         runner = (
             SensitivityRunner(dataset, task)
@@ -38,7 +38,7 @@ def main():
         result = runner.run()
         if task["SENSITIVITY"]:
             result.export("batches", "summed_analysis", "damage_assessment")
-            result.visualize()
+            result.visualize()  # how=[]
         else:
             result.sum_batch()
             result.export("mean_and_std", "damage_assessment")
@@ -48,18 +48,6 @@ def main():
         dropbox.write_results(tasks)
         return
         # return gcloud.write_results(tasks)
-
-
-# if settings["PARALLEL"]:
-#     with mp.Pool() as p:
-#         r = [
-#             p.apply_async(
-#                 ContagionRunner.contagion_runner, (dataset, output, task),
-#             )
-#             for _ in range(task["ITERATIONS"])
-#         ]
-#         output.concated = pd.concat([res.get() for res in r])
-#         output.export(how="average")
 
 
 app = Flask(__name__)
