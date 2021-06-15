@@ -114,12 +114,12 @@ class Visualizer(BasicBlock):
         domain = [self.states.decrypt_states(c) for c in self.colors]
         chart = (
             alt.Chart(df)
-            .mark_bar(size=(9 if self.dataset.period > 30 else 15))
+            .mark_bar(size=15)
             .encode(
                 x=f"day:O",
                 y=alt.Y(
                     "amount:Q",
-                    axis=alt.Axis(format="%"),
+                    axis=alt.Axis(format="%", grid=False),
                     scale=alt.Scale(domain=(0, 1)),
                 ),
                 color=alt.Color(

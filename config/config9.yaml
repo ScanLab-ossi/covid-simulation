@@ -1,0 +1,64 @@
+settings:
+  PARALLEL: false
+  LOCAL_TASK: true
+  UPLOAD: true
+  SKIP_TESTS: true
+  VERBOSE: false
+  INCREMENT: false
+
+meta:
+  DATASET: half2
+  ITERATIONS: 200
+  SENSITIVITY: false
+
+params:
+  infection_model: 2
+  variant_a:
+    j: 1
+    number_of_patient_zero: 1
+    patient_zeroes_on_days: [0]
+  # variant_b:
+  #   j: 2
+  #   number_of_patient_zero: 5
+  #   patient_zeroes_on_days: [0]
+  D_min: 0
+  D_max: 200
+  P_max: 0.05
+  # max_group_size: 2
+  # beta: 0.5
+  squeeze: 1
+  window_size: 288
+
+paths:
+  green:
+    duration: [10, 1]
+    children: [blue]
+  blue:
+    duration: [10, 1]
+    children: [white]
+  white: {}
+
+sensitivity:
+  params:
+    - P_max
+  metrics:
+  # usualy: sick, infected, notgreen
+    - grouping: white
+    - grouping: daily_blue
+      cumsum: true
+    - grouping: not_green
+  ranges:
+    D_min: { step: 5, min: 5, max: 5 }
+    D_max: { step: 60, min: 1200, max: 1440 }
+    P_max: { step: 0.2, min: 0.1, max: 0.7 }
+    number_of_patient_zero: { step: 5, min: 5, max: 15 }
+    skew: { step: 3, min: 0, max: 30 }
+    ITERATIONS: { step: 5, min: 5, max: 20 }
+    alpha_blue: { step: 0.1, min: 0.0, max: 1.0 }
+    max_group_size: { step: 2, min: 1000, max: 1000 }
+    red: { step: 0.1, min: 0.1, max: 0.3 }
+    purple_pink: { step: 0.5, min: 2, max: 3 }
+    blue: { step: 0.5, min: 7, max: 8 }
+    green: {step: 0.1, min: 0.1, max: 0.9}
+    squeeze: {step: 0.5, min: 0.5, max: 2.0}
+    beta: {step: 0.1, min: 0.5, max: 0.5}

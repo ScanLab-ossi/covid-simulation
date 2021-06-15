@@ -23,9 +23,9 @@ def show_graph(G, labels=False):
 
 
 def to_datetime(df: pd.DataFrame) -> pd.DataFrame:
-    df["datetime"] = pd.to_datetime("03/10/1995") + (
-        (df["datetime"] * 5).astype(str) + "m"
-    ).apply(pd.Timedelta)
+    df["datetime"] = pd.to_datetime("03/10/1995") + pd.to_timedelta(
+        df["datetime"] * 300, "S"
+    )
     return df
 
 

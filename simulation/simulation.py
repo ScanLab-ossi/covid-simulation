@@ -1,12 +1,13 @@
 import os
+from glob import glob
 
 from flask import Flask, jsonify
 
 from simulation.constants import *
 from simulation.contagion import ContagionRunner
 from simulation.dataset import Dataset
-from simulation.google_cloud import GoogleCloud
 from simulation.dropbox import Dropbox
+from simulation.google_cloud import GoogleCloud
 from simulation.helpers import print_settings
 from simulation.sensitivity_analysis import SensitivityRunner
 from simulation.task import Task
@@ -14,8 +15,10 @@ from simulation.task import Task
 
 def main():
     gcloud, dropbox = GoogleCloud(), Dropbox()
-    if settings["LOCAL_TASK"]:
+    if settings.get("ITER_DATASET", False):
         tasklist = [Task({"DATASET": i}) for i in range(34)]
+    elif settings["LOCAL_TASK"]:
+        tasklist = [Task(path=p) for p in glob(str(CONFIG_FOLDER / "config*.yaml"))]
     else:
         gcloud.get_tasklist()
         tasklist = gcloud.todo
@@ -26,7 +29,7 @@ def main():
         print(f"starting task {task.id}")
         print_settings(task)
         if settings["UPLOAD"]:
-            dropbox.upload(CONFIG_FOLDER / "config.yaml", task.id)
+            dropbox.upload(task.path, task.id)
         dataset = Dataset(task["DATASET"], task=task)
         dataset.load_dataset(gcloud=gcloud)
         runner = (

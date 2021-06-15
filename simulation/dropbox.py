@@ -2,7 +2,6 @@ import configparser
 from datetime import datetime
 from glob import glob
 from pathlib import Path
-from typing import List
 
 import dropbox
 from simulation.constants import *

@@ -1,5 +1,6 @@
 from collections import UserDict
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
 
 import numpy as np  # type: ignore
@@ -15,22 +16,27 @@ class Task(UserDict):
     Config for each simulation run.
     """
 
-    def __init__(self, data: dict = {}, done: bool = False, test: bool = False):
+    def __init__(
+        self,
+        data: dict = {},
+        done: bool = False,
+        path: Path = CONFIG_FOLDER / "config.yaml",
+    ):
         super().__init__(dict(data))
         self.id: int = (
             data.id if isinstance(data, Entity) else np.random.randint(1e15, 1e16)
         )
+        self.path = path
         self.setdefault("done", done)
         self.setdefault("start_date", datetime.now())
-        self.load_config(test=test)
+        self.load_config()
         if self.get("country"):
             self.load_country_info()
         # if settings["LOCAL"]:
         #     self.load_state_transition()
 
-    def load_config(self, test: bool = False):
-        p = (TEST_FOLDER if test else CONFIG_FOLDER) / "config.yaml"
-        with open(p) as f:
+    def load_config(self):
+        with open(self.path) as f:
             config = load(f, Loader=Loader)
         for k, v in {
             **config["meta"],

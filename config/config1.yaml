@@ -1,0 +1,107 @@
+settings:
+  PARALLEL: false
+  LOCAL_TASK: true
+  UPLOAD: true
+  SKIP_TESTS: true
+  VERBOSE: false
+  INCREMENT: false
+
+meta:
+  DATASET: copenhagen_groups
+  ITERATIONS: 200
+  SENSITIVITY: false
+
+params:
+  infection_model: 2
+  variant_a:
+    j: 1
+    number_of_patient_zero: 1
+    patient_zeroes_on_days: [0]
+  D_min: 0
+  D_max: 200
+  P_max: 0.5
+  squeeze: 1
+  window_size: 288
+
+paths:
+  green:
+    children:
+      - blue
+      - purple
+    distribution:
+      - 0.8
+      - 0.2
+  blue:
+    duration: [7.5, 1]
+    children: [white]
+  purple:
+    children:
+      - purple_pink
+      - purple_red
+    distribution:
+      - 0.8
+      - 0.2
+  purple_pink:
+    duration: [2.5, 0.5]
+    children: [pink]
+  purple_red:
+    duration: [2.5, 0.5]
+    children: [red]
+  pink:
+    duration: [10, 1]
+    children: [white]
+  red:
+    children:
+      - stable
+      - intensive_care
+    distribution: [0.5, 0.5]
+  stable:
+    children:
+      - stable_white
+      - stable_black
+    distribution: [0.5, 0.5]
+  stable_white:
+    duration: [10, 1]
+    children: [white]
+  stable_black:
+    duration: [10, 1]
+    children: [black]
+  intensive_care:
+    children:
+      - intensive_care_white
+      - intensive_care_black
+    distribution: [0.5, 0.5]
+  intensive_care_white:
+    duration: [10, 1]
+    children: [white]
+  intensive_care_black:
+    duration: [10, 1]
+    children: [black]
+  white: {}
+  black: {}
+
+
+sensitivity:
+  params:
+    - beta
+  metrics:
+  # usualy: sick, infected, notgreen
+    - grouping: white
+    - grouping: daily_blue
+      cumsum: true
+    - grouping: not_green
+  ranges:
+    D_min: { step: 5, min: 5, max: 5 }
+    D_max: { step: 60, min: 1200, max: 1440 }
+    P_max: { step: 0.1, min: 0.3, max: 0.7 }
+    number_of_patient_zero: { step: 5, min: 5, max: 15 }
+    skew: { step: 3, min: 0, max: 30 }
+    ITERATIONS: { step: 5, min: 5, max: 20 }
+    alpha_blue: { step: 0.1, min: 0.0, max: 1.0 }
+    max_group_size: { step: 2, min: 1000, max: 1000 }
+    red: { step: 0.1, min: 0.1, max: 0.3 }
+    purple_pink: { step: 0.5, min: 2, max: 3 }
+    blue: { step: 0.5, min: 7, max: 8 }
+    green: {step: 0.1, min: 0.1, max: 0.9}
+    squeeze: {step: 0.5, min: 0.5, max: 2.0}
+    beta: {step: 0.1, min: 0.5, max: 0.5}

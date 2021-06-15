@@ -1,25 +1,11 @@
 copenhagen_groups:
-  end_date: '2020-01-08'
   groups: true
   hops: false
-  nodes: 692
-  start_date: '2019-12-11'
-  storage: csv
-  real: true
-copenhagen_hops:
-  end_date: '2020-01-08'
-  groups: false
-  hops: false
-  nodes: 692
-  start_date: '2019-12-11'
   storage: csv
   real: true
 copenhagen_interactions:
-  end_date: '2020-01-08'
   groups: false
   hops: false
-  nodes: 692
-  start_date: '2019-12-11'
   storage: csv
   real: true
 milan_calls:
@@ -36,7 +22,17 @@ mock_data:
   nodes: 4814
   storage: csv
   real: true
-random_test_raw:
+half1:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+half2:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
+full:
   groups: false
   hops: false
   storage: csv
