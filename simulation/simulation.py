@@ -1,5 +1,4 @@
 import os
-from glob import glob
 
 from flask import Flask, jsonify
 
@@ -18,7 +17,7 @@ def main():
     if settings.get("ITER_DATASET", False):
         tasklist = [Task({"DATASET": i}) for i in range(34)]
     elif settings["LOCAL_TASK"]:
-        tasklist = [Task(path=p) for p in glob(str(CONFIG_FOLDER / "config*.yaml"))]
+        tasklist = [Task(path=p) for p in CONFIG_FOLDER.iterdir() if "config" in p.name]
     else:
         gcloud.get_tasklist()
         tasklist = gcloud.todo

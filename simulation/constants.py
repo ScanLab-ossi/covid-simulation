@@ -8,7 +8,7 @@ CONFIG_FOLDER = Path("./config").resolve()
 TEST_FOLDER = Path("./tests").resolve()
 # PARENT_FOLDER = Path("./simulation").resolve()
 
-with open(CONFIG_FOLDER / "config.yaml") as f:
+with open(CONFIG_FOLDER / "config1.yaml") as f:
     config = load(f, Loader=Loader)
 settings = config["settings"]
 settings["LOCAL"] = eval(os.environ.get("LOCAL", "True"))
@@ -17,5 +17,3 @@ try:
     settings["UPLOAD"] = eval(os.environ["UPLOAD"])
 except KeyError:
     pass
-
-meta = config["meta"]
