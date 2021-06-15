@@ -1,14 +1,11 @@
-from yaml import Loader, load
 from typing import Optional, List
 
-from simulation.constants import CONFIG_FOLDER
+from simulation.task import Task
 
 
 class States:
-    def __init__(self):
-        with open(CONFIG_FOLDER / "config.yaml") as f:
-            config = load(f, Loader=Loader)
-        self.states = {k for k in config["paths"].keys()}
+    def __init__(self, task: Task):
+        self.states = {k for k in task["paths"].keys()}
         self.non_states = {
             "infected",
             "infectors",

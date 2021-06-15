@@ -21,7 +21,7 @@ class BasicBlock(ABC):
         self.task: Task = task
         if self.task["DATASET"] != self.dataset.name:
             raise
-        self.states = States()
+        self.states = States(task)
 
 
 class RandomBasicBlock(BasicBlock):
