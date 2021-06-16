@@ -66,30 +66,20 @@ class Dataset(object):
             self.nodes = len(set.union(*[set(i) for i in self.ids.values()]))
 
     def _split(self):
-        if not self.real:
-            self.split = {
-                i: x[1]
-                for i, x in enumerate(
-                    self.data.resample(
-                        f"{5*self.task['window_size']}min", on="datetime"
-                    )
-                )
-            }
-        else:
-            samplesize = f"{self.task['squeeze']}D" if self.task["squeeze"] > 1 else "D"
-            self.split = {
-                i: x[1]
-                for i, x in enumerate(self.data.resample(samplesize, on="datetime"))
-            }
-            if self.task["squeeze"] < 1:
-                d, i = {}, 0
-                for df in self.split.values():
-                    for df_frac in np.array_split(
-                        df.sample(frac=1), round(self.task["squeeze"] ** -1)
-                    ):
-                        d[i] = df_frac
-                        i += 1
-                self.split = d
+        # if self.task["squeeze"] >= 1:
+        samplesize = f"{5 * self.task['window_size'] * self.task['squeeze']}min"
+        self.split = {
+            i: x[1] for i, x in enumerate(self.data.resample(samplesize, on="datetime"))
+        }
+        # else:
+        #     d, i = {}, 0
+        #     for df in self.split.values():
+        #         for df_frac in np.array_split(
+        #             df.sample(frac=1), round(self.task["squeeze"] ** -1)
+        #         ):
+        #             d[i] = df_frac
+        #             i += 1
+        #     self.split = d
 
     def _load_helper_dfs(self, gcloud):
         gcloud.download(f"{self.name}_demography.feather")

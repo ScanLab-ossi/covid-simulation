@@ -423,16 +423,16 @@ class SQLContagion(Contagion):
 class ContagionRunner(ConnectedBasicBlock):
     """Runs one batch"""
 
-    def _squeeze(self) -> int:
-        if self.task["squeeze"] > 1:
-            period = int(self.dataset.period // self.task["squeeze"])
-            if self.dataset.period % self.task["squeeze"] > 0:
-                period += 1
-        elif self.task["squeeze"] < 1:
-            period = self.dataset.period * round(self.task["squeeze"] ** -1)
-        else:
-            period = self.dataset.period + 1
-        return period
+    # def _squeeze(self) -> int:
+    #     if self.task["squeeze"] > 1:
+    #         period = max(self.dataset.split)
+    #         if self.dataset.period % self.task["squeeze"] > 0:
+    #             period += 1
+    #     elif self.task["squeeze"] < 1:
+    #         period = self.dataset.period * round(self.task["squeeze"] ** -1)
+    #     else:
+    #         period = self.dataset.period + 1
+    #     return period
 
     def _get_patient_zero(
         self,
@@ -468,7 +468,7 @@ class ContagionRunner(ConnectedBasicBlock):
         contagion = self._pick_contagion(reproducible=False)
         for i in range(self.task["ITERATIONS"]):
             start, output, st = datetime.now(), Output(*dt), StateTransition(*dt)
-            for day in range(self._squeeze()):
+            for day in range(max(self.dataset.split) + 1):
                 output = self._get_patient_zero(day, output, contagion)
                 if day == 0:
                     output.set_first()
