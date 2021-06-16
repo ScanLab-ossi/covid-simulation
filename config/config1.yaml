@@ -26,7 +26,7 @@ params:
   P_max: 0.5
   # max_group_size: 2
   # beta: 0.5
-  squeeze: 1
+  squeeze: 0.333
   window_size: 288
 
 paths:
