@@ -35,7 +35,7 @@ class States:
             "green": "susceptible",
         }
         try:
-            return f"{color} ({d[color]})"
+            return d[color]
         except KeyError:
             return color
 

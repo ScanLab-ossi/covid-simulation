@@ -7,7 +7,7 @@ settings:
   INCREMENT: false
 
 meta:
-  DATASET: copenhagen_groups
+  DATASET: halfandhalf
   ITERATIONS: 200
   SENSITIVITY: false
 
@@ -15,7 +15,7 @@ params:
   infection_model: 2
   variant_a:
     j: 1
-    number_of_patient_zero: 1
+    number_of_patient_zero: 2
     patient_zeroes_on_days: [0]
   # variant_b:
   #   j: 2
@@ -23,10 +23,10 @@ params:
   #   patient_zeroes_on_days: [0]
   D_min: 0
   D_max: 200
-  P_max: 0.5
+  P_max: 0.05
   # max_group_size: 2
   # beta: 0.5
-  squeeze: 0.25
+  squeeze: 1
   window_size: 288
 
 paths:

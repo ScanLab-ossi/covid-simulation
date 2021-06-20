@@ -32,6 +32,11 @@ half2:
   hops: false
   storage: csv
   real: false
+halfandhalf:
+  groups: false
+  hops: false
+  storage: csv
+  real: false
 full:
   groups: false
   hops: false
