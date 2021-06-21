@@ -7,15 +7,15 @@ settings:
   INCREMENT: false
 
 meta:
-  DATASET: halfandhalf
+  DATASET: copenhagen_groups
   ITERATIONS: 200
-  SENSITIVITY: false
+  SENSITIVITY: true
 
 params:
   infection_model: 2
   variant_a:
     j: 1
-    number_of_patient_zero: 2
+    number_of_patient_zero: 1
     patient_zeroes_on_days: [0]
   # variant_b:
   #   j: 2
@@ -23,24 +23,73 @@ params:
   #   patient_zeroes_on_days: [0]
   D_min: 0
   D_max: 200
-  P_max: 0.05
+  P_max: 0.5
   # max_group_size: 2
   # beta: 0.5
   squeeze: 1
   window_size: 288
 
+
 paths:
   green:
-    duration: [10, 1]
-    children: [blue]
+    children:
+      - blue
+      - purple
+    distribution:
+      - 0.8
+      - 0.2
   blue:
+    duration: [7.5, 1]
+    children: [white]
+  purple:
+    children:
+      - purple_pink
+      - purple_red
+    distribution:
+      - 0.8
+      - 0.2
+  purple_pink:
+    duration: [2.5, 0.5]
+    children: [pink]
+  purple_red:
+    duration: [2.5, 0.5]
+    children: [red]
+  pink:
     duration: [10, 1]
     children: [white]
+  red:
+    children:
+      - stable
+      - intensive_care
+    distribution: [0.5, 0.5]
+  stable:
+    children:
+      - stable_white
+      - stable_black
+    distribution: [0.5, 0.5]
+  stable_white:
+    duration: [10, 1]
+    children: [white]
+  stable_black:
+    duration: [10, 1]
+    children: [black]
+  intensive_care:
+    children:
+      - intensive_care_white
+      - intensive_care_black
+    distribution: [0.5, 0.5]
+  intensive_care_white:
+    duration: [10, 1]
+    children: [white]
+  intensive_care_black:
+    duration: [10, 1]
+    children: [black]
   white: {}
+  black: {}
 
 sensitivity:
   params:
-    - squeeze
+    - green
   metrics:
   # usualy: sick, infected, notgreen
     - grouping: white
