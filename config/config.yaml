@@ -5,17 +5,18 @@ settings:
   SKIP_TESTS: true
   VERBOSE: false
   INCREMENT: false
+  ITER_DATASET: true
 
-meta:
-  DATASET: copenhagen_groups
-  ITERATIONS: 200
-  SENSITIVITY: true
+meta: 
+  DATASET: random_undirected_concated
+  ITERATIONS: 3
+  SENSITIVITY: false
 
 params:
   infection_model: 2
   variant_a:
     j: 1
-    number_of_patient_zero: 1
+    number_of_patient_zero: 3
     patient_zeroes_on_days: [0]
   # variant_b:
   #   j: 2
@@ -23,7 +24,7 @@ params:
   #   patient_zeroes_on_days: [0]
   D_min: 0
   D_max: 200
-  P_max: 0.5
+  P_max: 0.05
   # max_group_size: 2
   # beta: 0.5
   squeeze: 1

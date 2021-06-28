@@ -1,3 +1,4 @@
+import json
 import os
 
 from flask import Flask, jsonify
@@ -15,7 +16,13 @@ from simulation.task import Task
 def main():
     gcloud, dropbox = GoogleCloud(), Dropbox()
     if settings.get("ITER_DATASET", False):
-        tasklist = [Task({"DATASET": i}) for i in range(34)]
+        tasklist = [
+            Task({"DATASET": Path(b.name).stem})
+            for b in list(gcloud.s_client.list_blobs("simulation_datasets"))
+            if config["meta"]["DATASET"] in b.name
+        ]
+        print([t["DATASET"] for t in tasklist])
+        iter_results = {}
     elif settings["LOCAL_TASK"]:
         tasklist = [Task(path=p) for p in CONFIG_FOLDER.iterdir() if "config" in p.name]
     else:
@@ -27,7 +34,7 @@ def main():
     for task in tasklist:
         print(f"starting task {task.id}")
         print_settings(task)
-        if settings["UPLOAD"]:
+        if settings["UPLOAD"] and not settings["ITER_DATASET"]:
             dropbox.upload(task.path, task.id)
         dataset = Dataset(task["DATASET"], task=task)
         dataset.load_dataset(gcloud=gcloud)
@@ -42,10 +49,18 @@ def main():
             result.visualize()  # how=[]
         else:
             result.sum_batch()
-            result.export("mean_and_std", "damage_assessment")
-            result.visualize()
+            if not settings["ITER_DATASET"]:
+                result.export("mean_and_std", "damage_assessment")
+                result.visualize()
         if settings["UPLOAD"]:
             dropbox.write_results(task)
+        if settings["ITER_DATASET"]:
+            iter_results[dataset.name] = result.damage_assessment["not_green"].tolist()
+    if settings["ITER_DATASET"]:
+        with open(OUTPUT_FOLDER / f"iter_datasets_{tasklist[0].id}.json", "w") as fp:
+            json.dump(iter_results, fp)
+        if settings["UPLOAD"]:
+            dropbox.write_results(tasklist[0])
     return []
     # return gcloud.write_results(tasks)
 

@@ -23,9 +23,10 @@ class Task(UserDict):
         path: Path = CONFIG_FOLDER / "config.yaml",
     ):
         super().__init__(dict(data))
-        self.id: int = (
-            data.id if isinstance(data, Entity) else np.random.randint(1e15, 1e16)
-        )
+        if isinstance(data, Entity) or "id" in data:
+            self.id = data.id
+        else:
+            self.id = np.random.randint(1e15, 1e16)
         self.path = path
         self.setdefault("done", done)
         self.setdefault("start_date", datetime.now())
