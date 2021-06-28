@@ -14,7 +14,11 @@ class Dataset(object):
         self.name = name
         self.task = task
         with open(CONFIG_FOLDER / "datasets.yaml", "r") as f:
-            metadata = load(f, Loader=Loader)[name]
+            datasets = load(f, Loader=Loader)
+            try:
+                metadata = datasets[name]
+            except KeyError:
+                metadata = datasets[[k for k in datasets.keys() if k in name][0]]
         for k, v in metadata.items():
             if k in ["start_date", "end_date"]:
                 setattr(self, k, self._strp(metadata[k]))

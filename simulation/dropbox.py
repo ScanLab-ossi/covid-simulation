@@ -39,3 +39,5 @@ class Dropbox:
             self.upload(Path(f), task.id)
         for f in glob(str(OUTPUT_FOLDER / f"{task.id}*.csv")):
             self.upload(Path(f), task.id)
+        for f in glob(str(OUTPUT_FOLDER / f"iter_datasets_{task.id}*.json")):
+            self.upload(Path(f), task.id)
