@@ -9,14 +9,14 @@ settings:
 
 meta: 
   DATASET: random_undirected_concated
-  ITERATIONS: 3
+  ITERATIONS: 20
   SENSITIVITY: false
 
 params:
   infection_model: 2
   variant_a:
     j: 1
-    number_of_patient_zero: 3
+    number_of_patient_zero: 10
     patient_zeroes_on_days: [0]
   # variant_b:
   #   j: 2
@@ -33,60 +33,12 @@ params:
 
 paths:
   green:
-    children:
-      - blue
-      - purple
-    distribution:
-      - 0.8
-      - 0.2
+    duration: [1, 1]
+    children: [blue]
   blue:
     duration: [7.5, 1]
     children: [white]
-  purple:
-    children:
-      - purple_pink
-      - purple_red
-    distribution:
-      - 0.8
-      - 0.2
-  purple_pink:
-    duration: [2.5, 0.5]
-    children: [pink]
-  purple_red:
-    duration: [2.5, 0.5]
-    children: [red]
-  pink:
-    duration: [10, 1]
-    children: [white]
-  red:
-    children:
-      - stable
-      - intensive_care
-    distribution: [0.5, 0.5]
-  stable:
-    children:
-      - stable_white
-      - stable_black
-    distribution: [0.5, 0.5]
-  stable_white:
-    duration: [10, 1]
-    children: [white]
-  stable_black:
-    duration: [10, 1]
-    children: [black]
-  intensive_care:
-    children:
-      - intensive_care_white
-      - intensive_care_black
-    distribution: [0.5, 0.5]
-  intensive_care_white:
-    duration: [10, 1]
-    children: [white]
-  intensive_care_black:
-    duration: [10, 1]
-    children: [black]
   white: {}
-  black: {}
 
 sensitivity:
   params:

@@ -21,7 +21,6 @@ def main():
             for b in list(gcloud.s_client.list_blobs("simulation_datasets"))
             if config["meta"]["DATASET"] in b.name
         ]
-        print([t["DATASET"] for t in tasklist])
         iter_results = {}
     elif settings["LOCAL_TASK"]:
         tasklist = [Task(path=p) for p in CONFIG_FOLDER.iterdir() if "config" in p.name]
