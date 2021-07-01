@@ -34,6 +34,7 @@ class Analysis(BasicBlock):
         df: pd.DataFrame,
         grouping: str,
         threshold: Optional[Union[int, float]] = None,
+        specific_day: Optional[int] = None,
         percent: bool = True,
         how: str = "amount",
         cumsum: bool = False,
@@ -47,6 +48,8 @@ class Analysis(BasicBlock):
             any state in States, not_{state}, daily_{state}
         threshold : Union[int, float]
             amount or percent over which to return day at which arrived at threshold
+        specific_day: Optional[int]
+            day on which to check metric
         percent : bool
             return res in percent if True, regular numerical amount if False
         how : str [amount, day]
@@ -67,7 +70,15 @@ class Analysis(BasicBlock):
         if cumsum:
             df = df.cumsum()
         if not threshold:
-            res = df[grouping].idxmax() if how == "day" else df[grouping].max()
+            if not specific_day:
+                res = df[grouping].idxmax() if how == "day" else df[grouping].max()
+            else:
+                if how == "day":
+                    raise NotImplementedError(
+                        "you specified the day, so you shouldn't be needing it as an answer"
+                    )
+                elif how == "amount":
+                    res = df.loc[specific_day, grouping]
         else:
             if how == "amount":
                 raise NotImplementedError(

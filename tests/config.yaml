@@ -1,5 +1,4 @@
 settings:
-  PARALLEL: false # run simulation in parallel, rather than iteratively. iterative seems to run faster locally
   # LOCAL: true # should be true if running locally, false if running in the cloud
   LOCAL_TASK: true # task list according to local config only. skips downloading task list from google cloud
   UPLOAD: false # upload results to google cloud

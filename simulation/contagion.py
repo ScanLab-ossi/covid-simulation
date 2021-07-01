@@ -223,7 +223,6 @@ class CSVContagion(Contagion):
             columns: infection_date | days_left | color | variant [| age]
         """
         # TODO: pick arbitrary patient
-        # today = self.dataset.start_date + timedelta(day) * self.task['squeeze']
         potential = self.dataset.ids[day]
         if sick:
             potential = list(set(potential) - set(sick))
@@ -339,8 +338,9 @@ class SQLContagion(Contagion):
         super().__init__(dataset=dataset, task=task, reproducible=reproducible)
         self.mysql = MySQL(gcloud)
 
-    def _squeeze_partitions(self, day: int) -> str:
-        r = range(day * self.task["squeeze"], (day + 1) * self.task["squeeze"])
+    def _divide_partitions(self, day: int) -> str:
+        # FIXME: changed squeeze to divide
+        r = range(day * self.task["divide"], (day + 1) * self.task["divide"])
         return ", ".join(
             [
                 f'{self.dataset.name}_{(self.dataset.start_date + timedelta(d)).strftime("%m%d")}'
@@ -351,12 +351,12 @@ class SQLContagion(Contagion):
 
     def pick_patient_zero(self, day: int = 0, sick: List[Optional[str]] = []):
         # TODO: add variant
-        if day == 0 and hasattr(self.dataset, "zeroes") and self.task["squeeze"] == 1:
+        if day == 0 and hasattr(self.dataset, "zeroes") and self.task["divide"] == 1:
             potential = self.dataset.zeroes
         else:
             query = f"""SELECT DISTINCT source 
                     FROM datasets.{self.dataset.name} 
-                    PARTITION ({self._squeeze_partitions(day)})
+                    PARTITION ({self._divide_partitions(day)})
                     """
             # if sick:
             #     query += f"WHERE source not in {repr(tuple(sick))}"
@@ -374,7 +374,7 @@ class SQLContagion(Contagion):
     def _make_sql_query(self, infector_ids: List[str], day: int) -> pd.DataFrame:
         extra = ", hops" if self.dataset.hops == True else ""
         query = f"""SELECT source, destination, `datetime`, duration{extra}
-                FROM datasets.{self.dataset.name} PARTITION ({self._squeeze_partitions(day)})
+                FROM datasets.{self.dataset.name} PARTITION ({self._divide_partitions(day)})
                 WHERE source in {repr(tuple(infector_ids))}""".replace(
             ",)", ")"
         )
@@ -452,6 +452,7 @@ class ContagionRunner(ConnectedBasicBlock):
             )
 
     def run(self) -> Batch:
+        self.dataset.load_dataset()
         dt = self.dataset, self.task
         batch = Batch(*dt)
         contagion = self._pick_contagion(reproducible=False)

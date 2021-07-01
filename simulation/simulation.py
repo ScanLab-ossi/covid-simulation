@@ -35,8 +35,7 @@ def main():
         print_settings(task)
         if settings["UPLOAD"] and not settings["ITER_DATASET"]:
             dropbox.upload(task.path, task.id)
-        dataset = Dataset(task["DATASET"], task=task)
-        dataset.load_dataset(gcloud=gcloud)
+        dataset = Dataset(task["DATASET"], task=task, gcloud=gcloud)
         runner = (
             SensitivityRunner(dataset, task)
             if task["SENSITIVITY"]

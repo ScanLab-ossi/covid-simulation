@@ -22,26 +22,6 @@ mock_data:
   nodes: 4814
   storage: csv
   real: true
-half1:
-  groups: false
-  hops: false
-  storage: csv
-  real: false
-half2:
-  groups: false
-  hops: false
-  storage: csv
-  real: false
-halfandhalf:
-  groups: false
-  hops: false
-  storage: csv
-  real: false
-full:
-  groups: false
-  hops: false
-  storage: csv
-  real: false
 random_undirected:
   groups: false
   hops: false

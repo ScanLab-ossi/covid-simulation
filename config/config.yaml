@@ -1,16 +1,15 @@
 settings:
-  PARALLEL: false
   LOCAL_TASK: true
   UPLOAD: true
   SKIP_TESTS: true
   VERBOSE: false
   INCREMENT: false
-  ITER_DATASET: true
+  ITER_DATASET: false
 
 meta: 
-  DATASET: random_undirected_concated
-  ITERATIONS: 20
-  SENSITIVITY: false
+  DATASET: random_undirected_concated_1000_1
+  ITERATIONS: 200
+  SENSITIVITY: true
 
 params:
   infection_model: 2
@@ -27,7 +26,7 @@ params:
   P_max: 0.05
   # max_group_size: 2
   # beta: 0.5
-  squeeze: 1
+  divide: 1
   window_size: 288
 
 
@@ -36,19 +35,20 @@ paths:
     duration: [1, 1]
     children: [blue]
   blue:
-    duration: [7.5, 1]
+    duration: [10, 1]
     children: [white]
   white: {}
 
 sensitivity:
   params:
-    - green
+    - divide
   metrics:
   # usualy: sick, infected, notgreen
-    - grouping: white
-    - grouping: daily_blue
-      cumsum: true
+    # - grouping: white
+    # - grouping: daily_blue
+    #   cumsum: true
     - grouping: not_green
+      specific_day: 34
   ranges:
     D_min: { step: 5, min: 5, max: 5 }
     D_max: { step: 60, min: 1200, max: 1440 }
@@ -62,5 +62,5 @@ sensitivity:
     purple_pink: { step: 0.5, min: 2, max: 3 }
     blue: { step: 0.5, min: 7, max: 8 }
     green: {step: 0.1, min: 0.1, max: 0.9}
-    squeeze: {step: 0.5, min: 0.5, max: 2.0}
+    divide: {step: 1, min: 1, max: 10}
     beta: {step: 0.1, min: 0.5, max: 0.5}
