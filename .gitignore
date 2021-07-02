@@ -3,6 +3,7 @@
 # docker-compose.yml
 
 # Specific
+*.zip
 .vscode/*
 output/*.json
 keyfile.json

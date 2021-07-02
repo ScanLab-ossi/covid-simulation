@@ -1,13 +1,13 @@
 settings:
   LOCAL_TASK: true
-  UPLOAD: true
+  UPLOAD: false
   SKIP_TESTS: true
-  VERBOSE: false
+  VERBOSE: true
   INCREMENT: false
   ITER_DATASET: false
 
 meta: 
-  DATASET: random_undirected_concated_1000_1
+  DATASET: copenhagen_groups
   ITERATIONS: 200
   SENSITIVITY: true
 
@@ -15,7 +15,7 @@ params:
   infection_model: 2
   variant_a:
     j: 1
-    number_of_patient_zero: 10
+    number_of_patient_zero: 1
     patient_zeroes_on_days: [0]
   # variant_b:
   #   j: 2
@@ -23,21 +23,68 @@ params:
   #   patient_zeroes_on_days: [0]
   D_min: 0
   D_max: 200
-  P_max: 0.05
+  P_max: 0.5
   # max_group_size: 2
   # beta: 0.5
   divide: 1
   window_size: 288
 
-
 paths:
   green:
-    duration: [1, 1]
-    children: [blue]
+    children:
+      - blue
+      - purple
+    distribution:
+      - 0.8
+      - 0.2
   blue:
+    duration: [7.5, 1]
+    children: [white]
+  purple:
+    children:
+      - purple_pink
+      - purple_red
+    distribution:
+      - 0.8
+      - 0.2
+  purple_pink:
+    duration: [2.5, 0.5]
+    children: [pink]
+  purple_red:
+    duration: [2.5, 0.5]
+    children: [red]
+  pink:
     duration: [10, 1]
     children: [white]
+  red:
+    children:
+      - stable
+      - intensive_care
+    distribution: [0.5, 0.5]
+  stable:
+    children:
+      - stable_white
+      - stable_black
+    distribution: [0.5, 0.5]
+  stable_white:
+    duration: [10, 1]
+    children: [white]
+  stable_black:
+    duration: [10, 1]
+    children: [black]
+  intensive_care:
+    children:
+      - intensive_care_white
+      - intensive_care_black
+    distribution: [0.5, 0.5]
+  intensive_care_white:
+    duration: [10, 1]
+    children: [white]
+  intensive_care_black:
+    duration: [10, 1]
+    children: [black]
   white: {}
+  black: {}
 
 sensitivity:
   params:
@@ -48,7 +95,7 @@ sensitivity:
     # - grouping: daily_blue
     #   cumsum: true
     - grouping: not_green
-      specific_day: 34
+      specific_day: 27
   ranges:
     D_min: { step: 5, min: 5, max: 5 }
     D_max: { step: 60, min: 1200, max: 1440 }
@@ -61,6 +108,6 @@ sensitivity:
     red: { step: 0.1, min: 0.1, max: 0.3 }
     purple_pink: { step: 0.5, min: 2, max: 3 }
     blue: { step: 0.5, min: 7, max: 8 }
-    green: {step: 0.1, min: 0.1, max: 0.9}
-    divide: {step: 1, min: 1, max: 10}
+    green: {step: 0.1, min: ,0.1, max: 0.9}
+    divide: {step: 1, min: 1, max: 6}
     beta: {step: 0.1, min: 0.5, max: 0.5}

@@ -340,6 +340,8 @@ class SQLContagion(Contagion):
 
     def _divide_partitions(self, day: int) -> str:
         # FIXME: changed squeeze to divide
+        # FIXME: deprecated dataset.period
+        # FIXME: deprecated start_date and end_date
         r = range(day * self.task["divide"], (day + 1) * self.task["divide"])
         return ", ".join(
             [

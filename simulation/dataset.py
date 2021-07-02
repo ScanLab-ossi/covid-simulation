@@ -22,15 +22,7 @@ class Dataset(object):
             except KeyError:
                 metadata = datasets[[k for k in datasets.keys() if k in name][0]]
         for k, v in metadata.items():
-            if k in ["start_date", "end_date"]:
-                setattr(self, k, self._strp(metadata[k]))
-            else:
-                setattr(self, k, v)
-        if hasattr(self, "start_date"):
-            self.period: int = (self.end_date - self.start_date).days
-
-    def _strp(self, d: str) -> date:
-        return datetime.strptime(d, "%Y-%m-%d").date()
+            setattr(self, k, v)
 
     @timing
     def load_dataset(self):
@@ -51,11 +43,8 @@ class Dataset(object):
         if "duration" not in data.columns:
             data["duration"] = 5
         self._split(data=data)
+        self._remove_redundant_days()
         self._get_ids()
-        if not hasattr(self, "start_date"):
-            self.start_date = self.split[0]["datetime"].min().date()
-            self.end_date = self.split[max(self.split)]["datetime"].max().date()
-            self.period: int = max(self.split)
         if self.name == "milan_calls":
             self._load_helper_dfs()
 
@@ -71,6 +60,18 @@ class Dataset(object):
             }
         if not hasattr(self, "nodes"):
             self.nodes = len(set.union(*[set(i) for i in self.ids.values()]))
+
+    def _remove_redundant_days(self):
+        if self.task["SENSITIVITY"]:
+            try:
+                max_day = [
+                    x["specific_day"]
+                    for x in self.task["sensitivity"]["metrics"]
+                    if "specific_day" in x
+                ][0]
+                self.split = {k: v for k, v in self.split.items() if k <= max_day}
+            except KeyError:
+                pass
 
     def _split(self, data: pd.DataFrame):
         samplesize = f"{floor(5 * self.task['window_size'] / self.task['divide'])}min"

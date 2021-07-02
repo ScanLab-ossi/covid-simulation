@@ -11,8 +11,6 @@ from simulation.constants import *
 
 metadata_keys = [
     "dataset",
-    "start_date",
-    "end_date",
     "output_url",
     "done",
 ]

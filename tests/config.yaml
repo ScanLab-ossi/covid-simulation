@@ -88,6 +88,16 @@ paths:
   white: {}
   black: {}
 
+paths:
+  green:
+    duration: [1, 1]
+    children: [blue]
+  blue:
+    duration: [7.5, 1]
+    children: [white]
+  white: {}
+
+
 sensitivity:
   params:
     # - P_max
