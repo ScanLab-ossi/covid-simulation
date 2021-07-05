@@ -53,7 +53,17 @@ def main():
         if settings["UPLOAD"]:
             dropbox.write_results(task)
         if settings["ITER_DATASET"]:
-            iter_results[dataset.name] = result.damage_assessment["not_green"].tolist()
+            if task["SENSITIVITY"]:
+                iter_results[dataset.name] = {
+                    k: d["value"].tolist()
+                    for k, d in result.summed_analysis[
+                        result.summed_analysis["metric"] == "max_percent_not_green"
+                    ].groupby("step")
+                }
+            else:
+                iter_results[dataset.name] = result.damage_assessment[
+                    "not_green"
+                ].tolist()
     if settings["ITER_DATASET"]:
         with open(OUTPUT_FOLDER / f"iter_datasets_{tasklist[0].id}.json", "w") as fp:
             json.dump(iter_results, fp)
