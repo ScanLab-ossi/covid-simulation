@@ -5,14 +5,14 @@ from typing import TYPE_CHECKING
 
 from numpy import random
 
-from simulation.states import States
-from simulation.google_cloud import GoogleCloud
+from states import States, Variants
+from google_cloud import GoogleCloud
 
 if TYPE_CHECKING:
-    from simulation.dataset import Dataset
-    from simulation.google_cloud import GoogleCloud
-    from simulation.output import Output
-    from simulation.task import Task
+    from dataset import Dataset
+    from google_cloud import GoogleCloud
+    from output import Output
+    from task import Task
 
 
 class BasicBlock(ABC):
@@ -21,7 +21,8 @@ class BasicBlock(ABC):
         self.task: Task = task
         if self.task["DATASET"] != self.dataset.name:
             raise
-        self.states = States(task)  #
+        self.states = States(task)
+        self.variants = Variants(task)
 
 
 class RandomBasicBlock(BasicBlock):

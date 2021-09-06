@@ -4,9 +4,9 @@ import configparser, os
 import pandas as pd
 from sqlalchemy import create_engine, engine
 
-from simulation.constants import *
-from simulation.helpers import timing
-from simulation.google_cloud import GoogleCloud
+from constants import *
+from helpers import timing
+from google_cloud import GoogleCloud
 
 
 class MySQL:

@@ -1,11 +1,11 @@
 from typing import Union, Dict, List
 
-import numpy as np  # type: ignore
-import pandas as pd  # type: ignore
+import numpy as np
+import pandas as pd
 
-from simulation.helpers import timing
-from simulation.building_blocks import RandomBasicBlock
-from simulation.constants import *
+from helpers import timing
+from building_blocks import RandomBasicBlock
+from constants import *
 
 
 class StateTransition(RandomBasicBlock):

@@ -2,6 +2,7 @@ import unittest
 from datetime import date
 import os
 import pandas as pd
+from pandas._testing.asserters import assert_equal
 import pandas.testing as pdt
 import numpy as np
 import numpy.testing as npt
@@ -10,19 +11,27 @@ from simulation.contagion import CSVContagion, SQLContagion, Contagion
 from simulation.task import Task
 from simulation.dataset import Dataset
 from simulation.google_cloud import GoogleCloud
-from simulation.constants import settings
-
-task = Task(test=True)
-dataset = Dataset("mock_data")
-dataset.load_dataset(gcloud=GoogleCloud())
+from simulation.constants import *
 
 
 class TestContagion(unittest.TestCase):
     def setUp(self):
-        self.c = Contagion(dataset, task)
+        gcloud = GoogleCloud()
+        task = Task(path=TEST_FOLDER / "config.yaml")
+        dataset = Dataset(task["DATASET"], task=task, gcloud=gcloud)
+        self.c = Contagion(dataset, task, reproducible=True)
+        self.contagion_df = pd.DataFrame(
+            {
+                "infection_date": [1, 2, 5],
+                "days_left": [0, 2, 4],
+                "color": ["green", "blue", "intensive_care_white"],
+                "variant": ["variant_b"] * 2 + ["variant_a"],
+            },
+            index=[123, 432, 678],
+        )
         self.sample_infected = pd.DataFrame(
             {"duration": [1440, 36, 0], "color": [True, False, False]},
-            index=[".QP/64EdoTcdkMnmXGVO0A"] * 3,
+            index=[123] * 3,
         )
         self.c.task.update({"D_min": 2, "D_max": 1440, "P_max": 0.8, "alpha_blue": 0.5})
 
@@ -36,24 +45,6 @@ class TestContagion(unittest.TestCase):
         piped = self.sample_infected.pipe(self.c._cases)
         pdt.assert_frame_equal(piped, self.sample_infected.replace(0, 0.00001))
 
-    def test_multiply_not_infected_chances_scruve(self):
-        self.c.task["skew"] = 0
-        self.c.task["infection_model"] = 3
-        self.assertEqual(
-            self.c._multiply_not_infected_chances(self.sample_infected["duration"]),
-            0.8,
-        )
-        del self.c.task["skew"]
-        self.c.task["infection_model"] = 2
-
-    def test_multiply_not_infected_chances_relu(self):
-        self.c.task["infection_model"] = 2
-        del self.c.task["skew"]
-        self.assertEqual(
-            self.c._multiply_not_infected_chances(self.sample_infected["duration"]),
-            0.804,
-        )
-
     def test_is_infected(self):
         x = (
             self.c._is_infected(pd.DataFrame({"duration": [0.4, 0.2]}))
@@ -61,6 +52,18 @@ class TestContagion(unittest.TestCase):
             .all()["duration"]
         )
         self.assertTrue(x)
+
+    def test_non_removed(self):
+        self.assertEqual(self.c._non_removed(self.contagion_df), {123, 432})
+
+    def test_removed(self):
+        self.assertEqual(self.c._removed(self.contagion_df), set([678]))
+
+    def test_removed_and_non_removed(self):
+        self.assertSetEqual(
+            self.c._non_removed(self.contagion_df) | self.c._removed(self.contagion_df),
+            {123, 432, 678},
+        )
 
 
 class TestCSVContagion(unittest.TestCase):

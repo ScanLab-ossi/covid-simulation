@@ -2,7 +2,7 @@ import unittest
 import pandas as pd
 import pandas.testing as pdt
 
-from simulation.analysis import Analysis
+from simulation.sensitivity_analysis import Analysis
 from simulation.dataset import Dataset
 from simulation.output import Batch
 from simulation.task import Task

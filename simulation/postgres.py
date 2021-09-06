@@ -1,7 +1,7 @@
 from pathlib import Path
 import configparser, os, json
-from simulation.constants import *
-from simulation.google_cloud import GoogleCloud
+from constants import *
+from google_cloud import GoogleCloud
 
 
 class Postgres(object):
@@ -27,4 +27,3 @@ class Postgres(object):
         else:
             conf.read(conf_file)
         return conf
-

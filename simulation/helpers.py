@@ -1,11 +1,12 @@
 from functools import wraps
 from datetime import datetime
 import pickle
+import sys
 import logging
 
 # logging.basicConfig(format=FORMAT)
 
-from simulation.constants import *
+from constants import *
 
 
 def timing(f):
@@ -24,16 +25,14 @@ def timing(f):
     return wrap
 
 
-def one_array_pickle_to_set(pickle_file_name):
-    # open a file, where you stored the pickled data
-    with open(pickle_file_name, "rb") as f:
-        data = pickle.load(f)
-    set_from_arr = set(data.flatten())
-    return set_from_arr
-
-
 def print_settings(task):
     print(f"DATASET = {task['DATASET']}")
     print(f"ITERATIONS = {task['ITERATIONS']}")
     print(f"SENSITIVITY = {task['SENSITIVITY']}")
     print(*(f"{k} = {v}" for k, v in settings.items()), sep="\n")
+
+
+def increment():
+    if settings["INCREMENT"]:
+        if input("continue? y/(n)") != "y":
+            sys.exit()

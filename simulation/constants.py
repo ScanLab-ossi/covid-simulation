@@ -6,11 +6,16 @@ DATA_FOLDER = Path("./data").resolve()
 OUTPUT_FOLDER = Path("./output").resolve()
 CONFIG_FOLDER = Path("./config").resolve()
 TEST_FOLDER = Path("./tests").resolve()
-# PARENT_FOLDER = Path("./simulation").resolve()
 
-with open([p for p in CONFIG_FOLDER.iterdir() if "config" in p.name][0]) as f:
-    config = load(f, Loader=Loader)
-settings = config["settings"]
+settings = {}
+for filename in ("default_config", "config"):
+    try:
+        with open(CONFIG_FOLDER / f"{filename}.yaml") as f:
+            config = load(f, Loader=Loader)
+            for k, v in config.get("settings", {}).items():
+                settings[k] = v
+    except FileNotFoundError:
+        pass
 settings["LOCAL"] = eval(os.environ.get("LOCAL", "True"))
 try:
     settings["LOCAL_TASK"] = eval(os.environ["LOCAL_TASK"])

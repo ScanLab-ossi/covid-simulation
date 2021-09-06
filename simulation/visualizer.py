@@ -4,12 +4,13 @@ from typing import Union, Optional
 
 import altair as alt
 from altair.vegalite.v4.schema.channels import Tooltip  # type: ignore
-import pandas as pd  # type: ignore
+import pandas as pd
+from numpy import random
 
-from simulation.constants import *
-from simulation.dataset import Dataset
-from simulation.task import Task
-from simulation.building_blocks import BasicBlock
+from constants import *
+from dataset import Dataset
+from task import Task
+from building_blocks import BasicBlock
 
 alt.data_transformers.disable_max_rows()
 
@@ -48,6 +49,7 @@ class Visualizer(BasicBlock):
             "white": "#e7e8e9",
             "green": "#92c5de",
         }
+        self.facet_header = alt.Header(labelFontWeight="bold", labelFontSize=12)
 
     def _save_chart(self, chart: alt.Chart, suffix: str = None):
         if self.save:
@@ -64,7 +66,7 @@ class Visualizer(BasicBlock):
         df: pd.DataFrame,
         include_green: bool,
         simplified: bool,
-    ):
+    ) -> pd.DataFrame:
         if not include_green:
             df = df[df["color"] != "green"]
             self.colors.pop("green")
@@ -82,18 +84,8 @@ class Visualizer(BasicBlock):
         df["order"] = df["color"].replace(
             {val: i for i, val in enumerate(self.colors.keys())}
         )
-        df["color"] = df["color"].apply(self.states.decrypt_states)
+        df["color"] = df["color"].replace(self.states.color_to_state)
         df["amount"] = df["amount"] / self.dataset.nodes
-        # df.to_csv("AAAAA.csv")
-        # if not self.dataset.real and self.task["window_size"] == 1:
-        #     interval = pd.interval_range(-1, len(df), freq=12 * 24)
-        #     df = df.groupby([pd.cut(df["day"], interval), "order", "step", "color"])[
-        #         "amount"
-        #     ].mean()
-        #     df = df.reset_index(["order", "step", "color"])
-        #     df = df.reset_index(drop=True)
-        #     df = df.reset_index()
-        #     df = df.rename(columns={"index": "day"})
         return df
 
     def stacked_bar(
@@ -111,7 +103,7 @@ class Visualizer(BasicBlock):
             day | amount | color
         """
         df = self._prep_for_stacked(df, include_green, simplified)
-        domain = [self.states.decrypt_states(c) for c in self.colors]
+        domain = [self.states.color_to_state[c] for c in self.colors]
         chart = (
             alt.Chart(df)
             .mark_bar(size=15)
@@ -141,13 +133,49 @@ class Visualizer(BasicBlock):
         self._save_chart(chart, suffix=param)
         return chart
 
+    def _prep_for_line(self, df: pd.DataFrame) -> pd.DataFrame:
+        if "variant" not in df.columns:
+            df["variant"] = "variant_a"
+        df = df[df["color"].isin(["infected", "infected_daily", "sick"])].reset_index(
+            drop=True
+        )
+        df["variant"] = df["variant"].replace(self.variants.js)
+        df["amount"] = df["amount"] / self.dataset.nodes
+        return df
+
+    def line(self, df: pd.DataFrame, param: Optional[str] = None) -> alt.Chart:
+        """
+        Parameters
+        ----------
+        df : pd.DataFrame
+            day | variant | color | amount
+        """
+        df = self._prep_for_line(df)
+        chart = (
+            alt.Chart(df)
+            .mark_line()
+            .encode(
+                alt.X("day:N"),
+                alt.Y("amount:Q", axis=alt.Axis(format="%"), title=None),
+                color=alt.Color("variant:N"),
+                tooltip=["variant", alt.Tooltip("amount:Q", format="%"), "day"],
+            )
+            .facet(
+                column=alt.Column("color:O", title=None, header=self.facet_header),
+                row=alt.Row("step:O", title=None, header=self.facet_header),
+            )
+            .resolve_scale(x="independent")
+        )
+        self._save_chart(chart, "line")
+        return chart
+
     def boxplot(self, df: pd.DataFrame) -> alt.Chart:
         # domain, range_ = list(self.colors.keys()), list(self.colors.values())
-        color = [v for k, v in self.colors.items() if k in df["metric"].iloc[0]][0]
-        df["color"] = [v for k, v in self.colors.items() if k in df["metric"].iloc[0]][
-            0
-        ]
-        param = df.iloc[0]["parameter"].split("__")[0]
+        try:
+            color = [v for k, v in self.colors.items() if k in df["metric"].iloc[0]][0]
+        except IndexError:
+            color = random.choice(list(self.colors.values()), 1)
+        # param = df.iloc[0]["parameter"].split("__")[0]
         # range_ = self.task["sensitivity"]["ranges"][param]
         # width = (range_["max"] - range_["min"]) * 20 / range_["step"]
         chart = (
@@ -155,7 +183,7 @@ class Visualizer(BasicBlock):
             .encode(x="step:O")
             .add_layers(
                 alt.Chart()
-                .mark_boxplot(median=False, color=color)
+                .mark_boxplot(median=False)  # , color=color)
                 .encode(
                     x=alt.X("step:N", title=None),
                     y=alt.Y(

@@ -1,18 +1,18 @@
 from __future__ import annotations
-from simulation.helpers import timing
 
 from typing import TYPE_CHECKING, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 
-from simulation.building_blocks import BasicBlock, ConnectedBasicBlock
-from simulation.constants import *
-from simulation.contagion import ContagionRunner
-from simulation.output import MultiBatch
+from building_blocks import BasicBlock, ConnectedBasicBlock
+from constants import *
+from contagion import ContagionRunner
+from helpers import timing
+from output import MultiBatch
 
 if TYPE_CHECKING:
-    from simulation.output import Batch
+    from output import Batch
 
 
 class Analysis(BasicBlock):
@@ -91,7 +91,10 @@ class Analysis(BasicBlock):
     def group_count(self, batch: Batch, **params) -> List[List[str]]:
         l = []
         for df in batch.summed_output_list:
-            l.append(self.count(df, **params))
+            if self.variants.exist:
+                l.append(df.groupby("variant").apply(self.count, **params))
+            else:
+                l.append(self.count(df, **params))
         return l
 
     def sum_groupings(self, df: pd.DataFrame, how: str) -> pd.DataFrame:

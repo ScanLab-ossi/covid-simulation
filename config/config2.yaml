@@ -4,7 +4,7 @@ meta:
   SENSITIVITY: true
 
 params:
-  divide: 1
+  divide: 2
 
 sensitivity:
   params:

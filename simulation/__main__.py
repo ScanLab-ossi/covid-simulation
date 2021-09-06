@@ -1,16 +1,13 @@
 import json
-import os
 
-from flask import Flask, jsonify
-
-from simulation.constants import *
-from simulation.contagion import ContagionRunner
-from simulation.dataset import Dataset
-from simulation.dropbox import Dropbox
-from simulation.google_cloud import GoogleCloud
-from simulation.helpers import print_settings
-from simulation.sensitivity_analysis import SensitivityRunner
-from simulation.task import Task
+from constants import *
+from contagion import ContagionRunner
+from dataset import Dataset
+from dbox import Dropbox
+from google_cloud import GoogleCloud
+from helpers import print_settings
+from sensitivity_analysis import SensitivityRunner
+from task import Task
 
 
 def main():
@@ -23,18 +20,15 @@ def main():
         ]
         iter_results = {}
     elif settings["LOCAL_TASK"]:
-        tasklist = [Task(path=p) for p in CONFIG_FOLDER.iterdir() if "config" in p.name]
-    else:
-        gcloud.get_tasklist()
-        tasklist = gcloud.todo
-        if len(tasklist) == 0:
-            print("you've picked LOCAL_TASK=False, but no tasks are waiting")
-            return []
+        tasklist = [
+            Task(path=p) for p in CONFIG_FOLDER.iterdir() if p.name.startswith("config")
+        ]
     for task in tasklist:
         print(f"starting task {task.id}")
         print_settings(task)
         if settings["UPLOAD"] and not settings["ITER_DATASET"]:
             dropbox.upload(task.path, task.id)
+            # FIXME: new split config
         dataset = Dataset(task["DATASET"], task=task, gcloud=gcloud)
         runner = (
             SensitivityRunner(dataset, task)
@@ -70,20 +64,7 @@ def main():
         if settings["UPLOAD"]:
             dropbox.write_results(tasklist[0])
     return []
-    # return gcloud.write_results(tasks)
-
-
-app = Flask(__name__)
-
-
-@app.route("/")
-def run_main():
-    tasks_finished = main()
-    return jsonify(tasks_finished)
 
 
 if __name__ == "__main__":
-    if settings["LOCAL"] == True:
-        main()
-    else:
-        app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    main()

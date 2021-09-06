@@ -4,10 +4,10 @@ from math import floor
 import pandas as pd
 from yaml import Loader, load
 
-from simulation.constants import *
-from simulation.google_cloud import GoogleCloud
-from simulation.task import Task
-from simulation.helpers import timing
+from constants import *
+from google_cloud import GoogleCloud
+from task import Task
+from helpers import timing
 
 
 class Dataset(object):
@@ -70,7 +70,7 @@ class Dataset(object):
                     if "specific_day" in x
                 ][0]
                 self.split = {k: v for k, v in self.split.items() if k <= max_day}
-            except KeyError:
+            except IndexError:
                 pass
 
     def _split(self, data: pd.DataFrame):

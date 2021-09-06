@@ -19,6 +19,7 @@ leftovers.py
 data/*.feather
 *.xlsx
 *.png
+*.pgz
 
 *.ipynb
 !notebooks/*.ipynb
@@ -120,6 +121,7 @@ ipython_config.py
 #   install all needed dependencies.
 #Pipfile.lock
 
+*.prof
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow
 __pypackages__/
 

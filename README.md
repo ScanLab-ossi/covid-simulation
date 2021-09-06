@@ -6,7 +6,7 @@ Make sure to install all dependencies: `pip install -r requirements.txt`
 
 <!-- `cd` into `covid-simulation` and install this as a package before working on it. It makes imports easier: `pip install -e .` -->
 
-Run simulation locally: `python -m simulation.simulation`
+Run simulation locally: `python simulation`
 
 Run streamlit app locally: `streamlit run app.py`
 

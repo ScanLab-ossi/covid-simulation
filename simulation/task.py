@@ -1,14 +1,13 @@
 from collections import UserDict
-from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
-import numpy as np  # type: ignore
-import pandas as pd  # type: ignore
+import numpy as np
+import pandas as pd
 from google.cloud.datastore import Entity  # type: ignore
 from yaml import Loader, load
 
-from simulation.constants import *
+from constants import *
 
 
 class Task(UserDict):
@@ -19,7 +18,6 @@ class Task(UserDict):
     def __init__(
         self,
         data: dict = {},
-        done: bool = False,
         path: Path = CONFIG_FOLDER / "config.yaml",
     ):
         super().__init__(dict(data))
@@ -28,24 +26,23 @@ class Task(UserDict):
         else:
             self.id = np.random.randint(1e15, 1e16)
         self.path = path
-        self.setdefault("done", done)
-        self.setdefault("start_date", datetime.now())
-        self.load_config()
+        self.load_config(CONFIG_FOLDER / "default_config.yaml")
+        self.load_config(path)
         if self.get("country"):
             self.load_country_info()
         # if settings["LOCAL"]:
         #     self.load_state_transition()
 
-    def load_config(self):
-        with open(self.path) as f:
+    def load_config(self, path: Path):
+        with open(path) as f:
             config = load(f, Loader=Loader)
-        for k, v in {
-            **config["meta"],
-            **config["params"],
-            "sensitivity": config["sensitivity"],
-            "paths": config["paths"],
-        }.items():
-            self.setdefault(k, v)
+        for key in ("meta", "params", "sensitivity", "paths"):
+            for k, v in config.get(key, {}).items():
+                if key in ("sensitivity", "paths"):
+                    self.setdefault(key, {})
+                    self[key][k] = v
+                else:
+                    self[k] = v
 
     def load_country_info(self):
         self["age_dist"] = (
@@ -74,6 +71,3 @@ class Task(UserDict):
                 self["paths"][k]["distribution"] = v
             elif "duration" in self["paths"][k]:
                 self["paths"][k]["duration"] = v
-
-    def variants(self) -> List[str]:
-        return [k for k in self.keys() if k.startswith("variant_")]

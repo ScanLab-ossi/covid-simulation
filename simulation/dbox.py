@@ -4,8 +4,9 @@ from glob import glob
 from pathlib import Path
 
 import dropbox
-from simulation.constants import *
-from simulation.task import Task
+
+from constants import *
+from task import Task
 
 
 class Dropbox:

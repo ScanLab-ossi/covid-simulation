@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import gzip
 import json
+from os import execle
 import pickle
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
@@ -9,15 +10,15 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Union
 import numpy as np  # type: ignore
 import pandas as pd  # type: ignore
 
-from simulation.building_blocks import BasicBlock
-from simulation.constants import *
-from simulation.dataset import Dataset
-from simulation.helpers import timing
-from simulation.task import Task
-from simulation.visualizer import Visualizer
+from building_blocks import BasicBlock
+from constants import *
+from dataset import Dataset
+from helpers import timing
+from task import Task
+from visualizer import Visualizer
 
 if TYPE_CHECKING:
-    from simulation.sensitivity_analysis import Analysis
+    from sensitivity_analysis import Analysis
 
 
 class OutputBase(BasicBlock):
@@ -25,7 +26,12 @@ class OutputBase(BasicBlock):
         super().__init__(dataset=dataset, task=task)
         self.visualizer = Visualizer(dataset, task, save=True)
 
+    def _export_gzip(self, d: Union[Dict, pd.DataFrame], attr: str):
+        with gzip.GzipFile(OUTPUT_FOLDER / f"{self.task.id}_{attr}.pgz", "w") as f:
+            pickle.dump(d, f)
+
     def export(self, *what: str, table_format: str = "csv"):
+        # TODO: clean up
         for attr in what:
             d = getattr(self, attr)
             if not hasattr(self, attr):
@@ -36,13 +42,13 @@ class OutputBase(BasicBlock):
                         for step, output in s.items():
                             d[param][step] = output.mean_and_std
                 with open(OUTPUT_FOLDER / f"{self.task.id}.json", "w") as fp:
-                    json.dump(d, fp)
+                    try:
+                        json.dump(d, fp)
+                    except TypeError:
+                        self._export_gzip(d, attr)
             if isinstance(d, pd.DataFrame):
                 if table_format == "pickle":
-                    with gzip.GzipFile(
-                        OUTPUT_FOLDER / f"{self.task.id}_{attr}.pgz", "w"
-                    ) as f:
-                        pickle.dump(d, f)
+                    self._export_gzip(d, attr)
                 elif table_format == "csv":
                     d.to_csv(
                         OUTPUT_FOLDER / f"{self.task.id}_{attr}.csv",
@@ -61,7 +67,7 @@ class Output(BasicBlock):
     Attributes
     ----------
     df : pd.DataFrame
-        infection_date | days_left | color | variant | infector
+        infection_date | days_left | color | variant
     summed : dict
     variant_summed :
 
@@ -81,11 +87,13 @@ class Output(BasicBlock):
                 "days_left",
                 "color",
                 "variant",
-                "infector",
             ],
         ).rename_axis(index="source")
+        self.df["variant"] = self.df["variant"].astype(self.variants.categories)
+        self.df["color"] = self.df["color"].astype(self.states.categories("states"))
         self.summed = loaded if loaded else {}
-        self.variant_summed = {}  # TODO: add not_green count
+        if self.variants.exist:
+            self.variant_summed = {}  # TODO: add not_green count
 
     def set_first(self):
         if not hasattr(self, "first"):
@@ -105,45 +113,56 @@ class Output(BasicBlock):
         return len(self.df.index)
 
     def sum_output(self) -> pd.DataFrame:
-        df = pd.DataFrame(self.summed).T.rename_axis("day", axis="index").fillna(0)
-        for metric in self.states.states_with_duration:
-            if metric not in df.columns:
-                df[metric] = 0
+        if self.variants.exist:
+            df = pd.concat(
+                [
+                    pd.DataFrame(summed)
+                    .T.rename_axis("day", axis="index")
+                    .fillna(0)
+                    .assign(variant=variant)
+                    for variant, summed in self.variant_summed.items()
+                ]
+            )
+        else:
+            df = pd.DataFrame(self.summed).T.rename_axis("day", axis="index").fillna(0)
+            for metric in self.states.states_with_duration:
+                if metric not in df.columns:
+                    df[metric] = 0
         return df
 
     def _regular_count(self, day: int, daily: pd.DataFrame):
         self.summed[day] = dict(self.df["color"].value_counts())
         self.summed[day]["green"] = self.dataset.nodes - sum(self.summed[day].values())
         self.summed[day]["daily_infected"] = len(daily)
-        notna_infectors = daily[daily["infector"].notna()]["infector"]
-        # FIXME: we stooped keeping daily_infectors, so this will always return 0
-        self.summed[day]["daily_infectors"] = (
-            len(set.union(*notna_infectors)) if len(notna_infectors) > 0 else 0
-        )
+        # FIXME: we stoped keeping daily_infectors, so this will always return 0
+        # notna_infectors = daily[daily["infector"].notna()]["infector"]
+        # self.summed[day]["daily_infectors"] = (
+        #     len(set.union(*notna_infectors)) if len(notna_infectors) > 0 else 0
+        # )
         self.summed[day]["daily_blue"] = len(daily[daily["color"] == "blue"])
         self.summed[day]["sick"] = len(
             self.df[self.df["color"].isin(self.states.sick_states)]
         )
 
     def _variant_count(self, day: int, daily: pd.DataFrame):
-        self.variant_summed[day] = {}
-        self.variant_summed[day]["infected"] = (
-            self.df.groupby("variant")["color"].count().to_dict()
-        )
-        self.variant_summed[day]["daily_infected"] = (
-            daily.groupby("variant")["color"].count().to_dict()
-        )
-        self.variant_summed[day]["sick"] = (
-            self.df[self.df["color"].isin(self.states.sick_states)]
-            .groupby("variant")["color"]
-            .count()
-            .to_dict()
-        )
+        summed = pd.DataFrame(
+            {
+                "infected": self.df.groupby("variant")["color"].count(),
+                "daily_infected": daily.groupby("variant")["color"].count(),
+                "sick": self.df[self.df["color"].isin(self.states.sick_states)]
+                .groupby("variant")["color"]
+                .count(),
+            }
+        ).to_dict("index")
+        for k, v in summed.items():
+            self.variant_summed.setdefault(k, {day: v})
+            self.variant_summed[k][day] = v
 
     def value_counts(self, day: int):
         daily = self.df[self.df["infection_date"] == day]
+        if self.variants.exist:
+            self._variant_count(day, daily)
         self._regular_count(day, daily)
-        self._variant_count(day, daily)
 
 
 class Batch(OutputBase):
@@ -205,7 +224,9 @@ class Batch(OutputBase):
             self.summed_output_list = self._sum_output_list()
         if "mean_and_std" in how:
             sol = getattr(self, "summed_output_list", self._sum_output_list())
-            concated = pd.concat(sol).groupby("day")
+            concated = pd.concat(sol).groupby(
+                ["day"] + (["variant"] if self.variants.exist else [])
+            )
             self.mean_and_std = {
                 "mean": concated.mean().to_dict(),
                 "std": concated.std().to_dict(),
@@ -233,14 +254,24 @@ class Batch(OutputBase):
 
     def visualize(self):
         df = pd.DataFrame(self.mean_and_std["mean"])
-        df = (
-            df.drop(columns=self.states.non_states & set(df.columns))
-            .reset_index()
-            .rename(columns={"index": "day"})
-            .melt(id_vars="day", var_name="color", value_name="amount")
-        )
-        df["day"] = df["day"].astype(int)
-        return self.visualizer.stacked_bar(df)
+        if self.variants.exist:
+            df = (
+                df.reset_index()
+                .rename(columns={"level_0": "day", "level_1": "variant"})
+                .melt(id_vars=["day", "variant"], var_name="color", value_name="amount")
+            )
+        else:
+            df = (
+                df.drop(columns=self.states.non_states & set(df.columns))
+                .reset_index()
+                .rename(columns={"index": "day"})
+                .melt(id_vars="day", var_name="color", value_name="amount")
+            )
+            df["day"] = df["day"].astype(int)
+        if self.variants.exist:
+            return self.visualizer.line(df)
+        else:
+            return self.visualizer.stacked_bar(df)
 
 
 class MultiBatch(OutputBase):
@@ -253,7 +284,7 @@ class MultiBatch(OutputBase):
         {param: {step: Batch, step: ...}, ...}
         list of one Output per iteration
     summed_analysis : pd.DataFrame
-        value | metric | step | parameter
+        value | metric | step | parameter | variant
 
     Methods
     -------
@@ -319,6 +350,7 @@ class MultiBatch(OutputBase):
             for step in self.batches[param].keys()
         ]
         df = pd.concat(to_concat)
+        # to_drop =
         return (
             df.drop(columns=self.states.non_states & set(df.columns))
             .reset_index()
@@ -329,8 +361,14 @@ class MultiBatch(OutputBase):
     def visualize(self, how: List[str] = ["boxplots", "stacked_bars"]):
         for vis in how:
             if vis == "stacked_bars":
-                for param in self.batches.keys():
-                    self.visualizer.stacked_bar(self._prep_for_vis(param), param=param)
+                if self.variants.exist:
+                    for param in self.batches.keys():
+                        self.visualizer.line(self._prep_for_vis(param), param=param)
+                else:
+                    for param in self.batches.keys():
+                        self.visualizer.stacked_bar(
+                            self._prep_for_vis(param), param=param
+                        )
             if vis == "boxplots":
-                self.summed_analysis["step"] = self.summed_analysis["step"]
+                # self.summed_analysis["step"] = self.summed_analysis["step"]
                 self.visualizer.boxplots(self.summed_analysis)
