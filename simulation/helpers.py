@@ -6,7 +6,7 @@ import logging
 
 # logging.basicConfig(format=FORMAT)
 
-from constants import *
+from simulation.constants import *
 
 
 def timing(f):

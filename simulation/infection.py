@@ -5,10 +5,11 @@ from typing import List
 import numpy as np
 import pandas as pd
 from more_itertools import powerset
+from pandas.core.frame import DataFrame
 
-from building_blocks import RandomBasicBlock
-from constants import *
-from helpers import timing
+from simulation.building_blocks import RandomBasicBlock
+from simulation.constants import *
+from simulation.helpers import timing
 
 
 class Infection(RandomBasicBlock):
@@ -53,10 +54,8 @@ class Infection(RandomBasicBlock):
     def _is_infected(self, df: pd.DataFrame) -> pd.DataFrame:
         if len(df) == 0:
             return df
-        vec_choice = np.vectorize(
-            lambda x: self.rng.choice([True, False], 1, p=[x, 1 - x])
-        )
-        return df[vec_choice(df["duration"].to_numpy())]
+        f = lambda x: self.rng.choice([True, False], 1, p=[x, 1 - x])
+        return df[np.array(list(map(f, df["duration"].to_numpy())))].copy()
 
 
 class AdditiveInfection(Infection):
@@ -82,10 +81,9 @@ class AdditiveInfection(Infection):
 
 class GroupInfection(Infection):
     # 2 and 3
-    def _multiply_not_infected_chances(self, d_i_k: pd.Series) -> float:
+    def _mult(self, s: pd.Series) -> float:
         res = 1 - np.prod(
-            1
-            - np.minimum(d_i_k.to_numpy() / self.task["D_max"], 1) * self.task["P_max"]
+            1 - np.minimum(s.to_numpy() / self.task["D_max"], 1) * self.task["P_max"]
         )
         return res
 
@@ -102,7 +100,7 @@ class GroupInfection(Infection):
         contagion_df = (
             contagion_df.pipe(self._cases)
             .groupby(["susceptible", "variant"])
-            .agg({"duration": self._multiply_not_infected_chances})
+            .agg({"duration": self._mult})
             .reset_index(level="variant")
             .dropna()
             .pipe(self._is_infected)
@@ -113,7 +111,7 @@ class GroupInfection(Infection):
 
 class SigmoidInfection(GroupInfection):
     # 3
-    def _multiply_not_infected_chances(self, d_i_k: pd.Series) -> float:
+    def _mult(self, s: pd.Series) -> float:
         np.seterr(over="raise", divide="raise")
         mu = (self.task["D_max"] + self.task["D_min"]) / 2
         P_max = self.task["P_max"]
@@ -122,9 +120,7 @@ class SigmoidInfection(GroupInfection):
         for _ in range(10):
             skew = self.task["skew"]
             try:
-                res = 1 - np.prod(
-                    1 - P_max / (1 + np.exp((mu - d_i_k.to_numpy()) / skew))
-                )
+                res = 1 - np.prod(1 - P_max / (1 + np.exp((mu - s.to_numpy()) / skew)))
                 break
             except FloatingPointError:
                 self.task["skew"] *= 10
@@ -145,6 +141,12 @@ class ConstantRateInfection(Infection):
 
 class VariantInfection(GroupInfection):
     # 4
+    def _mult(self, s: pd.Series) -> float:
+        variant_config = self.task[s.iloc[0][1]]
+        P_max = variant_config.get("P_max", self.task["P_max"])
+        D_max = variant_config.get("D_max", self.task["D_max"])
+        return 1 - np.prod(1 - np.minimum(s.str[0].to_numpy() / D_max, 1) * P_max)
+
     def _cases(self, df: pd.DataFrame) -> pd.DataFrame:
         df["duration"] = df["duration"] * df["variant"].astype(str).apply(
             lambda v: self.task[v]["j"] * 0.1 + 1
@@ -156,11 +158,16 @@ class VariantInfection(GroupInfection):
         )
         return df
 
+    def _zip(self, df: pd.DataFrame) -> pd.DataFrame:
+        df["duration"] = list(zip(df["duration"], df["variant"]))
+        return df
+
     def _infect(self, contagion_df: pd.DataFrame, day: int) -> pd.DataFrame:
         contagion_df = (
             contagion_df.pipe(self._cases)
+            .pipe(self._zip)
             .groupby(["susceptible", "variant"])
-            .agg({"duration": self._multiply_not_infected_chances})
+            .agg({"duration": self._mult})
             .droplevel("variant")
             .fillna(0)
             .groupby(["susceptible"])
@@ -192,9 +199,8 @@ class VariantInfection(GroupInfection):
         return df
 
     def _choose_variant(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["variant"] = (
-            df["variant"]
-            .apply(lambda x: self.rng.choice(self.variants.list, 1, p=x)[0])
-            .astype(self.variants.categories)
+        df["variant"] = list(
+            map(lambda x: self.rng.choice(self.variants.list, p=x), df["variant"])
         )
+        df["variant"] = df["variant"].astype(self.variants.categories)
         return df

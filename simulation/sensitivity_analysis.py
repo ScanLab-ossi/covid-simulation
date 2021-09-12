@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING, List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from building_blocks import BasicBlock, ConnectedBasicBlock
-from constants import *
-from contagion import ContagionRunner
-from helpers import timing
-from output import MultiBatch
+from simulation.building_blocks import BasicBlock, ConnectedBasicBlock
+from simulation.constants import *
+from simulation.contagion import ContagionRunner
+from simulation.helpers import timing
+from simulation.output import MultiBatch
 
 if TYPE_CHECKING:
     from output import Batch

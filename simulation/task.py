@@ -7,7 +7,7 @@ import pandas as pd
 from google.cloud.datastore import Entity  # type: ignore
 from yaml import Loader, load
 
-from constants import *
+from simulation.constants import *
 
 
 class Task(UserDict):

@@ -1,13 +1,14 @@
 import json
 
-from constants import *
-from contagion import ContagionRunner
-from dataset import Dataset
-from dbox import Dropbox
-from google_cloud import GoogleCloud
-from helpers import print_settings
-from sensitivity_analysis import SensitivityRunner
-from task import Task
+from simulation.constants import *
+from simulation.contagion import ContagionRunner
+from simulation.dataset import Dataset
+from simulation.dbox import Dropbox
+from simulation.google_cloud import GoogleCloud
+from simulation.helpers import print_settings
+from simulation.sensitivity_analysis import SensitivityRunner
+from simulation.task import Task
+from simulation.output import IterBatch
 
 
 def main():
@@ -18,7 +19,7 @@ def main():
             for b in list(gcloud.s_client.list_blobs("simulation_datasets"))
             if config["meta"]["DATASET"] in b.name
         ]
-        iter_results = {}
+        iterbatch = IterBatch()
     elif settings["LOCAL_TASK"]:
         tasklist = [
             Task(path=p) for p in CONFIG_FOLDER.iterdir() if p.name.startswith("config")
@@ -47,20 +48,12 @@ def main():
         if settings["UPLOAD"]:
             dropbox.write_results(task)
         if settings["ITER_DATASET"]:
-            if task["SENSITIVITY"]:
-                iter_results[dataset.name] = {
-                    k: d["value"].tolist()
-                    for k, d in result.summed_analysis[
-                        result.summed_analysis["metric"] == "max_percent_not_green"
-                    ].groupby("step")
-                }
-            else:
-                iter_results[dataset.name] = result.damage_assessment[
-                    "not_green"
-                ].tolist()
+            iterbatch.get_sensitivity_results(dataset, result) if task[
+                "SENSITIVITY"
+            ] else iterbatch.get_results(dataset, result)
     if settings["ITER_DATASET"]:
-        with open(OUTPUT_FOLDER / f"iter_datasets_{tasklist[0].id}.json", "w") as fp:
-            json.dump(iter_results, fp)
+        iterbatch.export(tasklist[0])
+        iterbatch.visualize(tasklist[0].dataset, tasklist[0])
         if settings["UPLOAD"]:
             dropbox.write_results(tasklist[0])
     return []

@@ -7,15 +7,15 @@ import numpy as np
 import pandas as pd
 from more_itertools import chunked
 
-from building_blocks import ConnectedBasicBlock, RandomBasicBlock
-from constants import *
-from dataset import Dataset
-from google_cloud import GoogleCloud
-from helpers import increment, timing
-from mysql import MySQL
-from output import Batch, Output
-from state_transition import StateTransition
-from task import Task
+from simulation.building_blocks import ConnectedBasicBlock, RandomBasicBlock
+from simulation.constants import *
+from simulation.dataset import Dataset
+from simulation.google_cloud import GoogleCloud
+from simulation.helpers import increment, timing
+from simulation.mysql import MySQL
+from simulation.output import Batch, Output
+from simulation.state_transition import StateTransition
+from simulation.task import Task
 
 
 class Contagion(RandomBasicBlock):
@@ -24,7 +24,7 @@ class Contagion(RandomBasicBlock):
         if self.variants.exist and self.task["infection_model"] != "VariantInfection":
             raise
         self.infection_model = getattr(
-            importlib.import_module("infection"),
+            importlib.import_module("simulation.infection"),
             self.task["infection_model"],
         )(dataset, task)
 
@@ -129,6 +129,12 @@ class CSVContagion(Contagion):
 
 
 class GroupContagion(CSVContagion):
+    # def __init__():
+    #     super().__init__(dataset=dataset, task=task)
+    #     self.subtract = np.vectorize(lambda x: x - inf - rem)
+
+    # def _intersect(self, x, inf):
+    #     return x & inf
     def contagion(self, infector_df: pd.DataFrame, day: int) -> pd.DataFrame:
         """
         Parameters
@@ -139,10 +145,10 @@ class GroupContagion(CSVContagion):
         """
         inf, rem = self._non_removed(infector_df), self._removed(infector_df)
         today = self.dataset.split[day]
-        intersect = np.vectorize(lambda x: x & inf)
-        subtract = np.vectorize(lambda x: x - inf - rem)
-        today["infector"] = intersect(today["group"].to_numpy())
-        today["susceptible"] = subtract(today["group"].to_numpy())
+        today["infector"] = list(map(lambda x: x & inf, today["group"].to_numpy()))
+        today["susceptible"] = list(
+            map(lambda x: x - inf - rem, today["group"].to_numpy())
+        )
         today = today[
             (today["infector"].str.len() > 0) & (today["susceptible"].str.len() > 0)
         ].reset_index()

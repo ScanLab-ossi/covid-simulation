@@ -1,13 +1,33 @@
+settings:
+  UPLOAD: false
+  VERBOSE: true
+
 meta: 
-  ITERATIONS: 200
-  DATASET: copenhagen_groups
+  ITERATIONS: 10
+  DATASET: copenhagen_interactions
   SENSITIVITY: true
 
 params:
   divide: 1
+  infection_model: GroupInfection
+  variant_a:
+    j: 1
+    number_of_patient_zero: 1
+    patient_zeroes_on_days: [0]
+    P_max: 0.5
+  # variant_b:
+  #   j: 10
+  #   number_of_patient_zero: 1
+  #   patient_zeroes_on_days: [0]
+  #   P_max: 1
+  # P_max: 0.05
+  temporal_randomization: true
 
 sensitivity:
   params:
-    - green
+  - intensive_care_black
   metrics:
-    - grouping: not_green
+  - grouping: not_green
+  ranges:
+    intensive_care_black: {step: 1, min: 1, max: 20}
+   

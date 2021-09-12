@@ -25,6 +25,7 @@ params:
   # beta: 0.5
   divide: 1
   window_size: 288
+  temporal_randomization: false
 
 paths:
   green:

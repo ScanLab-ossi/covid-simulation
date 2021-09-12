@@ -10,12 +10,12 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Union
 import numpy as np  # type: ignore
 import pandas as pd  # type: ignore
 
-from building_blocks import BasicBlock
-from constants import *
-from dataset import Dataset
-from helpers import timing
-from task import Task
-from visualizer import Visualizer
+from simulation.building_blocks import BasicBlock
+from simulation.constants import *
+from simulation.dataset import Dataset
+from simulation.helpers import timing
+from simulation.task import Task
+from simulation.visualizer import Visualizer
 
 if TYPE_CHECKING:
     from sensitivity_analysis import Analysis
@@ -372,3 +372,51 @@ class MultiBatch(OutputBase):
             if vis == "boxplots":
                 # self.summed_analysis["step"] = self.summed_analysis["step"]
                 self.visualizer.boxplots(self.summed_analysis)
+
+
+class IterBatch:
+    def __init__(self, results: Optional[dict]):
+        self.results = results if results else None
+        self.splits = {
+            1000: 1,
+            500: 2,
+            333: 3,
+            250: 4,
+            200: 5,
+            166: 6,
+            142: 7,
+            125: 8,
+            111: 9,
+            100: 10,
+        }
+
+    def get_sensitivity_results(self, dataset: Dataset, result: MultiBatch):
+        self.results[dataset.name] = {
+            k: d["value"].tolist()
+            for k, d in result.summed_analysis[
+                result.summed_analysis["metric"] == "max_percent_not_green"
+            ].groupby("step")
+        }
+
+    def get_results(self, dataset: Dataset, result: Batch):
+        self.results[dataset.name] = result.damage_assessment["not_green"].tolist()
+
+    def export(self, task):
+        with open(OUTPUT_FOLDER / f"iter_datasets_{task.id}.json", "w") as fp:
+            json.dump(self.results, fp)
+
+    def _to_split(self, s):
+        return self.splits[int(s.split("_")[3])]
+
+    def visualize(self, sample_dataset: Dataset, sample_task: Task):
+        visualizer = Visualizer(sample_dataset, sample_task, save=True)
+        df = (
+            pd.DataFrame(self.results)
+            .T.reset_index()
+            .melt(id_vars="index")
+            .rename(columns={"index": "step"})
+            .drop(columns=["variable"])
+        ).assign(**{"metric": "blue", "parameter": "spatial divide"})
+        df["step"] = df["step"].apply(self._to_split)
+        df["value"] = df["value"] / sample_dataset.nodes
+        return visualizer.boxplot(df)

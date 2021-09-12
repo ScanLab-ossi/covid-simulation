@@ -5,8 +5,8 @@ from pathlib import Path
 
 import dropbox
 
-from constants import *
-from task import Task
+from simulation.constants import *
+from simulation.task import Task
 
 
 class Dropbox:

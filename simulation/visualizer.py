@@ -7,10 +7,10 @@ from altair.vegalite.v4.schema.channels import Tooltip  # type: ignore
 import pandas as pd
 from numpy import random
 
-from constants import *
-from dataset import Dataset
-from task import Task
-from building_blocks import BasicBlock
+from simulation.constants import *
+from simulation.dataset import Dataset
+from simulation.task import Task
+from simulation.building_blocks import BasicBlock
 
 alt.data_transformers.disable_max_rows()
 
@@ -161,8 +161,8 @@ class Visualizer(BasicBlock):
                 tooltip=["variant", alt.Tooltip("amount:Q", format="%"), "day"],
             )
             .facet(
-                column=alt.Column("color:O", title=None, header=self.facet_header),
-                row=alt.Row("step:O", title=None, header=self.facet_header),
+                column=alt.Column("step:O", title=None, header=self.facet_header),
+                row=alt.Row("color:O", title=None, header=self.facet_header),
             )
             .resolve_scale(x="independent")
         )
@@ -170,14 +170,10 @@ class Visualizer(BasicBlock):
         return chart
 
     def boxplot(self, df: pd.DataFrame) -> alt.Chart:
-        # domain, range_ = list(self.colors.keys()), list(self.colors.values())
         try:
             color = [v for k, v in self.colors.items() if k in df["metric"].iloc[0]][0]
         except IndexError:
             color = random.choice(list(self.colors.values()), 1)
-        # param = df.iloc[0]["parameter"].split("__")[0]
-        # range_ = self.task["sensitivity"]["ranges"][param]
-        # width = (range_["max"] - range_["min"]) * 20 / range_["step"]
         chart = (
             alt.LayerChart(df)
             .encode(x="step:O")
@@ -190,9 +186,8 @@ class Visualizer(BasicBlock):
                         "value:Q",
                         title=df["metric"].iloc[0],
                         axis=alt.Axis(format="%"),
-                        # scale=alt.Scale(domain=(0, 1), clamp=True),
+                        scale=alt.Scale(domain=(0, 1), clamp=True),
                     ),
-                    # color=alt.Color("color", scale=None),
                 ),
                 alt.Chart()
                 .transform_aggregate(

@@ -1,20 +1,24 @@
-from datetime import date, datetime
 from math import floor
 
 import pandas as pd
+from numpy import random
 from yaml import Loader, load
 
-from constants import *
-from google_cloud import GoogleCloud
-from task import Task
-from helpers import timing
+from simulation.constants import *
+from simulation.google_cloud import GoogleCloud
+from simulation.helpers import timing
+from simulation.task import Task
 
 
 class Dataset(object):
-    def __init__(self, name, task=Task, gcloud=GoogleCloud):
+    def __init__(
+        self, name, task: Task, gcloud: GoogleCloud, reproducible: bool = False
+    ):
         self.name = name
         self.task = task
         self.gcloud = gcloud
+        self.rng = random.default_rng(42 if reproducible else None)
+
         with open(CONFIG_FOLDER / "datasets.yaml", "r") as f:
             datasets = load(f, Loader=Loader)
             try:
@@ -36,6 +40,9 @@ class Dataset(object):
             columns=set(data.columns)
             - {"group", "source", "destination", "datetime", "duration", "hops"}
         )
+        if self.task.get("temporal_randomization", False):
+            data["datetime"] = random.permutation(data["datetime"].to_numpy())
+            data = data.sort_values(by="datetime").reset_index(drop=True)
         if self.groups:
             data["group"] = data["group"].apply(eval)
         if not data["datetime"].dtype == "<M8[ns]":

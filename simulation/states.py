@@ -3,7 +3,7 @@ from typing import List, Optional
 import pandas as pd
 from pandas.api.types import CategoricalDtype
 
-from task import Task
+from simulation.task import Task
 
 
 class States:
@@ -64,9 +64,12 @@ class Variants:
     def __init__(self, task: Task):
         self.list = [k for k in task.keys() if k.startswith("variant_")]
         self.exist = len(self.list) > 1
+        if self.exist and task["infection"] != "VariantInfection":
+            raise
         self.categories = CategoricalDtype(categories=self.list, ordered=True)
         self.js = {
-            variant: f"{variant}, j = {task[variant]['j']}" for variant in self.list
+            variant: f"{variant}, j = {task[variant]['j']}, patient_zero = {task[variant]['number_of_patient_zero']}"
+            for variant in self.list
         }
 
     def categorify(self, df: pd.DataFrame) -> pd.DataFrame:

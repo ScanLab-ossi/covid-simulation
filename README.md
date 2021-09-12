@@ -6,7 +6,7 @@ Make sure to install all dependencies: `pip install -r requirements.txt`
 
 <!-- `cd` into `covid-simulation` and install this as a package before working on it. It makes imports easier: `pip install -e .` -->
 
-Run simulation locally: `python simulation`
+Run simulation locally: `python -m simulation`
 
 Run streamlit app locally: `streamlit run app.py`
 
@@ -20,7 +20,9 @@ Run docker containers of simulation and streamlit app: `docker-compose up --buil
 
 `ssh` into the instance (currently named `instance-2`). 
 
-Run using `python3 -m simulation.simulation`. Don't forget to `git pull` before running!
+Run using `python -m simulation`. 
+
+Don't forget to `git pull` before running! Password is the Personal Access Token from https://github.com/settings/tokens.
 
 Run in `screen -S screen-name` so process won't die. Rename is possible with `Ctrl+A , :` followed by `sessionname name`.
 

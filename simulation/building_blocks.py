@@ -5,14 +5,14 @@ from typing import TYPE_CHECKING
 
 from numpy import random
 
-from states import States, Variants
-from google_cloud import GoogleCloud
+from simulation.states import States, Variants
+from simulation.google_cloud import GoogleCloud
 
 if TYPE_CHECKING:
-    from dataset import Dataset
-    from google_cloud import GoogleCloud
-    from output import Output
-    from task import Task
+    from simulation.dataset import Dataset
+    from simulation.google_cloud import GoogleCloud
+    from simulation.output import Output
+    from simulation.task import Task
 
 
 class BasicBlock(ABC):
