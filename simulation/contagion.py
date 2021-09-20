@@ -19,14 +19,19 @@ from simulation.task import Task
 
 
 class Contagion(RandomBasicBlock):
-    def __init__(self, dataset: Dataset, task: Task, reproducible: bool):
+    def __init__(self, dataset: Dataset, task: Task, reproducible: bool = False):
         super().__init__(dataset=dataset, task=task, reproducible=reproducible)
-        if self.variants.exist and self.task["infection_model"] != "VariantInfection":
-            raise
+        self._get_infection_model()
+
+    def _get_infection_model(self):
+        if self.variants.exist:
+            self.task["infection_model"] = "VariantInfection"
+        elif self.task["infection_model"] == "VariantInfection":
+            raise ValueError("Can't use VariantInfection when only one variant exists")
         self.infection_model = getattr(
             importlib.import_module("simulation.infection"),
             self.task["infection_model"],
-        )(dataset, task)
+        )(self.dataset, self.task)
 
     def _non_removed(self, df: pd.DataFrame) -> set:
         return set(df[df["color"].isin(self.states.infectious_states)].index)

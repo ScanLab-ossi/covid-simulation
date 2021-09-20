@@ -3,6 +3,11 @@ copenhagen_groups:
   hops: false
   storage: csv
   real: true
+copenhagen_agg:
+  groups: false
+  hops: false
+  storage: csv
+  real: true
 copenhagen_interactions:
   groups: false
   hops: false

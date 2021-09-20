@@ -1,0 +1,112 @@
+DATASET: copenhagen_agg
+ITERATIONS: 50
+SENSITIVITY: true
+infection_model: GroupInfection
+variant_a:
+  j: 1
+  number_of_patient_zero: 1
+  patient_zeroes_on_days:
+  - 0
+  P_max: 0.5
+D_min: 0
+D_max: 200
+P_max: 0.5
+divide: 1
+window_size: 288
+randomize: false
+sensitivity:
+  params:
+  - intensive_care_black
+  metrics:
+  - grouping: not_green
+  ranges:
+    intensive_care_black:
+      step: 1
+      min: 1
+      max: 20
+paths:
+  green:
+    children:
+    - blue
+    - purple
+    distribution:
+    - 0.8
+    - 0.2
+  blue:
+    duration:
+    - 7.5
+    - 1
+    children:
+    - white
+  purple:
+    children:
+    - purple_pink
+    - purple_red
+    distribution:
+    - 0.8
+    - 0.2
+  purple_pink:
+    duration:
+    - 2.5
+    - 0.5
+    children:
+    - pink
+  purple_red:
+    duration:
+    - 2.5
+    - 0.5
+    children:
+    - red
+  pink:
+    duration:
+    - 10
+    - 1
+    children:
+    - white
+  red:
+    children:
+    - stable
+    - intensive_care
+    distribution:
+    - 0.5
+    - 0.5
+  stable:
+    children:
+    - stable_white
+    - stable_black
+    distribution:
+    - 0.5
+    - 0.5
+  stable_white:
+    duration:
+    - 10
+    - 1
+    children:
+    - white
+  stable_black:
+    duration:
+    - 10
+    - 1
+    children:
+    - black
+  intensive_care:
+    children:
+    - intensive_care_white
+    - intensive_care_black
+    distribution:
+    - 0.5
+    - 0.5
+  intensive_care_white:
+    duration:
+    - 10
+    - 1
+    children:
+    - white
+  intensive_care_black:
+    duration:
+    - 10
+    - 1
+    children:
+    - black
+  white: {}
+  black: {}

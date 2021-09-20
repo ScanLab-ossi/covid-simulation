@@ -1,11 +1,8 @@
-import json
-
 from simulation.constants import *
 from simulation.contagion import ContagionRunner
 from simulation.dataset import Dataset
 from simulation.dbox import Dropbox
 from simulation.google_cloud import GoogleCloud
-from simulation.helpers import print_settings
 from simulation.sensitivity_analysis import SensitivityRunner
 from simulation.task import Task
 from simulation.output import IterBatch
@@ -26,10 +23,11 @@ def main():
         ]
     for task in tasklist:
         print(f"starting task {task.id}")
-        print_settings(task)
+        task.export()
+        task.export("poi", "print")
+        # print_settings(task)
         if settings["UPLOAD"] and not settings["ITER_DATASET"]:
             dropbox.upload(task.path, task.id)
-            # FIXME: new split config
         dataset = Dataset(task["DATASET"], task=task, gcloud=gcloud)
         runner = (
             SensitivityRunner(dataset, task)
@@ -38,12 +36,12 @@ def main():
         )
         result = runner.run()
         if task["SENSITIVITY"]:
-            result.export("batches", "summed_analysis", "damage_assessment")
+            result.export("batches", "summed_analysis")  # , "damage_assessment")
             result.visualize()  # how=[]
         else:
             result.sum_batch()
             if not settings["ITER_DATASET"]:
-                result.export("mean_and_std", "damage_assessment")
+                result.export("mean_and_std")  # , "damage_assessment")
                 result.visualize()
         if settings["UPLOAD"]:
             dropbox.write_results(task)

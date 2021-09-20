@@ -14,6 +14,10 @@ params:
     number_of_patient_zero: 1
     patient_zeroes_on_days: [0]
     P_max: 0.5
+  randomize:
+    - duration
+    - datetime
+    - [source, destination]
 
 sensitivity:
   params:

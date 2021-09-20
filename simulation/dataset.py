@@ -1,4 +1,5 @@
 from math import floor
+from typing import List, Union
 
 import pandas as pd
 from numpy import random
@@ -18,7 +19,6 @@ class Dataset(object):
         self.task = task
         self.gcloud = gcloud
         self.rng = random.default_rng(42 if reproducible else None)
-
         with open(CONFIG_FOLDER / "datasets.yaml", "r") as f:
             datasets = load(f, Loader=Loader)
             try:
@@ -30,30 +30,32 @@ class Dataset(object):
 
     @timing
     def load_dataset(self):
+        filename = f"{self.name}.csv"
         if self.storage == "csv":
-            if not (DATA_FOLDER / f"{self.name}.csv").exists():
-                self.gcloud.download(f"{self.name}.csv")
-            data = pd.read_csv(
-                DATA_FOLDER / f"{self.name}.csv", parse_dates=["datetime"]
-            )
+            if not (DATA_FOLDER / filename).exists():
+                self.gcloud.download(filename)
+            data = pd.read_csv(DATA_FOLDER / filename, parse_dates=["datetime"])
+        data = self._prep(data)
+        if cols := self.task.get("randomize"):
+            data = self._randomize(data, cols)
+        self._split(data=data)
+        self._remove_redundant_days()
+        self._get_ids()
+        if self.name == "milan_calls":
+            self._load_helper_dfs()
+
+    def _prep(self, data: pd.DataFrame) -> pd.DataFrame:
         data = data.drop(
             columns=set(data.columns)
             - {"group", "source", "destination", "datetime", "duration", "hops"}
         )
-        if self.task.get("temporal_randomization", False):
-            data["datetime"] = random.permutation(data["datetime"].to_numpy())
-            data = data.sort_values(by="datetime").reset_index(drop=True)
         if self.groups:
             data["group"] = data["group"].apply(eval)
         if not data["datetime"].dtype == "<M8[ns]":
             raise ValueError("Can't split to days without actual timestamps")
         if "duration" not in data.columns:
             data["duration"] = 5
-        self._split(data=data)
-        self._remove_redundant_days()
-        self._get_ids()
-        if self.name == "milan_calls":
-            self._load_helper_dfs()
+        return data
 
     def _get_ids(self):
         if not self.groups:
@@ -93,3 +95,11 @@ class Dataset(object):
         )
         self.gcloud.download(f"{self.name}_zero.feather")
         self.zeroes = pd.read_feather(DATA_FOLDER / f"{self.name}_zero.feather")
+
+    def _randomize(
+        self, data: pd.DataFrame, cols: List[Union[str, List[str]]]
+    ) -> pd.DataFrame:
+        for col in cols:
+            data[col] = random.permutation(data[col].to_numpy())
+        data = data.sort_values(by="datetime").reset_index(drop=True)
+        return data

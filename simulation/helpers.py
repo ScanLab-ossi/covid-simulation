@@ -1,10 +1,8 @@
 from functools import wraps
 from datetime import datetime
-import pickle
 import sys
 import logging
-
-# logging.basicConfig(format=FORMAT)
+from yaml import dump
 
 from simulation.constants import *
 
@@ -23,13 +21,6 @@ def timing(f):
         return result
 
     return wrap
-
-
-def print_settings(task):
-    print(f"DATASET = {task['DATASET']}")
-    print(f"ITERATIONS = {task['ITERATIONS']}")
-    print(f"SENSITIVITY = {task['SENSITIVITY']}")
-    print(*(f"{k} = {v}" for k, v in settings.items()), sep="\n")
 
 
 def increment():

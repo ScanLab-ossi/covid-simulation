@@ -1,11 +1,11 @@
 from collections import UserDict
 from pathlib import Path
-from typing import List, Optional
+from typing import Literal, NoReturn, Optional
 
 import numpy as np
 import pandas as pd
 from google.cloud.datastore import Entity  # type: ignore
-from yaml import Loader, load
+from yaml import Loader, load, dump
 
 from simulation.constants import *
 
@@ -25,9 +25,9 @@ class Task(UserDict):
             self.id = data.id
         else:
             self.id = np.random.randint(1e15, 1e16)
-        self.path = path
         self.load_config(CONFIG_FOLDER / "default_config.yaml")
         self.load_config(path)
+        self.path = OUTPUT_FOLDER / f"{self.id}.yaml"
         if self.get("country"):
             self.load_country_info()
         # if settings["LOCAL"]:
@@ -36,6 +36,8 @@ class Task(UserDict):
     def load_config(self, path: Path):
         with open(path) as f:
             config = load(f, Loader=Loader)
+            if not "default" in path.name:
+                self.poi = config
         for key in ("meta", "params", "sensitivity", "paths"):
             for k, v in config.get(key, {}).items():
                 if key in ("sensitivity", "paths"):
@@ -44,7 +46,7 @@ class Task(UserDict):
                 else:
                     self[k] = v
 
-    def load_country_info(self):
+    def load_country_info(self) -> NoReturn:
         self["age_dist"] = (
             pd.read_csv(CONFIG_FOLDER / "population.csv")
             .set_index("Age Group")[self["country"]]
@@ -71,3 +73,13 @@ class Task(UserDict):
                 self["paths"][k]["distribution"] = v
             elif "duration" in self["paths"][k]:
                 self["paths"][k]["duration"] = v
+
+    def export(
+        self, what: Optional[str] = None, how: Literal["file", "print"] = "file"
+    ) -> NoReturn:
+        to_dump = getattr(self, what) if what else self.data
+        if how == "file":
+            with open(self.path, "w") as f:
+                dump(to_dump, f, default_flow_style=False, sort_keys=False)
+        elif how == "print":
+            print(dump(to_dump, default_flow_style=False, sort_keys=False))

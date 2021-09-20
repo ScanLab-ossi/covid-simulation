@@ -20,7 +20,7 @@ class BasicBlock(ABC):
         self.dataset: Dataset = dataset
         self.task: Task = task
         if self.task["DATASET"] != self.dataset.name:
-            raise
+            raise ValueError("DATASET in task doesn't match loaded dataset")
         self.states = States(task)
         self.variants = Variants(task)
 

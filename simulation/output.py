@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import gzip
 import json
-from os import execle
 import pickle
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union
 
-import numpy as np  # type: ignore
-import pandas as pd  # type: ignore
+import numpy as np
+import pandas as pd
 
 from simulation.building_blocks import BasicBlock
 from simulation.constants import *
@@ -237,7 +236,7 @@ class Batch(OutputBase):
                 columns=["patient_zero", "not_green"],
             )
 
-    def load(self, file_path=None, format_="json"):
+    def load(self, file_path: Path = None, format_=Literal["json", "csv", "pbz2"]):
         if not file_path:
             file_path = OUTPUT_FOLDER / f"{self.task.id}.{format_}"
         if file_path.suffix == ".json":
