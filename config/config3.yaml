@@ -4,10 +4,9 @@ settings:
 meta:
   ITERATIONS: 50
   DATASET: copenhagen_agg
-  SENSITIVITY: true
 
 params:
-  divide: 1
+  divide: 2
   infection_model: GroupInfection
   variant_a:
     j: 1
@@ -16,11 +15,3 @@ params:
     P_max: 0.5
   randomize:
     - [duration, datetime]
-
-sensitivity:
-  params:
-    - intensive_care_black
-  metrics:
-    - grouping: not_green
-  ranges:
-    intensive_care_black: { step: 1, min: 1, max: 20 }

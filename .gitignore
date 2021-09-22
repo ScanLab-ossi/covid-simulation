@@ -6,6 +6,7 @@
 *.zip
 .vscode/*
 output/*.json
+output/*.yaml
 keyfile.json
 secrets.conf
 *.csv
