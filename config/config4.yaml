@@ -4,6 +4,7 @@ settings:
 meta:
   ITERATIONS: 50
   DATASET: copenhagen_agg
+  SENSITIVITY: true
 
 params:
   divide: 2
@@ -16,3 +17,11 @@ params:
   randomize:
     - duration
     - datetime
+
+sensitivity:
+  params:
+    - intensive_care_black
+  metrics:
+    - grouping: sick
+  ranges:
+    intensive_care_black: { step: 0.1, min: 9, max: 11 }

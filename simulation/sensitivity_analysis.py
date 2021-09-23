@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, List, Literal, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -36,7 +36,7 @@ class Analysis(BasicBlock):
         threshold: Optional[Union[int, float]] = None,
         specific_day: Optional[int] = None,
         percent: bool = True,
-        how: str = "amount",
+        how: Literal["amount", "day"] = "amount",
         cumsum: bool = False,
     ) -> List[str]:
         """Sums average results of batch of iterations, according to parameters given.
