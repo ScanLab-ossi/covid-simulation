@@ -2,7 +2,7 @@ import unittest, os
 from unittest.mock import MagicMock
 from pathlib import Path
 
-from google.cloud import storage, datastore
+from google.cloud import storage
 from google.cloud import exceptions as gcloud_exceptions
 
 from simulation.google_cloud import GoogleCloud
@@ -45,9 +45,6 @@ class GoogleCloudTest(unittest.TestCase):
             "https://www.googleapis.com/storage/v1/b/simulation_datasets/o/test.csv",
         )
         self.assertTrue(blob.exists())
-
-    def test_connection_to_google_cloud_datastore(self):
-        pass
 
     def test_get_tasklist(self):
         self.gcloud.get_tasklist()

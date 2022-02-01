@@ -3,6 +3,7 @@ from typing import List, Union
 
 import pandas as pd
 from numpy import random
+import numpy as np
 from yaml import Loader, load
 
 from simulation.constants import *
@@ -34,7 +35,11 @@ class Dataset(object):
         if self.storage == "csv":
             if not (DATA_FOLDER / filename).exists():
                 self.gcloud.download(filename)
-            data = pd.read_csv(DATA_FOLDER / filename, parse_dates=["datetime"])
+            data = pd.read_csv(
+                DATA_FOLDER / filename,
+                parse_dates=["datetime"],
+                dtype={"source": int, "destination": int},
+            )
         data = self._prep(data)
         if cols := self.task.get("randomize"):
             data = self._randomize(data, cols)
@@ -83,10 +88,17 @@ class Dataset(object):
                 pass
 
     def _split(self, data: pd.DataFrame):
-        samplesize = f"{floor(5 * self.task['window_size'] / self.task['divide'])}min"
+        samplesize = f"{floor(5 * self.task['tau'] / self.task['divide'])}min"
         self.split = {
             i: x[1] for i, x in enumerate(data.resample(samplesize, on="datetime"))
         }
+        # t = [
+        #     np.array_split(day, self.task["divide"])
+        #     for _, day in data.resample("1d", on="datetime")
+        # ]
+        # self.split = {
+        #     i: x for i, x in enumerate([item for sublist in t for item in sublist])
+        # }
 
     def _load_helper_dfs(self):
         self.gcloud.download(f"{self.name}_demography.feather")

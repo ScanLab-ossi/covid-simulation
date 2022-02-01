@@ -4,10 +4,11 @@ import gzip
 import json
 import pickle
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Literal
 
 import numpy as np
 import pandas as pd
+import altair as alt
 
 from simulation.building_blocks import BasicBlock
 from simulation.constants import *
@@ -25,7 +26,7 @@ class OutputBase(BasicBlock):
         super().__init__(dataset=dataset, task=task)
         self.visualizer = Visualizer(dataset, task, save=True)
 
-    def _export_gzip(self, d: Union[Dict, pd.DataFrame], attr: str):
+    def _export_gzip(self, d: Dict | pd.DataFrame, attr: str):
         with gzip.GzipFile(OUTPUT_FOLDER / f"{self.task.id}_{attr}.pgz", "w") as f:
             pickle.dump(d, f)
 
@@ -54,7 +55,7 @@ class OutputBase(BasicBlock):
                         index=(False if hasattr(self, "batches") else True),
                     )
 
-    def load_pickle(self, file_path: Path) -> Union[Batch, MultiBatch]:
+    def load_pickle(self, file_path: Path) -> Batch | MultiBatch:
         data = pickle.load(gzip.GzipFile(file_path, "rb"))
         return data
 
@@ -66,47 +67,21 @@ class Output(BasicBlock):
     Attributes
     ----------
     df : pd.DataFrame
-        infection_date | days_left | color | variant
+        infection_date | days_left | state | variant
     summed : dict
     variant_summed :
 
     """
 
-    def __init__(
-        self,
-        dataset: Dataset,
-        task: Task,
-        loaded: Optional[dict] = None,
-    ):
+    def __init__(self, dataset: Dataset, task: Task, loaded: dict | None = None):
         super().__init__(dataset=dataset, task=task)
-        self.df = pd.DataFrame(
-            [],
-            columns=[
-                "infection_date",
-                "days_left",
-                "color",
-                "variant",
-            ],
-        ).rename_axis(index="source")
-        self.df["variant"] = self.df["variant"].astype(self.variants.categories)
-        self.df["color"] = self.df["color"].astype(self.states.categories("states"))
+        cols = ["infection_date", "days_left", "state", "variant"]
+        self.df = pd.DataFrame([], columns=cols).rename_axis(index="source")
+        self.df = self.df.pipe(self.variants.categorify).pipe(self.states.categorify)
         self.summed = loaded if loaded else {}
         if self.variants.exist:
-            self.variant_summed = {}  # TODO: add not_green count
-
-    def set_first(self):
-        if not hasattr(self, "first"):
-            self.first = self.df[self.df["infection_date"] == 0].index[0]
-
-    def set_damage_assessment(self):
-        damage = sum(
-            [
-                v
-                for k, v in self.summed[max(self.summed)].items()
-                if k not in ({"green"} | self.states.non_states)
-            ]
-        )
-        self.damage_assessment = [self.first, damage]
+            self.variant_summed = {k: {} for k in self.task["variants"]}
+        self.history = {}
 
     def __len__(self):
         return len(self.df.index)
@@ -130,32 +105,37 @@ class Output(BasicBlock):
         return df
 
     def _regular_count(self, day: int, daily: pd.DataFrame):
-        self.summed[day] = dict(self.df["color"].value_counts())
+        self.summed[day] = dict(self.df["state"].value_counts())
         self.summed[day]["green"] = self.dataset.nodes - sum(self.summed[day].values())
         self.summed[day]["daily_infected"] = len(daily)
-        # FIXME: we stoped keeping daily_infectors, so this will always return 0
         # notna_infectors = daily[daily["infector"].notna()]["infector"]
         # self.summed[day]["daily_infectors"] = (
         #     len(set.union(*notna_infectors)) if len(notna_infectors) > 0 else 0
         # )
-        self.summed[day]["daily_blue"] = len(daily[daily["color"] == "blue"])
+        self.summed[day]["daily_blue"] = len(daily[daily["state"] == "blue"])
         self.summed[day]["sick"] = len(
-            self.df[self.df["color"].isin(self.states.sick_states)]
+            self.df[self.df["state"].isin(self.states.sick_states)]
         )
 
-    def _variant_count(self, day: int, daily: pd.DataFrame):
+    def _variant_count(self, day: int, daily: pd.DataFrame, cumsum=True):
+        daily_infected = daily.groupby("variant")["state"].count()
+        infected = self.df.groupby("variant")["state"].count()
+        sick = (
+            self.df[self.df["state"].isin(self.states.sick_states)]
+            .groupby("variant")["state"]
+            .count()
+        )
         summed = pd.DataFrame(
-            {
-                "infected": self.df.groupby("variant")["color"].count(),
-                "daily_infected": daily.groupby("variant")["color"].count(),
-                "sick": self.df[self.df["color"].isin(self.states.sick_states)]
-                .groupby("variant")["color"]
-                .count(),
-            }
+            {"infected": infected, "daily_infected": daily_infected, "sick": sick}
         ).to_dict("index")
-        for k, v in summed.items():
-            self.variant_summed.setdefault(k, {day: v})
-            self.variant_summed[k][day] = v
+        for variant, states in summed.items():
+            if cumsum:  # FIXME: cumsum shouldnt be default nor specific!
+                states["daily_infected"] += (
+                    self.variant_summed[variant]
+                    .get(day - 1, {})
+                    .get("daily_infected", 0)
+                )
+            self.variant_summed[variant] |= {day: states}
 
     def value_counts(self, day: int):
         daily = self.df[self.df["infection_date"] == day]
@@ -192,7 +172,7 @@ class Batch(OutputBase):
     Methods: export()
     """
 
-    def __init__(self, dataset: Dataset, task: Task, init: Optional[dict] = None):
+    def __init__(self, dataset: Dataset, task: Task, init: dict | None = None):
         super().__init__(dataset=dataset, task=task)
         self.mean_and_std = init if init else {}
         self.batch = []
@@ -211,30 +191,20 @@ class Batch(OutputBase):
     def append_output(self, output: Output):
         self.batch.append(output)
 
-    def _sum_output_list(self) -> List[pd.DataFrame]:
-        return [output.sum_output() for output in self.batch]
-
     def sum_batch(
         self,
-        how: List[str] = ["summed_output_list", "mean_and_std", "damage_assessment"],
+        how: List[str] = ["summed_output_list", "mean_and_std"],
     ):
         # sum types: list of dfs for some other part in code, concated dfs?, mean_and_std
-        if "summed_output_list" in how:
-            self.summed_output_list = self._sum_output_list()
+        self.summed_output_list = [output.sum_output() for output in self.batch]
         if "mean_and_std" in how:
-            sol = getattr(self, "summed_output_list", self._sum_output_list())
-            concated = pd.concat(sol).groupby(
+            concated = pd.concat(self.summed_output_list).groupby(
                 ["day"] + (["variant"] if self.variants.exist else [])
             )
             self.mean_and_std = {
                 "mean": concated.mean().to_dict(),
                 "std": concated.std().to_dict(),
             }
-        if "damage_assessment" in how:
-            self.damage_assessment = pd.DataFrame(
-                [o.damage_assessment for o in self.batch],
-                columns=["patient_zero", "not_green"],
-            )
 
     def load(self, file_path: Path = None, format_=Literal["json", "csv", "pbz2"]):
         if not file_path:
@@ -251,26 +221,39 @@ class Batch(OutputBase):
                 concated_df, self.task["ITERATIONS"]
             )
 
+    def _variant_vis(self, df: pd.DataFrame, metric: str) -> alt.Chart:
+        """
+        return: day | variant | state | amount
+        """
+        df = (
+            df.rename_axis(index=["day", "variant"])
+            .reset_index()
+            .melt(id_vars=["day", "variant"], var_name="state", value_name="amount")
+        )
+        return self.visualizer.line(df, metric, save=True)
+
+    def _wave_vis(self, df):
+        """
+        return: day | variant | state | amount
+        """
+        df = (
+            df.drop(columns=self.states.non_states & set(df.columns))
+            .reset_index()
+            .rename(columns={"index": "day"})
+            .melt(id_vars="day", var_name="state", value_name="amount")
+        )
+        df["day"] = df["day"].astype(int)
+        return self.visualizer.stacked_bar(df)
+
     def visualize(self):
+        self.sum_batch()
         df = pd.DataFrame(self.mean_and_std["mean"])
-        if self.variants.exist:
-            df = (
-                df.reset_index()
-                .rename(columns={"level_0": "day", "level_1": "variant"})
-                .melt(id_vars=["day", "variant"], var_name="color", value_name="amount")
-            )
-        else:
-            df = (
-                df.drop(columns=self.states.non_states & set(df.columns))
-                .reset_index()
-                .rename(columns={"index": "day"})
-                .melt(id_vars="day", var_name="color", value_name="amount")
-            )
-            df["day"] = df["day"].astype(int)
-        if self.variants.exist:
-            return self.visualizer.line(df)
-        else:
-            return self.visualizer.stacked_bar(df)
+        # FIXME: this shouldnt be - sensitivty metrixcs are for sesitivity tests
+        for metric in self.task["sensitivity"]["metrics"]:
+            if self.variants.exist:
+                self._variant_vis(df, metric["grouping"])
+            else:
+                self._wave_vis(df)
 
 
 class MultiBatch(OutputBase):
@@ -299,30 +282,21 @@ class MultiBatch(OutputBase):
 
     def __init__(self, dataset: Dataset, task: Task, analysis: Analysis):
         super().__init__(dataset=dataset, task=task)
-        self.batches: Dict[str, Dict[Union[int, float], Batch]] = {}
+        self.batches: Dict[str, Dict[(int, float), Batch]] = {}
         self.summed_analysis = pd.DataFrame(
             columns=["value", "metric", "step", "parameter"]
+            + (["variant"] if self.variants.exist else [])
         )
         self.analysis = analysis
-        self.damage_assessment = pd.DataFrame(columns=["patient_zero", "not_green"])
 
-    def append_batch(self, batch: Batch, param: str, step: Union[int, float]):
+    def append_batch(self, batch: Batch, param: str, step: int | float):
         batch.sum_batch()
-        self.damage_assessment = self.damage_assessment.append(batch.damage_assessment)
         results = []
         for metric in self.task["sensitivity"]["metrics"]:
-            if metric["grouping"] == "r_0":
-                # FIXME: results += self.analysis.r_0(batch)
-                pass
-            else:
-                results += self.analysis.group_count(batch, **metric)
-        results = (
-            pd.DataFrame(results, columns=["value", "metric"])
-            .reset_index(drop=True)
-            .assign(**{"step": step, "parameter": param})
-        )
-        self.summed_analysis = self.summed_analysis.append(results)
-        del batch.summed_output_list
+            results.append(self.analysis.group_count(batch, **metric))
+        results = pd.concat(results)
+        results = results.assign(**{"step": [step] * len(results), "parameter": param})
+        self.summed_analysis = pd.concat([self.summed_analysis, results])
         self.batches.setdefault(param, {})[step] = batch
 
     def load(self, file_path=None, format_="json"):
@@ -344,37 +318,62 @@ class MultiBatch(OutputBase):
                     )
 
     def _prep_for_vis(self, param: str) -> pd.DataFrame:
-        to_concat = [
-            pd.DataFrame(self.batches[param][step]["mean"]).assign(**{"step": step})
-            for step in self.batches[param].keys()
-        ]
-        df = pd.concat(to_concat)
-        # to_drop =
-        return (
-            df.drop(columns=self.states.non_states & set(df.columns))
-            .reset_index()
-            .rename(columns={"index": "day"})
-            .melt(id_vars=["day", "step"], var_name="color", value_name="amount")
+        to_concat = []
+        for step in self.batches[param].keys():
+            to_concat.append(
+                pd.DataFrame(self.batches[param][step].mean_and_std["mean"])
+                .rename_axis(index=["day"])
+                .reset_index()
+                .assign(**{"step": step})
+            )
+        df = pd.concat(to_concat).melt(
+            id_vars=["day", "step"],
+            var_name="state",
+            value_name="amount",
         )
+        # df = df.drop(columns=self.states.non_states & set(df.columns))
+        df.to_csv(OUTPUT_FOLDER / "df_in_output.csv", index=False)
+        return df
 
-    def visualize(self, how: List[str] = ["boxplots", "stacked_bars"]):
-        for vis in how:
-            if vis == "stacked_bars":
-                if self.variants.exist:
-                    for param in self.batches.keys():
-                        self.visualizer.line(self._prep_for_vis(param), param=param)
-                else:
-                    for param in self.batches.keys():
-                        self.visualizer.stacked_bar(
-                            self._prep_for_vis(param), param=param
-                        )
-            if vis == "boxplots":
-                # self.summed_analysis["step"] = self.summed_analysis["step"]
-                self.visualizer.boxplots(self.summed_analysis)
+    def _prep_for_variant_vis(self, param):
+        to_concat = []
+        for step in self.batches[param].keys():
+            x = (
+                pd.DataFrame(self.batches[param][step].mean_and_std["mean"])
+                .rename_axis(index=["day", "variant"])
+                .reset_index()
+            )
+            x[["step_0", "step_1"]] = step
+            to_concat.append(x)
+        df = pd.concat(to_concat).melt(
+            id_vars=["day", "step_0", "step_1", "variant"],
+            var_name="state",
+            value_name="amount",
+        )
+        # df = df.drop(columns=self.states.non_states & set(df.columns))
+        df.to_csv(OUTPUT_FOLDER / "df_in_output.csv", index=False)
+        return df
+
+    def visualize_detailed(self):
+        if self.variants.exist:
+            for param in self.batches.keys():
+                for metric in self.task["sensitivity"]["metrics"]:
+                    df = self._prep_for_variant_vis(param)
+                    df.to_csv(OUTPUT_FOLDER / f"{self.task.id}_lines.csv", index=False)
+                    self.visualizer.facet_line(
+                        df, metric=metric["grouping"], param=param
+                    )
+        else:
+            for param in self.batches.keys():
+                self.visualizer.stacked_bar(self._prep_for_vis(param), param=param)
+
+    def visualize_summary(self):
+        # self.summed_analysis["step"] = self.summed_analysis["step"]
+        self.visualizer.boxplots(self.summed_analysis)
 
 
 class IterBatch:
-    def __init__(self, results: Optional[dict]):
+    def __init__(self, results: dict | None):
         self.results = results if results else None
         self.splits = {
             1000: 1,
@@ -396,9 +395,6 @@ class IterBatch:
                 result.summed_analysis["metric"] == "max_percent_not_green"
             ].groupby("step")
         }
-
-    def get_results(self, dataset: Dataset, result: Batch):
-        self.results[dataset.name] = result.damage_assessment["not_green"].tolist()
 
     def export(self, task):
         with open(OUTPUT_FOLDER / f"iter_datasets_{task.id}.json", "w") as fp:

@@ -13,7 +13,6 @@ more_itertools
 sqlalchemy
 Deprecated
 google-cloud-storage
-google-cloud-datastore  
 google-cloud-secret-manager
 matplotlib
 dropbox

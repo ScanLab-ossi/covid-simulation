@@ -1,3 +1,4 @@
+from doctest import DocFileTest
 from itertools import groupby
 from math import exp, log
 from typing import List
@@ -31,24 +32,24 @@ class Infection(RandomBasicBlock):
         Parameters
         ----------
         contagion_df : pd.DataFame
-            datetime | duration | susceptible | variant
+            datetime | infector | duration | susceptible | variant
         day : int
 
         Returns
         -------
         pd.DataFrame
             index : infected
-            columns : infection_date | days_left | color | variant
+            columns : infection_date | days_left | state | variant
 
     """
 
     def _organize(self, contagion_df: pd.DataFrame, day: int):
         infected = (
-            contagion_df.drop(columns=["duration"])
+            contagion_df[["variant"]]
             .rename_axis(index=["infected"])
-            .assign(**{"infection_date": day, "days_left": 0, "color": "green"})
+            .assign(**{"infection_date": day, "days_left": 0, "state": "green"})
         )
-        infected["color"] = infected["color"].astype(self.states.categories("states"))
+        infected["state"] = infected["state"].astype(self.states.categories("states"))
         return infected
 
     def _is_infected(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -80,7 +81,7 @@ class AdditiveInfection(Infection):
 
 
 class GroupInfection(Infection):
-    # 2 and 3
+    # 2 and 4
     def _mult(self, s: pd.Series) -> float:
         res = 1 - np.prod(
             1 - np.minimum(s.to_numpy() / self.task["D_max"], 1) * self.task["P_max"]
@@ -88,18 +89,17 @@ class GroupInfection(Infection):
         return res
 
     def _cases(self, df: pd.DataFrame) -> pd.DataFrame:
-        hops = df["hops"].to_numpy() if self.dataset.hops else 1
         df["duration"] = np.where(
             df["duration"].to_numpy() >= self.task["D_min"],
-            df["duration"].to_numpy() / hops,
+            df["duration"].to_numpy(),
             0.00001,
         )
         return df
 
     def _infect(self, contagion_df: pd.DataFrame, day: int) -> pd.DataFrame:
+        contagion_df = self._cases(contagion_df)
         contagion_df = (
-            contagion_df.pipe(self._cases)
-            .groupby(["susceptible", "variant"])
+            contagion_df.groupby(["susceptible", "variant"])
             .agg({"duration": self._mult})
             .reset_index(level="variant")
             .dropna()
@@ -141,48 +141,73 @@ class ConstantRateInfection(Infection):
 
 class VariantInfection(GroupInfection):
     # 4
-    def _mult(self, s: pd.Series) -> float:
-        variant_config = self.task[s.iloc[0][1]]
-        P_max = variant_config.get("P_max", self.task["P_max"])
-        D_max = variant_config.get("D_max", self.task["D_max"])
-        return 1 - np.prod(1 - np.minimum(s.str[0].to_numpy() / D_max, 1) * P_max)
+    @timing
+    def _mult(self, df: pd.DataFrame) -> pd.DataFrame:
+        for p in ["P_max", "D_max"]:
+            df[p] = df["variant"].astype(str).replace(self.variants.variant_to_param(p))
+        immunity = {
+            k: round(1 - v, 2)
+            for k, v in self.variants.variant_to_param("immunity").items()
+        }
+        history_col = (
+            df[["susceptible", "history"]]
+            .drop_duplicates("susceptible")
+            .set_index("susceptible")
+            .replace(immunity)
+            .fillna(1)
+            .sort_index()
+            .to_numpy()
+        )
+        df = (
+            df.groupby(["susceptible", "variant"])
+            .apply(
+                lambda g: 1
+                - np.prod(1 - np.minimum(g["duration"] / g["D_max"], 1) * g["P_max"])
+            )
+            .unstack(level=1, fill_value=0)
+            .mul(history_col, axis="rows")
+        )
+        for v in set(self.task["variants"]) - set(df.columns):
+            df[v] = 0
+        return df
 
     def _cases(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["duration"] = df["duration"] * df["variant"].astype(str).apply(
-            lambda v: self.task[v]["j"] * 0.1 + 1
+        df["duration"] = (
+            df["duration"]
+            * df["infector"]
+            * df["variant"]
+            .astype(str)
+            .replace(
+                {k: v * 0.1 + 1 for k, v in self.variants.variant_to_param("j").items()}
+            )
         )
+        # TODO: differential D-min
         df["duration"] = np.where(
-            df["duration"].to_numpy() >= self.task["D_min"],
+            df["duration"].to_numpy() >= self.task.get("D_min"),
             df["duration"].to_numpy(),
             0.00001,
         )
         return df
 
-    def _zip(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["duration"] = list(zip(df["duration"], df["variant"]))
-        return df
+    # def _zip(self, df: pd.DataFrame) -> pd.DataFrame:
+    #     df["duration"] = list(zip(df["duration"], df["variant"]))
+    #     return df
 
+    @timing
     def _infect(self, contagion_df: pd.DataFrame, day: int) -> pd.DataFrame:
-        contagion_df = (
-            contagion_df.pipe(self._cases)
-            .pipe(self._zip)
-            .groupby(["susceptible", "variant"])
-            .agg({"duration": self._mult})
-            .droplevel("variant")
-            .fillna(0)
-            .groupby(["susceptible"])
-            .agg(
-                variant=("duration", list),
-                duration=("duration", self._inclusion_exclusion),
-            )
-            .pipe(self._is_infected)
-            .pipe(self._normalize_variants)
-            .pipe(self._choose_variant)
-            .pipe(self._organize, day=day)
-        )
+        contagion_df = contagion_df.pipe(self._cases)
+        contagion_df = contagion_df.pipe(self._mult)
+        contagion_df["duration"] = contagion_df.apply(self._inclusion_exclusion, axis=1)
+        contagion_df = contagion_df.pipe(self._is_infected)[self.task["variants"]]
+        # if len(contagion_df) == 0:
+        # return contagion_df.pipe(self._organize, day=day)
+        contagion_df = contagion_df.pipe(self._normalize_variants)
+        contagion_df = contagion_df.pipe(self._choose_variant)
+        contagion_df = contagion_df.pipe(self._organize, day=day)
         return contagion_df
 
     def _inclusion_exclusion(self, p: List[float]) -> float:
+        # P(not-infected)
         powerset_ = [list(x) + [np.prod(x)] for x in list(powerset(p))[1:]]
         return min(
             sum(
@@ -195,12 +220,14 @@ class VariantInfection(GroupInfection):
         )
 
     def _normalize_variants(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["variant"] = df["variant"].apply(np.array) / df["variant"].apply(sum)
+        df = (df.T / df.sum(axis="columns")).T
         return df
 
     def _choose_variant(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["variant"] = list(
-            map(lambda x: self.rng.choice(self.variants.list, p=x), df["variant"])
+        if len(df) == 0:
+            return pd.DataFrame([], columns=["variant"])
+        df["variant"] = df.apply(
+            lambda x: self.rng.choice(self.task["variants"], p=x), axis=1
         )
         df["variant"] = df["variant"].astype(self.variants.categories)
         return df

@@ -6,17 +6,17 @@ settings:
   INCREMENT: false
   ITER_DATASET: false
 
-meta: 
+meta:
   DATASET: copenhagen_groups
   ITERATIONS: 3
   SENSITIVITY: false
 
 params:
   infection_model: GroupInfection
-  variant_a:
-    j: 1
-    number_of_patient_zero: 1
-    patient_zeroes_on_days: [0]
+  # variant_delta:
+  #   j: 1
+  #   number_of_patient_zero: 1
+  #   patient_zeroes_on_days: [0]
   D_min: 0
   D_max: 200
   P_max: 0.5
@@ -24,71 +24,86 @@ params:
   # max_duration: 1000
   # beta: 0.5
   divide: 1
-  window_size: 288
+  tau: 288
+  number_of_patient_zero: 1
+  patient_zeroes_on_days: [0]
   randomize: false
+  immunity: 0 # 1 is fully immune and 0 is completely susceptiible
+  reinfect: 0
 
 paths:
-  green:
-    children:
-      - blue
-      - purple
-    distribution:
-      - 0.8
-      - 0.2
-  blue:
-    duration: [7.5, 1]
+  green: # E
+    duration: [5, 1]
+    children: [blue]
+  blue: # I
+    duration: [7, 2]
     children: [white]
-  purple:
-    children:
-      - purple_pink
-      - purple_red
-    distribution:
-      - 0.8
-      - 0.2
-  purple_pink:
-    duration: [2.5, 0.5]
-    children: [pink]
-  purple_red:
-    duration: [2.5, 0.5]
-    children: [red]
-  pink:
-    duration: [10, 1]
-    children: [white]
-  red:
-    children:
-      - stable
-      - intensive_care
-    distribution: [0.5, 0.5]
-  stable:
-    children:
-      - stable_white
-      - stable_black
-    distribution: [0.5, 0.5]
-  stable_white:
-    duration: [10, 1]
-    children: [white]
-  stable_black:
-    duration: [10, 1]
-    children: [black]
-  intensive_care:
-    children:
-      - intensive_care_white
-      - intensive_care_black
-    distribution: [0.5, 0.5]
-  intensive_care_white:
-    duration: [10, 1]
-    children: [white]
-  intensive_care_black:
-    duration: [10, 1]
-    children: [black]
-  white: {}
-  black: {}
+  white: {} # R
+    # duration: [7, 2]
+    # children: [green]
+    
+# paths:
+#   green:
+#     children:
+#       - blue
+#       - purple
+#     distribution:
+#       - 0.8
+#       - 0.2
+#   blue:
+#     duration: [7.5, 1]
+#     children: [white]
+#   purple:
+#     children:
+#       - purple_pink
+#       - purple_red
+#     distribution:
+#       - 0.8
+#       - 0.2
+#   purple_pink:
+#     duration: [2.5, 0.5]
+#     children: [pink]
+#   purple_red:
+#     duration: [2.5, 0.5]
+#     children: [red]
+#   pink:
+#     duration: [10, 1]
+#     children: [white]
+#   red:
+#     children:
+#       - stable
+#       - intensive_care
+#     distribution: [0.5, 0.5]
+#   stable:
+#     children:
+#       - stable_white
+#       - stable_black
+#     distribution: [0.5, 0.5]
+#   stable_white:
+#     duration: [10, 1]
+#     children: [white]
+#   stable_black:
+#     duration: [10, 1]
+#     children: [black]
+#   intensive_care:
+#     children:
+#       - intensive_care_white
+#       - intensive_care_black
+#     distribution: [0.5, 0.5]
+#   intensive_care_white:
+#     duration: [10, 1]
+#     children: [white]
+#   intensive_care_black:
+#     duration: [10, 1]
+#     children: [black]
+#   white: {}
+#   black: {}
 
 sensitivity:
   params:
     - divide
   metrics:
-  # usualy: sick, infected, notgreen
+    # usualy: sick, infected, notgreen
     # - grouping: white
     # - grouping: daily_blue
     #   cumsum: true
@@ -107,6 +122,6 @@ sensitivity:
     red: { step: 0.1, min: 0.1, max: 0.3 }
     purple_pink: { step: 0.5, min: 2, max: 3 }
     blue: { step: 0.5, min: 7, max: 8 }
-    green: {step: 0.1, min: 0.1, max: 0.9}
-    divide: {step: 1, min: 1, max: 10}
-    beta: {step: 0.1, min: 0.5, max: 0.5}
+    green: { step: 0.1, min: 0.1, max: 0.9 }
+    divide: { step: 1, min: 1, max: 10 }
+    beta: { step: 0.1, min: 0.5, max: 0.5 }

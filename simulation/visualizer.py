@@ -1,11 +1,5 @@
-from __future__ import annotations
-from typing import TYPE_CHECKING
-from typing import Union, Optional
-
 import altair as alt
-from altair.vegalite.v4.schema.channels import Tooltip  # type: ignore
 import pandas as pd
-from numpy import random
 
 from simulation.constants import *
 from simulation.dataset import Dataset
@@ -38,9 +32,9 @@ class Visualizer(BasicBlock):
             "blue": "#2166ac",
             "purple_red": "#d6604d",
             "purple_pink": "#d6604d",
-            "purple": "#d6604d",  #
+            "purple": "#d6604d",
             "pink": "#d6604d",
-            "red": "#b2182b",  #
+            "red": "#b2182b",
             "stable_black": "#b2182b",
             "stable_white": "#b2182b",
             "intensive_care_black": "#b2182b",
@@ -54,10 +48,7 @@ class Visualizer(BasicBlock):
     def _save_chart(self, chart: alt.Chart, suffix: str = None):
         if self.save:
             chart.save(
-                str(
-                    OUTPUT_FOLDER
-                    / f"{self.task.id}{f'_{suffix}' if suffix else ''}.html"
-                ),
+                OUTPUT_FOLDER / f"{self.task.id}{f'_{suffix}' if suffix else ''}.html",
                 format="html",
             )
 
@@ -68,23 +59,23 @@ class Visualizer(BasicBlock):
         simplified: bool,
     ) -> pd.DataFrame:
         if not include_green:
-            df = df[df["color"] != "green"]
+            df = df[df["state"] != "green"]
             self.colors.pop("green")
         if simplified:
-            df["color"] = (
-                df["color"]
+            df["state"] = (
+                df["state"]
                 .replace(self.states.get_filter("red")["regex"], "red", regex=True)
                 .replace("purple.*", "purple", regex=True)
             )
             self.colors = {
                 k: v
                 for k, v in self.colors.items()
-                if k in list(df["color"].drop_duplicates())
+                if k in list(df["state"].drop_duplicates())
             }
-        df["order"] = df["color"].replace(
+        df["order"] = df["state"].replace(
             {val: i for i, val in enumerate(self.colors.keys())}
         )
-        df["color"] = df["color"].replace(self.states.color_to_state)
+        df["state"] = df["state"].replace(self.states.color_to_state)
         df["amount"] = df["amount"] / self.dataset.nodes
         return df
 
@@ -100,9 +91,10 @@ class Visualizer(BasicBlock):
         Parameters
         ----------
         df : pd.DataFrame
-            day | amount | color
+            day | amount | state
         """
         df = self._prep_for_stacked(df, include_green, simplified)
+        df.to_csv(OUTPUT_FOLDER / "df_in_vis.csv", index=False)
         domain = [self.states.color_to_state[c] for c in self.colors]
         chart = (
             alt.Chart(df)
@@ -115,11 +107,11 @@ class Visualizer(BasicBlock):
                     scale=alt.Scale(domain=(0, 1)),
                 ),
                 color=alt.Color(
-                    "color",
+                    "state",
                     scale=alt.Scale(domain=domain, range=list(self.colors.values())),
                 ),
                 order="order:O",
-                tooltip=["color", alt.Tooltip("amount:Q", format="%"), "day"],
+                tooltip=["state", alt.Tooltip("amount:Q", format="%"), "day"],
             )
         )
         if not interactive and param:
@@ -136,44 +128,55 @@ class Visualizer(BasicBlock):
     def _prep_for_line(self, df: pd.DataFrame) -> pd.DataFrame:
         if "variant" not in df.columns:
             df["variant"] = "variant_a"
-        df = df[df["color"].isin(["infected", "infected_daily", "sick"])].reset_index(
+        df = df[df["state"].isin(["infected", "daily_infected", "sick"])].reset_index(
             drop=True
         )
-        df["variant"] = df["variant"].replace(self.variants.js)
+        # df["variant"] = df["variant"].replace(self.variants.params)
         df["amount"] = df["amount"] / self.dataset.nodes
         return df
 
-    def line(self, df: pd.DataFrame, param: Optional[str] = None) -> alt.Chart:
+    def line(
+        self, df: pd.DataFrame, metric: str | None = None, save: bool = False
+    ) -> alt.Chart:
         """
         Parameters
         ----------
         df : pd.DataFrame
-            day | variant | color | amount
+            day | variant | state | amount
         """
         df = self._prep_for_line(df)
+        if metric:
+            df = df[df["state"] == metric]
         chart = (
             alt.Chart(df)
             .mark_line()
             .encode(
-                alt.X("day:N"),
+                alt.X("day"),
                 alt.Y("amount:Q", axis=alt.Axis(format="%"), title=None),
                 color=alt.Color("variant:N"),
                 tooltip=["variant", alt.Tooltip("amount:Q", format="%"), "day"],
             )
-            .facet(
-                column=alt.Column("step:O", title=None, header=self.facet_header),
-                row=alt.Row("color:O", title=None, header=self.facet_header),
-            )
-            .resolve_scale(x="independent")
+            .properties(width=150, height=150)
+            # .resolve_scale(x="independent")
         )
-        self._save_chart(chart, "line")
+        if save:
+            self._save_chart(chart, f"line_{metric}")
+        return chart
+
+    def facet_line(self, df: pd.DataFrame, metric: str, param: str) -> alt.Chart:
+        chart = self.line(df, metric=metric).facet(
+            column=alt.Column("step_0:O", title=None, header=self.facet_header),
+            row=alt.Row("step_1:O", title=None, header=self.facet_header),
+            title=f"Changing {param}, showing progression of {metric}",
+        )
+        self._save_chart(chart, f"line_{metric}")
         return chart
 
     def boxplot(self, df: pd.DataFrame) -> alt.Chart:
-        try:
-            color = [v for k, v in self.colors.items() if k in df["metric"].iloc[0]][0]
-        except IndexError:
-            color = random.choice(list(self.colors.values()), 1)
+        # try:
+        #     color = [v for k, v in self.colors.items() if k in df["metric"].iloc[0]][0]
+        # except IndexError:
+        #     color = random.choice(list(self.colors.values()), 1)
         chart = (
             alt.LayerChart(df)
             .encode(x="step:O")

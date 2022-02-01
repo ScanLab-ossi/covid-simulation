@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Literal
+from math import comb
+from itertools import product
 
 import numpy as np
 import pandas as pd
@@ -33,8 +35,8 @@ class Analysis(BasicBlock):
         self,
         df: pd.DataFrame,
         grouping: str,
-        threshold: Optional[Union[int, float]] = None,
-        specific_day: Optional[int] = None,
+        threshold: int | float | None = None,
+        specific_day: int | None = None,
         percent: bool = True,
         how: Literal["amount", "day"] = "amount",
         cumsum: bool = False,
@@ -48,7 +50,7 @@ class Analysis(BasicBlock):
             any state in States, not_{state}, daily_{state}
         threshold : Union[int, float]
             amount or percent over which to return day at which arrived at threshold
-        specific_day: Optional[int]
+        specific_day: int | None
             day on which to check metric
         percent : bool
             return res in percent if True, regular numerical amount if False
@@ -63,6 +65,8 @@ class Analysis(BasicBlock):
         # amount / day @ max percent / amount of color / sick
         # day @ specific percent / amount of color / sick
         metric_name = f"{'max' if not threshold else 'day_of_specific'}_{'percent'if percent else how}_{grouping}"
+        if "variant" in df.columns:
+            df = df.drop(columns=["variant"])
         if grouping not in df.columns:
             df = df.pipe(self.sum_groupings, how=grouping)
         if percent:
@@ -86,16 +90,19 @@ class Analysis(BasicBlock):
                 )
             df = df[df[grouping] >= threshold][grouping]
             res = df.index[0] if len(df.index) > 0 else np.inf
-        return [res, metric_name]
+        return {"value": res, "metric": metric_name}
 
     def group_count(self, batch: Batch, **params) -> List[List[str]]:
         l = []
         for df in batch.summed_output_list:
             if self.variants.exist:
-                l.append(df.groupby("variant").apply(self.count, **params))
+                l += [
+                    self.count(gdf, **params) | {"variant": g}
+                    for g, gdf in df.groupby("variant")
+                ]
             else:
                 l.append(self.count(df, **params))
-        return l
+        return pd.DataFrame(l)
 
     def sum_groupings(self, df: pd.DataFrame, how: str) -> pd.DataFrame:
         # TODO: this function needs to be cleaned up
@@ -115,6 +122,9 @@ class Analysis(BasicBlock):
         ]
         return pd.DataFrame({"value": res, "metric": ["r_0"] * len(res)})
 
+    def temporal_density(self, edges):
+        return edges / comb(self.dataset.nodes, 2)
+
 
 class SensitivityRunner(ConnectedBasicBlock):  # (Runner?)
     def _times(self, sr: dict) -> int:
@@ -123,6 +133,20 @@ class SensitivityRunner(ConnectedBasicBlock):  # (Runner?)
     def _steps(self, value: float, baseline: float, step: float) -> str:
         step = int(round((value - baseline) / step, 1))
         return f"{('+' if step > 0 else '')}{step}"
+
+    def _iter_values(
+        self,
+        sr: Dict[str, float | int],
+        baseline: List[float | int] | float | int,
+    ) -> List[float | int]:
+        range_ = [
+            round(x, 2)
+            for x in np.linspace(sr["min"], sr["max"], num=self._times(sr) + 1).tolist()
+        ]
+        if isinstance(baseline, list):
+            return list(product(range_, range_))
+        else:
+            return range_
 
     def run(self) -> MultiBatch:
         cr = ContagionRunner(self.dataset, self.task)
@@ -153,8 +177,7 @@ class SensitivityRunner(ConnectedBasicBlock):  # (Runner?)
                 baseline = self.task[param]
                 sr = sa_conf["ranges"][param]
                 times = self._times(sr)
-                for i in range(times + 1):
-                    value = round(sr["min"] + i * sr["step"], 2)  # wierd float stuff
+                for value in self._iter_values(sr, baseline):
                     print(f"checking when {param} = {value}")
                     self.task.update({param: value})
                     batch = cr.run()

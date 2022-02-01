@@ -27,7 +27,7 @@ class StateTransition(RandomBasicBlock):
             return row
         else:
             while row["days_left"] == 0:
-                d = self.task["paths"][row["color"]]
+                d = self.task["paths"][row["state"]]
                 try:
                     if len(d["children"]) == 1:
                         path_dist = [1]
@@ -36,7 +36,7 @@ class StateTransition(RandomBasicBlock):
                     else:
                         path_dist = d["distribution"]
                     next_state = self.rng.choice(d["children"], 1, p=path_dist).item()
-                    row["color"] = next_state
+                    row["state"] = next_state
                     duration = self.task["paths"][next_state].get("duration", 0)
                     if duration == 0:
                         row["days_left"] = 0

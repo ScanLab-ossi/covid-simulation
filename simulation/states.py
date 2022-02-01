@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Dict, List
 
 import pandas as pd
 from pandas.api.types import CategoricalDtype
@@ -46,10 +46,10 @@ class States:
         return CategoricalDtype(categories=getattr(self, attr), ordered=False)
 
     def categorify(self, df: pd.DataFrame, states: str = "states") -> pd.DataFrame:
-        df["color"] = df["color"].astype(self.categories(states))
+        df["state"] = df["state"].astype(self.categories(states))
         return df
 
-    def get_filter(self, how: str, l: Optional[List[str]] = None):
+    def get_filter(self, how: str, l: List[str] | None):
         if how == "red":
             return {"regex": r"(intensive|stable)\w+"}
         elif how == "sick":
@@ -62,15 +62,14 @@ class States:
 
 class Variants:
     def __init__(self, task: Task):
-        self.list = [k for k in task.keys() if k.startswith("variant_")]
-        self.exist = len(self.list) > 1
-        if self.exist and task["infection"] != "VariantInfection":
+        self.task = task
+        self.exist = "variants" in task
+        if self.exist and task["infection_model"] != "VariantInfection":
             raise
-        self.categories = CategoricalDtype(categories=self.list, ordered=True)
-        self.js = {
-            variant: f"{variant}, j = {task[variant]['j']}, patient_zero = {task[variant]['number_of_patient_zero']}"
-            for variant in self.list
-        }
+        self.categories = CategoricalDtype(categories=task["variants"], ordered=True)
+
+    def variant_to_param(self, param: str) -> Dict[str, str]:
+        return {k: self.task.get(param, variant=k) for k in self.task["variants"]}
 
     def categorify(self, df: pd.DataFrame) -> pd.DataFrame:
         df["variant"] = df["variant"].astype(self.categories)
