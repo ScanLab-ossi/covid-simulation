@@ -13,10 +13,6 @@ meta:
 
 params:
   infection_model: GroupInfection
-  # variant_delta:
-  #   j: 1
-  #   number_of_patient_zero: 1
-  #   patient_zeroes_on_days: [0]
   D_min: 0
   D_max: 200
   P_max: 0.5

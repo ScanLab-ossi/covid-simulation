@@ -60,17 +60,20 @@ class States:
             return {"like": how}
 
 
-class Variants:
+class Variants(list):
     def __init__(self, task: Task):
+        super().__init__(task.get("variants", alt=[]))
         self.task = task
-        self.exist = "variants" in task
-        if self.exist and task["infection_model"] != "VariantInfection":
+        if self and task["infection_model"] != "VariantInfection":
             raise
-        self.categories = CategoricalDtype(categories=task["variants"], ordered=True)
+        if self:
+            self.categories = CategoricalDtype(categories=self, ordered=True)
+        self.column = ["variant"] if self else []
 
     def variant_to_param(self, param: str) -> Dict[str, str]:
-        return {k: self.task.get(param, variant=k) for k in self.task["variants"]}
+        return {k: self.task.get(param, variant=k) for k in self}
 
     def categorify(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["variant"] = df["variant"].astype(self.categories)
+        if self:
+            df["variant"] = df["variant"].astype(self.categories)
         return df

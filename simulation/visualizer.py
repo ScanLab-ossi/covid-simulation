@@ -10,6 +10,10 @@ alt.data_transformers.disable_max_rows()
 
 
 class Visualizer(BasicBlock):
+    """
+    we change values of `param` and check outcome on `metric`"
+    """
+
     def __init__(self, dataset: Dataset, task: Task, save: bool = False):
         super().__init__(dataset=dataset, task=task)
         self.save = save
@@ -43,7 +47,6 @@ class Visualizer(BasicBlock):
             "white": "#e7e8e9",
             "green": "#92c5de",
         }
-        self.facet_header = alt.Header(labelFontWeight="bold", labelFontSize=12)
 
     def _save_chart(self, chart: alt.Chart, suffix: str = None):
         if self.save:
@@ -164,9 +167,10 @@ class Visualizer(BasicBlock):
         return chart
 
     def facet_line(self, df: pd.DataFrame, metric: str, param: str) -> alt.Chart:
+        header = alt.Header(labelFontWeight="bold", labelFontSize=12)
         chart = self.line(df, metric=metric).facet(
-            column=alt.Column("step_0:O", title=None, header=self.facet_header),
-            row=alt.Row("step_1:O", title=None, header=self.facet_header),
+            column=alt.Column("step_0:O", title=None, header=header, sort="descending"),
+            row=alt.Row("step_1:O", title=None, header=header, sort="descending"),
             title=f"Changing {param}, showing progression of {metric}",
         )
         self._save_chart(chart, f"line_{metric}")
@@ -214,4 +218,30 @@ class Visualizer(BasicBlock):
             )
         chart = alt.hconcat(*horizontal)
         self._save_chart(chart, "sensitivity")
+        return chart
+
+    def heatmap(self, df: pd.DataFrame, metric: str, param: str) -> alt.Chart:
+        chart = (
+            alt.Chart(df)
+            .mark_rect()
+            .encode(
+                x=alt.X(
+                    "step_0:O",
+                    axis=alt.Axis(
+                        orient="top", title=f"change in {param} for {self.variants[0]}"
+                    ),
+                ),
+                y=alt.Y(
+                    "step_1:O",
+                    axis=alt.Axis(title=f"change in {param} for {self.variants[1]}"),
+                ),
+                color=alt.Color(
+                    "amount:Q",
+                    scale=alt.Scale(type="log"),
+                    title=f"{metric} ratio (log scale)",
+                ),
+                tooltip=[alt.Tooltip("amount", title=f"ratio")],
+            )
+        )
+        self._save_chart(chart, f"heatmap_{metric}")
         return chart

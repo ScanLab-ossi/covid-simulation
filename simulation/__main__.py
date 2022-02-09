@@ -34,6 +34,7 @@ def main():
             result = runner.run()
             result.export()
             result.visualize_detailed()
+            result.visualize_summary()
         else:
             runner = ContagionRunner(dataset, task)
             result = runner.run()

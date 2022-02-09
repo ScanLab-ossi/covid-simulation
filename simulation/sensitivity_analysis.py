@@ -95,7 +95,7 @@ class Analysis(BasicBlock):
     def group_count(self, batch: Batch, **params) -> List[List[str]]:
         l = []
         for df in batch.summed_output_list:
-            if self.variants.exist:
+            if self.variants:
                 l += [
                     self.count(gdf, **params) | {"variant": g}
                     for g, gdf in df.groupby("variant")
@@ -130,17 +130,13 @@ class SensitivityRunner(ConnectedBasicBlock):  # (Runner?)
     def _times(self, sr: dict) -> int:
         return int((sr["max"] - sr["min"]) / sr["step"])
 
-    def _steps(self, value: float, baseline: float, step: float) -> str:
-        step = int(round((value - baseline) / step, 1))
-        return f"{('+' if step > 0 else '')}{step}"
-
     def _iter_values(
         self,
         sr: Dict[str, float | int],
         baseline: List[float | int] | float | int,
     ) -> List[float | int]:
         range_ = [
-            round(x, 2)
+            round(x, 4)
             for x in np.linspace(sr["min"], sr["max"], num=self._times(sr) + 1).tolist()
         ]
         if isinstance(baseline, list):
@@ -162,16 +158,16 @@ class SensitivityRunner(ConnectedBasicBlock):  # (Runner?)
                 sr = sa_conf["ranges"][param]
                 times = self._times(sr)
                 for i in range(times + 1):
-                    v = round(sr["min"] + i * sr["step"], 2)
+                    v = round(sr["min"] + i * sr["step"], 4)
                     value = (
-                        [v, baseline[1]] if sub == "duration" else [v, round(1 - v, 2)]
+                        [v, baseline[1]] if sub == "duration" else [v, round(1 - v, 4)]
                     )
                     print(f"checking when {param} {sub} = {value}")
                     self.task["paths"][param].update({sub: value})
                     batch = cr.run()
                     multibatch.append_batch(
                         batch=batch, param=f"{param}__{sub}", step=v
-                    )  # self._steps(v, baseline[0], sr["step"])
+                    )
                 self.task["paths"][param][sub] = baseline
             else:
                 baseline = self.task[param]

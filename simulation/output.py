@@ -75,19 +75,23 @@ class Output(BasicBlock):
 
     def __init__(self, dataset: Dataset, task: Task, loaded: dict | None = None):
         super().__init__(dataset=dataset, task=task)
-        cols = ["infection_date", "days_left", "state", "variant"]
-        self.df = pd.DataFrame([], columns=cols).rename_axis(index="source")
-        self.df = self.df.pipe(self.variants.categorify).pipe(self.states.categorify)
+        cols = ["infection_date", "days_left", "state"] + self.variants.column
+        self.df = (
+            pd.DataFrame([], columns=cols)
+            .rename_axis(index="source")
+            .pipe(self.variants.categorify)
+            .pipe(self.states.categorify)
+        )
         self.summed = loaded if loaded else {}
-        if self.variants.exist:
-            self.variant_summed = {k: {} for k in self.task["variants"]}
+        if self.variants:
+            self.variant_summed = {k: {} for k in self.variants}
         self.history = {}
 
     def __len__(self):
         return len(self.df.index)
 
     def sum_output(self) -> pd.DataFrame:
-        if self.variants.exist:
+        if self.variants:
             df = pd.concat(
                 [
                     pd.DataFrame(summed)
@@ -139,7 +143,7 @@ class Output(BasicBlock):
 
     def value_counts(self, day: int):
         daily = self.df[self.df["infection_date"] == day]
-        if self.variants.exist:
+        if self.variants:
             self._variant_count(day, daily)
         self._regular_count(day, daily)
 
@@ -199,7 +203,7 @@ class Batch(OutputBase):
         self.summed_output_list = [output.sum_output() for output in self.batch]
         if "mean_and_std" in how:
             concated = pd.concat(self.summed_output_list).groupby(
-                ["day"] + (["variant"] if self.variants.exist else [])
+                ["day"] + self.variants.column
             )
             self.mean_and_std = {
                 "mean": concated.mean().to_dict(),
@@ -250,7 +254,7 @@ class Batch(OutputBase):
         df = pd.DataFrame(self.mean_and_std["mean"])
         # FIXME: this shouldnt be - sensitivty metrixcs are for sesitivity tests
         for metric in self.task["sensitivity"]["metrics"]:
-            if self.variants.exist:
+            if self.variants:
                 self._variant_vis(df, metric["grouping"])
             else:
                 self._wave_vis(df)
@@ -284,8 +288,7 @@ class MultiBatch(OutputBase):
         super().__init__(dataset=dataset, task=task)
         self.batches: Dict[str, Dict[(int, float), Batch]] = {}
         self.summed_analysis = pd.DataFrame(
-            columns=["value", "metric", "step", "parameter"]
-            + (["variant"] if self.variants.exist else [])
+            columns=["value", "metric", "step", "parameter"] + self.variants.column
         )
         self.analysis = analysis
 
@@ -355,7 +358,7 @@ class MultiBatch(OutputBase):
         return df
 
     def visualize_detailed(self):
-        if self.variants.exist:
+        if self.variants:
             for param in self.batches.keys():
                 for metric in self.task["sensitivity"]["metrics"]:
                     df = self._prep_for_variant_vis(param)
@@ -367,9 +370,36 @@ class MultiBatch(OutputBase):
             for param in self.batches.keys():
                 self.visualizer.stacked_bar(self._prep_for_vis(param), param=param)
 
+    def _prep_for_heatmap(self, param: str, metric: str) -> pd.DataFrame:
+        df = self._prep_for_variant_vis(param)
+        df = (
+            df[df["state"] == metric]
+            .groupby(["step_0", "step_1", "variant"])
+            .max()["amount"]
+            .reset_index()
+        )  # TODO: max should be configurable
+        a = "x"
+        df = (
+            df.groupby(["step_0", "step_1"])["amount"]
+            .apply(lambda x: x.iloc[0] / x.iloc[1])
+            .reset_index()
+        )
+        return df
+
     def visualize_summary(self):
+        if self.variants:
+            for param in self.batches.keys():
+                for metric in self.task["sensitivity"]["metrics"]:
+                    df = self._prep_for_heatmap(param, metric["grouping"])
+                    df.to_csv(
+                        OUTPUT_FOLDER
+                        / f"{self.task.id}_heatmap_{metric['grouping']}.csv",
+                        index=False,
+                    )
+                    self.visualizer.heatmap(df, metric=metric["grouping"], param=param)
         # self.summed_analysis["step"] = self.summed_analysis["step"]
-        self.visualizer.boxplots(self.summed_analysis)
+        self.summed_analysis.to_csv(OUTPUT_FOLDER / "summed_analysis.csv", index=False)
+        # self.visualizer.boxplots(self.summed_analysis)
 
 
 class IterBatch:

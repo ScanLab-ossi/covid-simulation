@@ -146,7 +146,7 @@ class VariantInfection(GroupInfection):
         for p in ["P_max", "D_max"]:
             df[p] = df["variant"].astype(str).replace(self.variants.variant_to_param(p))
         immunity = {
-            k: round(1 - v, 2)
+            k: round(1 - v, 4)
             for k, v in self.variants.variant_to_param("immunity").items()
         }
         history_col = (
@@ -167,7 +167,7 @@ class VariantInfection(GroupInfection):
             .unstack(level=1, fill_value=0)
             .mul(history_col, axis="rows")
         )
-        for v in set(self.task["variants"]) - set(df.columns):
+        for v in set(self.variants) - set(df.columns):
             df[v] = 0
         return df
 
@@ -198,7 +198,7 @@ class VariantInfection(GroupInfection):
         contagion_df = contagion_df.pipe(self._cases)
         contagion_df = contagion_df.pipe(self._mult)
         contagion_df["duration"] = contagion_df.apply(self._inclusion_exclusion, axis=1)
-        contagion_df = contagion_df.pipe(self._is_infected)[self.task["variants"]]
+        contagion_df = contagion_df.pipe(self._is_infected)[self.variants]
         # if len(contagion_df) == 0:
         # return contagion_df.pipe(self._organize, day=day)
         contagion_df = contagion_df.pipe(self._normalize_variants)
@@ -226,8 +226,5 @@ class VariantInfection(GroupInfection):
     def _choose_variant(self, df: pd.DataFrame) -> pd.DataFrame:
         if len(df) == 0:
             return pd.DataFrame([], columns=["variant"])
-        df["variant"] = df.apply(
-            lambda x: self.rng.choice(self.task["variants"], p=x), axis=1
-        )
-        df["variant"] = df["variant"].astype(self.variants.categories)
-        return df
+        df["variant"] = df.apply(lambda x: self.rng.choice(self.variants, p=x), axis=1)
+        return self.variants.categorify(df)

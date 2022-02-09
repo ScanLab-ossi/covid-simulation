@@ -22,7 +22,7 @@ class Contagion(RandomBasicBlock):
         self._get_infection_model()
 
     def _get_infection_model(self):
-        if self.variants.exist:
+        if self.variants:
             self.task["infection_model"] = "VariantInfection"
         elif self.task["infection_model"] == "VariantInfection":
             raise ValueError("Can't use VariantInfection when only one variant exists")
@@ -89,15 +89,35 @@ class CSVContagion(Contagion):
             [[day, 0, "green", variant]] * n_zero,
             columns=["infection_date", "days_left", "state", "variant"],
             index=self.rng.choice(potential, n_zero, replace=False),
-        )
-        zeroes["variant"] = zeroes["variant"].astype(self.variants.categories)
+        ).pipe(self.variants.categorify)
         return zeroes
+
+    def _filter_history(
+        self,
+        contagion_df: pd.DataFrame,
+        infector_df: pd.DataFrame,
+        history: Dict[int, List[str]] | None = None,
+    ) -> pd.DataFrame:
+        history = pd.Series(history, name="history", dtype="object")
+        contagion_df = (
+            contagion_df.rename(
+                columns={"source": "susceptible", "destination": "infector"}
+            )
+            .join(infector_df[["variant"]], on="infector", how="inner")
+            .join(history, on="susceptible")
+        )
+        contagion_df = contagion_df[contagion_df["history"].str.len() != 2].reset_index(
+            drop=True
+        )
+        contagion_df["history"] = contagion_df["history"].str[0]
+        contagion_df = contagion_df[contagion_df["variant"] != contagion_df["history"]]
+        return contagion_df
 
     def contagion(
         self,
         infector_df: pd.DataFrame,
         day: int,
-        history: Dict[int, str] | None = None,
+        history: Dict[int, List[str]] | None = None,
     ) -> pd.DataFrame:
         """
         Parameters
@@ -116,13 +136,8 @@ class CSVContagion(Contagion):
         swapped = infected.rename(
             columns={"source": "destination", "destination": "source"}
         )
-        contagion_df = (
-            pd.concat([infected, swapped], sort=True, ignore_index=True)
-            .rename(columns={"source": "susceptible", "destination": "infector"})
-            .join(infector_df[["variant"]], on="infector", how="inner")
-            .join(pd.Series(history, name="history", dtype="object"), on="susceptible")
-        )
-        contagion_df = contagion_df[contagion_df["variant"] != contagion_df["history"]]
+        contagion_df = pd.concat([infected, swapped], sort=True, ignore_index=True)
+        contagion_df = self._filter_history(contagion_df, infector_df, history)
         if len(contagion_df) == 0:
             return infector_df
         infector_df = pd.concat(
@@ -285,7 +300,7 @@ class ContagionRunner(ConnectedBasicBlock):
         output: Output,
         contagion: Union[CSVContagion, GroupContagion, SQLContagion],
     ) -> Output:
-        for variant in self.task["variants"]:
+        for variant in self.task.get("variants", alt=[None]):
             if day in self.task.get("patient_zeroes_on_days", variant=variant):
                 # TODO: do you need to explicitly loop for each variant? or can it all be done at once?
                 output.df = pd.concat(
@@ -314,11 +329,13 @@ class ContagionRunner(ConnectedBasicBlock):
         indexer = (output.df["state"] == "white") & (
             output.df["days_left"] == 0
         ).sort_index()
-        if self.task["reinfect"] > 1:
-            removed = output.history.keys() & set(indexer.index)
-            output.df = output.df.drop(removed)
-            indexer = indexer.drop(removed)
-        output.history |= output.df[indexer]["variant"].to_dict()
+        # if self.task["reinfect"] == 1:
+        #     removed = output.history.keys() & set(indexer[indexer].index)
+        #     output.df = output.df.drop(removed)
+        #     indexer = indexer.drop(removed)
+        for k, v in output.df[indexer]["variant"].to_dict().items():
+            output.history.setdefault(k, [])
+            output.history[k] += [v]
         output.df = output.df[~indexer]
         return output
 
