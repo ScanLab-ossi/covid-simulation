@@ -291,6 +291,7 @@ class MultiBatch(OutputBase):
             columns=["value", "metric", "step", "parameter"] + self.variants.column
         )
         self.analysis = analysis
+        self.ready_for_vis = {}
 
     def append_batch(self, batch: Batch, param: str, step: int | float):
         batch.sum_batch()
@@ -360,15 +361,17 @@ class MultiBatch(OutputBase):
     def visualize_detailed(self):
         if self.variants:
             for param in self.batches.keys():
-                for metric in self.task["sensitivity"]["metrics"]:
+                for m in self.task["sensitivity"]["metrics"]:
+                    metric = m["grouping"]
                     df = self._prep_for_variant_vis(param)
+                    self.ready_for_vis |= {f"{param}_{metric}_lines": df.to_dict()}
                     df.to_csv(OUTPUT_FOLDER / f"{self.task.id}_lines.csv", index=False)
-                    self.visualizer.facet_line(
-                        df, metric=metric["grouping"], param=param
-                    )
+                    self.visualizer.facet_line(df, metric=metric, param=param)
         else:
             for param in self.batches.keys():
-                self.visualizer.stacked_bar(self._prep_for_vis(param), param=param)
+                df = self._prep_for_vis(param)
+                self.ready_for_vis |= {f"{param}_stacked_bar": df.to_dict()}
+                self.visualizer.stacked_bar(df, param=param)
 
     def _prep_for_heatmap(self, param: str, metric: str) -> pd.DataFrame:
         df = self._prep_for_variant_vis(param)
@@ -378,7 +381,6 @@ class MultiBatch(OutputBase):
             .max()["amount"]
             .reset_index()
         )  # TODO: max should be configurable
-        a = "x"
         df = (
             df.groupby(["step_0", "step_1"])["amount"]
             .apply(lambda x: x.iloc[0] / x.iloc[1])
@@ -389,22 +391,24 @@ class MultiBatch(OutputBase):
     def visualize_summary(self):
         if self.variants:
             for param in self.batches.keys():
-                for metric in self.task["sensitivity"]["metrics"]:
-                    df = self._prep_for_heatmap(param, metric["grouping"])
+                for m in self.task["sensitivity"]["metrics"]:
+                    metric = m["grouping"]
+                    df = self._prep_for_heatmap(param, metric)
+                    self.ready_for_vis |= {f"{param}_{metric}_heatmap": df.to_dict()}
                     df.to_csv(
-                        OUTPUT_FOLDER
-                        / f"{self.task.id}_heatmap_{metric['grouping']}.csv",
+                        OUTPUT_FOLDER / f"{self.task.id}_heatmap_{metric}.csv",
                         index=False,
                     )
-                    self.visualizer.heatmap(df, metric=metric["grouping"], param=param)
+                    self.visualizer.heatmap(df, metric=metric, param=param)
         # self.summed_analysis["step"] = self.summed_analysis["step"]
         self.summed_analysis.to_csv(OUTPUT_FOLDER / "summed_analysis.csv", index=False)
         # self.visualizer.boxplots(self.summed_analysis)
+        # self.ready_for_vis |= {f"{param}_boxplots": df.to_dict()}
 
 
 class IterBatch:
-    def __init__(self, results: dict | None):
-        self.results = results if results else None
+    def __init__(self, results: dict | None = None):
+        self.results = results if results else {}
         self.splits = {
             1000: 1,
             500: 2,
@@ -419,12 +423,7 @@ class IterBatch:
         }
 
     def get_sensitivity_results(self, dataset: Dataset, result: MultiBatch):
-        self.results[dataset.name] = {
-            k: d["value"].tolist()
-            for k, d in result.summed_analysis[
-                result.summed_analysis["metric"] == "max_percent_not_green"
-            ].groupby("step")
-        }
+        self.results[dataset.name] = result.ready_for_vis
 
     def export(self, task):
         with open(OUTPUT_FOLDER / f"iter_datasets_{task.id}.json", "w") as fp:

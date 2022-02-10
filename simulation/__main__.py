@@ -13,7 +13,7 @@ def main():
     if settings.get("ITER_DATASET", False):
         tasklist = [
             Task({"DATASET": Path(b.name).stem})
-            for b in list(gcloud.s_client.list_blobs("simulation_datasets"))
+            for b in list(gcloud.client.list_blobs("simulation_datasets"))
             if config["meta"]["DATASET"] in b.name
         ]
         iterbatch = IterBatch()

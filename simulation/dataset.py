@@ -1,5 +1,5 @@
-from math import floor
-from typing import List, Union
+from math import comb, floor
+from typing import List, Literal, Union
 
 import pandas as pd
 from numpy import random
@@ -115,3 +115,14 @@ class Dataset(object):
             data[col] = random.permutation(data[col].to_numpy())
         data = data.sort_values(by="datetime").reset_index(drop=True)
         return data
+
+    def temporal_density(
+        self, how: Literal["mean", "list"] = "mean"
+    ) -> float | List[float]:
+        l = []
+        for df in self.split.values():
+            for _, timeframe in df.resample("5min", on="datetime"):
+                l.append(len(timeframe) / comb(self.nodes, 2))
+        if how == "mean":
+            l = sum(l) / len(l)
+        return l

@@ -122,9 +122,6 @@ class Analysis(BasicBlock):
         ]
         return pd.DataFrame({"value": res, "metric": ["r_0"] * len(res)})
 
-    def temporal_density(self, edges):
-        return edges / comb(self.dataset.nodes, 2)
-
 
 class SensitivityRunner(ConnectedBasicBlock):  # (Runner?)
     def _times(self, sr: dict) -> int:
@@ -139,8 +136,18 @@ class SensitivityRunner(ConnectedBasicBlock):  # (Runner?)
             round(x, 4)
             for x in np.linspace(sr["min"], sr["max"], num=self._times(sr) + 1).tolist()
         ]
+        change = self.task["sensitivity"]["change"]
         if isinstance(baseline, list):
-            return list(product(range_, range_))
+            if change in ("first", "second"):
+                const = [baseline[(1 if "first" else 0)]] * len(range_)
+                if change == "first":
+                    return list(zip(range_, const))
+                else:
+                    return list(zip(const, range_))
+            elif change == "both":
+                return list(product(range_, range_))
+            else:
+                raise
         else:
             return range_
 
@@ -173,7 +180,8 @@ class SensitivityRunner(ConnectedBasicBlock):  # (Runner?)
                 baseline = self.task[param]
                 sr = sa_conf["ranges"][param]
                 times = self._times(sr)
-                for value in self._iter_values(sr, baseline):
+                iv = self._iter_values(sr, baseline)
+                for value in iv:
                     print(f"checking when {param} = {value}")
                     self.task.update({param: value})
                     batch = cr.run()

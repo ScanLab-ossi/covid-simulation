@@ -23,8 +23,8 @@ class Task(UserDict):
             self.id = data.id
         else:
             self.id = np.random.randint(1e15, 1e16)
-        self.load_config(CONFIG_FOLDER / "default_config.yaml")
         self.load_config(path)
+        self.load_config(CONFIG_FOLDER / "default_config.yaml")
         self.path = OUTPUT_FOLDER / f"{self.id}.yaml"
         # if settings["LOCAL"]:
         #     self.load_state_transition()
@@ -38,9 +38,12 @@ class Task(UserDict):
             for k, v in config.get(key, {}).items():
                 if key in ("sensitivity", "paths", "output"):
                     self.setdefault(key, {})
-                    self[key][k] = v
+                    if k == "ranges":
+                        self["sensitivity"][k] = v | self["sensitivity"].get(k, {})
+                        continue
+                    self[key].setdefault(k, v)
                 else:
-                    self[k] = v
+                    self.setdefault(k, v)
 
     def export(self, what: str | None = None, how: Literal["file", "print"] = "file"):
         to_dump = getattr(self, what) if what else self.data
