@@ -44,12 +44,12 @@ class Infection(RandomBasicBlock):
     """
 
     def _organize(self, contagion_df: pd.DataFrame, day: int):
+        contagion_df = contagion_df[self.variants.column]
         infected = (
-            contagion_df[["variant"]]
-            .rename_axis(index=["infected"])
+            contagion_df.rename_axis(index=["infected"])
             .assign(**{"infection_date": day, "days_left": 0, "state": "green"})
+            .pipe(self.states.categorify)
         )
-        infected["state"] = infected["state"].astype(self.states.categories("states"))
         return infected
 
     def _is_infected(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -90,7 +90,7 @@ class GroupInfection(Infection):
 
     def _cases(self, df: pd.DataFrame) -> pd.DataFrame:
         df["duration"] = np.where(
-            df["duration"].to_numpy() >= self.task["D_min"],
+            df["duration"].to_numpy() >= self.task.get("D_min"),
             df["duration"].to_numpy(),
             0.00001,
         )
@@ -98,14 +98,13 @@ class GroupInfection(Infection):
 
     def _infect(self, contagion_df: pd.DataFrame, day: int) -> pd.DataFrame:
         contagion_df = self._cases(contagion_df)
-        contagion_df = (
-            contagion_df.groupby(["susceptible", "variant"])
-            .agg({"duration": self._mult})
-            .reset_index(level="variant")
-            .dropna()
-            .pipe(self._is_infected)
-            .pipe(self._organize, day)
+        contagion_df = contagion_df.groupby(["susceptible"] + self.variants.column).agg(
+            {"duration": self._mult}
         )
+        if self.variants:
+            contagion_df = contagion_df.reset_index(level="variant").dropna()
+        contagion_df = contagion_df.pipe(self._is_infected)
+        contagion_df = contagion_df.pipe(self._organize, day)
         return contagion_df
 
 

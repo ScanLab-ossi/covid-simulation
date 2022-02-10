@@ -5,28 +5,29 @@ settings:
 
 
 meta:
-  ITERATIONS: 50
-  DATASET: random_undirected_concated_1000_1
+  ITERATIONS: 2
+  DATASET: copenhagen_agg
   SENSITIVITY: true
 
 params:
   divide: 1
-  infection_model: VariantInfection
-  variants: [slower, faster]
+  infection_model: GroupInfection
+  # variants: [slower, faster]
   number_of_patient_zero: 1
+  D_min: 0
   j: 0
-  P_max: [0.001, 0.001]
-  immunity: [0.0, 0.0]
-  reinfect: 1
+  P_max: 0.5 #[0.001, 0.001]
+  # immunity: [0.0, 0.0]
+  # reinfect: 1
 
 
 sensitivity:
   change: second # both, first, second, default
   params:
-    - P_max
+    - D_min
   metrics:
     - grouping: sick
     - grouping: daily_infected
       cumsum: true
   ranges:
-    immunity: { step: 0.0001, min: 0.001, max: 0.002 }
+    D_min: { step: 10, min: 5, max: 95}

@@ -49,7 +49,7 @@ class States:
         df["state"] = df["state"].astype(self.categories(states))
         return df
 
-    def get_filter(self, how: str, l: List[str] | None):
+    def get_filter(self, how: str, l: List[str] | None = None):
         if how == "red":
             return {"regex": r"(intensive|stable)\w+"}
         elif how == "sick":

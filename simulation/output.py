@@ -79,9 +79,10 @@ class Output(BasicBlock):
         self.df = (
             pd.DataFrame([], columns=cols)
             .rename_axis(index="source")
-            .pipe(self.variants.categorify)
             .pipe(self.states.categorify)
         )
+        if self.variants:
+            self.df = self.df.pipe(self.variants.categorify)
         self.summed = loaded if loaded else {}
         if self.variants:
             self.variant_summed = {k: {} for k in self.variants}
@@ -330,12 +331,15 @@ class MultiBatch(OutputBase):
                 .reset_index()
                 .assign(**{"step": step})
             )
-        df = pd.concat(to_concat).melt(
+
+        df = pd.concat(to_concat)
+        if not self.variants:
+            df = df.drop(columns=self.states.non_states & set(df.columns))
+        df = df.melt(
             id_vars=["day", "step"],
             var_name="state",
             value_name="amount",
         )
-        # df = df.drop(columns=self.states.non_states & set(df.columns))
         df.to_csv(OUTPUT_FOLDER / "df_in_output.csv", index=False)
         return df
 
@@ -401,9 +405,15 @@ class MultiBatch(OutputBase):
                     )
                     self.visualizer.heatmap(df, metric=metric, param=param)
         # self.summed_analysis["step"] = self.summed_analysis["step"]
-        self.summed_analysis.to_csv(OUTPUT_FOLDER / "summed_analysis.csv", index=False)
-        # self.visualizer.boxplots(self.summed_analysis)
-        # self.ready_for_vis |= {f"{param}_boxplots": df.to_dict()}
+        else:
+            for param in self.batches.keys():
+                self.summed_analysis.to_csv(
+                    OUTPUT_FOLDER / "summed_analysis.csv", index=False
+                )
+                self.visualizer.boxplots(self.summed_analysis)
+                self.ready_for_vis |= {
+                    f"{param}_boxplots": self.summed_analysis.to_dict()
+                }
 
 
 class IterBatch:

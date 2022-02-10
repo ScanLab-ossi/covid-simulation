@@ -7,7 +7,7 @@ import pandas.testing as pdt
 import numpy as np
 import numpy.testing as npt
 
-from simulation.contagion import CSVContagion, SQLContagion, Contagion
+from simulation.contagion import CSVContagion, Contagion
 from simulation.task import Task
 from simulation.dataset import Dataset
 from simulation.google_cloud import GoogleCloud

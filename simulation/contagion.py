@@ -10,7 +10,6 @@ from simulation.constants import *
 from simulation.dataset import Dataset
 from simulation.google_cloud import GoogleCloud
 from simulation.helpers import increment, timing
-from simulation.mysql import MySQL
 from simulation.output import Batch, Output
 from simulation.state_transition import StateTransition
 from simulation.task import Task
@@ -69,7 +68,7 @@ class Contagion(RandomBasicBlock):
 
 class CSVContagion(Contagion):
     def pick_patient_zero(
-        self, variant: str, day: int = 0, sick: List[int] = []
+        self, variant: str = None, day: int = 0, sick: List[int] = []
     ) -> pd.DataFrame:
         """
         Returns
@@ -86,10 +85,13 @@ class CSVContagion(Contagion):
         )
         # TODO: days_left should be days in green if Exposed is wanted
         zeroes = pd.DataFrame(
-            [[day, 0, "green", variant]] * n_zero,
-            columns=["infection_date", "days_left", "state", "variant"],
+            [[day, 0, "green"]] * n_zero,
+            columns=["infection_date", "days_left", "state"],
             index=self.rng.choice(potential, n_zero, replace=False),
-        ).pipe(self.variants.categorify)
+        )
+        if self.variants:
+            zeroes["variant"] = variant
+            zeroes = zeroes.pipe(self.variants.categorify)
         return zeroes
 
     def _filter_history(
@@ -99,13 +101,7 @@ class CSVContagion(Contagion):
         history: Dict[int, List[str]] | None = None,
     ) -> pd.DataFrame:
         history = pd.Series(history, name="history", dtype="object")
-        contagion_df = (
-            contagion_df.rename(
-                columns={"source": "susceptible", "destination": "infector"}
-            )
-            .join(infector_df[["variant"]], on="infector", how="inner")
-            .join(history, on="susceptible")
-        )
+        contagion_df.join(history, on="susceptible")
         contagion_df = contagion_df[contagion_df["history"].str.len() != 2].reset_index(
             drop=True
         )
@@ -123,7 +119,7 @@ class CSVContagion(Contagion):
         Parameters
         ----------
         infector_df : pd.DataFrame
-            infection_date | days_left | state | variant
+            infection_date | days_left | state (|variant)
         day : int
         """
         today = self.dataset.split[day]
@@ -136,14 +132,18 @@ class CSVContagion(Contagion):
         swapped = infected.rename(
             columns={"source": "destination", "destination": "source"}
         )
-        contagion_df = pd.concat([infected, swapped], sort=True, ignore_index=True)
-        contagion_df = self._filter_history(contagion_df, infector_df, history)
+        contagion_df = pd.concat(
+            [infected, swapped], sort=True, ignore_index=True
+        ).rename(columns={"source": "susceptible", "destination": "infector"})
+        contagion_df = contagion_df.join(
+            infector_df[self.variants.column], on="infector", how="inner"
+        )
+        if self.variants and self.reinfect > 0:
+            contagion_df = self._filter_history(contagion_df, infector_df, history)
         if len(contagion_df) == 0:
             return infector_df
-        infector_df = pd.concat(
-            [infector_df, self.infection_model._infect(contagion_df, day=day)],
-            verify_integrity=True,
-        )
+        newly_infected = self.infection_model._infect(contagion_df, day=day)
+        infector_df = pd.concat([infector_df, newly_infected], verify_integrity=True)
         return infector_df
 
 
@@ -205,100 +205,11 @@ class GroupContagion(CSVContagion):
         return infector_df
 
 
-class SQLContagion(Contagion):
-    def __init__(
-        self, dataset: Dataset, task: Task, gcloud: GoogleCloud, reproducible: bool
-    ):
-        super().__init__(dataset=dataset, task=task, reproducible=reproducible)
-        self.mysql = MySQL(gcloud)
-
-    def _divide_partitions(self, day: int) -> str:
-        r = range(day * self.task["divide"], (day + 1) * self.task["divide"])
-        return ", ".join(
-            [
-                f'{self.dataset.name}_{(self.dataset.start_date + timedelta(d)).strftime("%m%d")}'
-                for d in r
-                if d < self.dataset.period
-            ]
-        )
-
-    def pick_patient_zero(self, day: int = 0, sick: List[str] = []):
-        # TODO: add variant
-        if day == 0 and hasattr(self.dataset, "zeroes") and self.task["divide"] == 1:
-            potential = self.dataset.zeroes
-        else:
-            query = f"""SELECT DISTINCT source 
-                    FROM datasets.{self.dataset.name} 
-                    PARTITION ({self._divide_partitions(day)})
-                    """
-            # if sick:
-            #     query += f"WHERE source not in {repr(tuple(sick))}"
-            potential = self.mysql.query(query)
-            if sick:
-                potential = potential[~potential["source"].isin(sick)]
-        n_zero = self.task["number_of_patient_zero"]
-        zeroes = pd.DataFrame(
-            [[day, 0, "green"]] * n_zero,
-            columns=["infection_date", "days_left", "state"],
-            index=potential["source"].sample(n_zero),
-        )
-        return zeroes
-
-    def _make_sql_query(self, infector_ids: List[str], day: int) -> pd.DataFrame:
-        extra = ", hops" if self.dataset.hops == True else ""
-        query = f"""SELECT source, destination, `datetime`, duration{extra}
-                FROM datasets.{self.dataset.name} PARTITION ({self._divide_partitions(day)})
-                WHERE source in {repr(tuple(infector_ids))}""".replace(
-            ",)", ")"
-        )
-        # AND destination not in {repr(tuple(infector_ids))}"""
-
-        contagion_df = self.mysql.query(query).rename(
-            columns={"destination": "susceptible", "source": "infector"}
-        )
-        contagion_df = contagion_df[
-            ~contagion_df["susceptible"].isin(infector_ids)
-        ].reset_index(drop=True)
-        return contagion_df
-
-    def contagion(self, df: pd.DataFrame, day: int) -> pd.DataFrame:
-        """
-        df : pd.DataFrame
-            Columns:
-                Name: infection_date, dtype: int64
-                Name: days_left, dtype: int64
-                Name: state, dtype: object
-                Name: age
-                Name: infectors?
-            Index:
-                Name: source, dtype: object
-                    ids of infected nodes
-        """
-        infector_ids = list(self._non_removed(df))
-        if len(infector_ids) == 0:
-            return df
-        contagion_df = pd.concat(
-            [
-                self._make_sql_query(list(group), day)
-                for group in chunked(infector_ids, 1000)
-            ],
-        )
-        # chunked second param was self.task["number_of_patient_zero"]
-        if len(contagion_df) == 0:
-            return df
-        df = df.append(contagion_df.pipe(self.infection_model._infect, day=day))
-        df = df[~df.index.duplicated(keep="first")]
-        return df
-
-
 class ContagionRunner(ConnectedBasicBlock):
     """Runs one batch"""
 
     def _get_patient_zero(
-        self,
-        day: int,
-        output: Output,
-        contagion: Union[CSVContagion, GroupContagion, SQLContagion],
+        self, day: int, output: Output, contagion: CSVContagion | GroupContagion
     ) -> Output:
         for variant in self.task.get("variants", alt=[None]):
             if day in self.task.get("patient_zeroes_on_days", variant=variant):
@@ -315,15 +226,11 @@ class ContagionRunner(ConnectedBasicBlock):
 
     def _pick_contagion(
         self, reproducible: bool
-    ) -> Union[CSVContagion, GroupContagion, SQLContagion]:
+    ) -> Union[CSVContagion, GroupContagion]:
         if self.dataset.groups:
             return GroupContagion(self.dataset, self.task, reproducible)
         elif self.dataset.storage == "csv":
             return CSVContagion(self.dataset, self.task, reproducible)
-        else:
-            return SQLContagion(
-                self.dataset, self.task, reproducible=reproducible, gcloud=self.gcloud
-            )
 
     def _reinfect(self, output: Output) -> Output:
         indexer = (output.df["state"] == "white") & (
