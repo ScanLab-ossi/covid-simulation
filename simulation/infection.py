@@ -144,19 +144,20 @@ class VariantInfection(GroupInfection):
     def _mult(self, df: pd.DataFrame) -> pd.DataFrame:
         for p in ["P_max", "D_max"]:
             df[p] = df["variant"].astype(str).replace(self.variants.variant_to_param(p))
-        immunity = {
-            k: round(1 - v, 4)
-            for k, v in self.variants.variant_to_param("immunity").items()
-        }
-        history_col = (
-            df[["susceptible", "history"]]
-            .drop_duplicates("susceptible")
-            .set_index("susceptible")
-            .replace(immunity)
-            .fillna(1)
-            .sort_index()
-            .to_numpy()
-        )
+        if self.task.get("reinfect") > 0:
+            immunity = {
+                k: round(1 - v, 4)
+                for k, v in self.variants.variant_to_param("immunity").items()
+            }
+            history_col = (
+                df[["susceptible", "history"]]
+                .drop_duplicates("susceptible")
+                .set_index("susceptible")
+                .replace(immunity)
+                .fillna(1)
+                .sort_index()
+                .to_numpy()
+            )
         df = (
             df.groupby(["susceptible", "variant"])
             .apply(
@@ -164,8 +165,9 @@ class VariantInfection(GroupInfection):
                 - np.prod(1 - np.minimum(g["duration"] / g["D_max"], 1) * g["P_max"])
             )
             .unstack(level=1, fill_value=0)
-            .mul(history_col, axis="rows")
         )
+        if self.task.get("reinfect") > 0:
+            df = df.mul(history_col, axis="rows")
         for v in set(self.variants) - set(df.columns):
             df[v] = 0
         return df

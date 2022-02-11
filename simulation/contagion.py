@@ -138,7 +138,7 @@ class CSVContagion(Contagion):
         contagion_df = contagion_df.join(
             infector_df[self.variants.column], on="infector", how="inner"
         )
-        if self.variants and self.reinfect > 0:
+        if self.variants and self.task.get("reinfect") > 0:
             contagion_df = self._filter_history(contagion_df, infector_df, history)
         if len(contagion_df) == 0:
             return infector_df
