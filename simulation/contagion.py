@@ -97,11 +97,10 @@ class CSVContagion(Contagion):
     def _filter_history(
         self,
         contagion_df: pd.DataFrame,
-        infector_df: pd.DataFrame,
         history: Dict[int, List[str]] | None = None,
     ) -> pd.DataFrame:
         history = pd.Series(history, name="history", dtype="object")
-        contagion_df.join(history, on="susceptible")
+        contagion_df = contagion_df.join(history, on="susceptible")
         contagion_df = contagion_df[contagion_df["history"].str.len() != 2].reset_index(
             drop=True
         )
@@ -139,7 +138,7 @@ class CSVContagion(Contagion):
             infector_df[self.variants.column], on="infector", how="inner"
         )
         if self.variants and self.task.get("reinfect") > 0:
-            contagion_df = self._filter_history(contagion_df, infector_df, history)
+            contagion_df = self._filter_history(contagion_df, history)
         if len(contagion_df) == 0:
             return infector_df
         newly_infected = self.infection_model._infect(contagion_df, day=day)
@@ -154,7 +153,12 @@ class GroupContagion(CSVContagion):
 
     # def _intersect(self, x, inf):
     #     return x & inf
-    def contagion(self, infector_df: pd.DataFrame, day: int) -> pd.DataFrame:
+    def contagion(
+        self,
+        infector_df: pd.DataFrame,
+        day: int,
+        history: Dict[int, List[str]] | None = None,
+    ) -> pd.DataFrame:
         """
         Parameters
         ----------
@@ -178,9 +182,10 @@ class GroupContagion(CSVContagion):
             today[today["infector"].str.len() > 2]
             .explode("infector")
             .explode("susceptible")
-            .join(infector_df[["variant"]], on="infector")
+            .join(infector_df[self.variants.column], on="infector")
             .groupby(
-                ["index", "datetime", "variant", "group", "susceptible"], as_index=False
+                ["index", "datetime", "group", "susceptible"] + self.variants.column,
+                as_index=False,
             )["duration"]
             .sum()
         )
@@ -189,7 +194,7 @@ class GroupContagion(CSVContagion):
             # today[today["infector"].str.len() == 2]
             today.explode("infector")
             .explode("susceptible")
-            .join(infector_df[["variant"]], on="infector")
+            .join(infector_df[self.variants.column], on="infector")
             .append(dupes)
         )
         if self.task.get("max_duration", False) or self.task.get(
