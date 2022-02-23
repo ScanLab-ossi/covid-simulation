@@ -1,11 +1,11 @@
 settings:
-  UPLOAD: false
+  UPLOAD: true
   VERBOSE: true
   ITER_DATASET: false
 
 
 meta:
-  ITERATIONS: 1
+  ITERATIONS: 200
   DATASET: random_undirected_concated_1000_1
   SENSITIVITY: false
 

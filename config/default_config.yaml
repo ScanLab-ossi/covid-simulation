@@ -27,73 +27,73 @@ params:
   immunity: 0 # 1 is fully immune and 0 is completely susceptiible
   reinfect: 0
 
-# paths:
-#   green: # E
-#     duration: [5, 1]
-#     children: [blue]
-#   blue: # I
-#     duration: [7, 2]
-#     children: [white]
-#   white: {} # R
-#     # duration: [7, 2]
-#     # children: [green]
-    
 paths:
-  green:
-    children:
-      - blue
-      - purple
-    distribution:
-      - 0.8
-      - 0.2
-  blue:
-    duration: [7.5, 1]
+  green: # E
+    duration: [5, 1]
+    children: [blue]
+  blue: # I
+    duration: [7, 2]
     children: [white]
-  purple:
-    children:
-      - purple_pink
-      - purple_red
-    distribution:
-      - 0.8
-      - 0.2
-  purple_pink:
-    duration: [2.5, 0.5]
-    children: [pink]
-  purple_red:
-    duration: [2.5, 0.5]
-    children: [red]
-  pink:
-    duration: [10, 1]
-    children: [white]
-  red:
-    children:
-      - stable
-      - intensive_care
-    distribution: [0.5, 0.5]
-  stable:
-    children:
-      - stable_white
-      - stable_black
-    distribution: [0.5, 0.5]
-  stable_white:
-    duration: [10, 1]
-    children: [white]
-  stable_black:
-    duration: [10, 1]
-    children: [black]
-  intensive_care:
-    children:
-      - intensive_care_white
-      - intensive_care_black
-    distribution: [0.5, 0.5]
-  intensive_care_white:
-    duration: [10, 1]
-    children: [white]
-  intensive_care_black:
-    duration: [10, 1]
-    children: [black]
-  white: {}
-  black: {}
+  white: {} # R
+    # duration: [7, 2]
+    # children: [green]
+    
+# paths:
+#   green:
+#     children:
+#       - blue
+#       - purple
+#     distribution:
+#       - 0.8
+#       - 0.2
+#   blue:
+#     duration: [7.5, 1]
+#     children: [white]
+#   purple:
+#     children:
+#       - purple_pink
+#       - purple_red
+#     distribution:
+#       - 0.8
+#       - 0.2
+#   purple_pink:
+#     duration: [2.5, 0.5]
+#     children: [pink]
+#   purple_red:
+#     duration: [2.5, 0.5]
+#     children: [red]
+#   pink:
+#     duration: [10, 1]
+#     children: [white]
+#   red:
+#     children:
+#       - stable
+#       - intensive_care
+#     distribution: [0.5, 0.5]
+#   stable:
+#     children:
+#       - stable_white
+#       - stable_black
+#     distribution: [0.5, 0.5]
+#   stable_white:
+#     duration: [10, 1]
+#     children: [white]
+#   stable_black:
+#     duration: [10, 1]
+#     children: [black]
+#   intensive_care:
+#     children:
+#       - intensive_care_white
+#       - intensive_care_black
+#     distribution: [0.5, 0.5]
+#   intensive_care_white:
+#     duration: [10, 1]
+#     children: [white]
+#   intensive_care_black:
+#     duration: [10, 1]
+#     children: [black]
+#   white: {}
+#   black: {}
 
 sensitivity:
   change: both
