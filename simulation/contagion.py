@@ -101,10 +101,15 @@ class CSVContagion(Contagion):
     ) -> pd.DataFrame:
         history = pd.Series(history, name="history", dtype="object")
         contagion_df = contagion_df.join(history, on="susceptible")
-        contagion_df = contagion_df[contagion_df["history"].str.len() != 2].reset_index(
-            drop=True
-        )
-        contagion_df["history"] = contagion_df["history"].str[0]
+        contagion_df = contagion_df[
+            contagion_df["history"].str.len() != len(self.variants)
+        ].reset_index(drop=True)
+        # contagion_df.loc[
+        #     contagion_df["history"].isna(), ["history"]
+        # ] = contagion_df.loc[contagion_df["history"].isna(), "history"].apply(
+        #     lambda _: []
+        # )
+        contagion_df = contagion_df.explode("history")
         contagion_df = contagion_df[contagion_df["variant"] != contagion_df["history"]]
         return contagion_df
 

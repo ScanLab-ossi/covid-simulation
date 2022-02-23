@@ -1,33 +1,31 @@
 settings:
-  UPLOAD: true
-  VERBOSE: false
+  UPLOAD: false
+  VERBOSE: true
   ITER_DATASET: false
 
 
 meta:
-  ITERATIONS: 200
-  DATASET: copenhagen_agg
-  SENSITIVITY: true
+  ITERATIONS: 1
+  DATASET: random_undirected_concated_1000_1
+  SENSITIVITY: false
 
 params:
   divide: 1
-  infection_model: GroupInfection
-  # variants: [slower, faster]
+  infection_model: VariantInfection
+  variants: [slower, medium, faster]
   number_of_patient_zero: 1
   D_min: 0
-  # P_max: [0.001, 0.001]
-  # immunity: [0.0, 0.0]
-  reinfect: 0
-  split: 1
+  P_max: [0.001, 0.0012, 0.0014]
+  immunity: [0.0, 0.0, 0.0]
+  reinfect: 1
 
 sensitivity:
-  change: default # both, first, second, default
+  change: both # both, first, second, default
   params:
-    - D_min
+    - immunity
   metrics:
     - grouping: sick
     - grouping: daily_infected
       cumsum: true
-    - grouping: not_green
   ranges:
-    D_min: { step: 5, min: 5, max: 150}
+    immunity: { step: 1.0, min: 0, max: 1}

@@ -32,3 +32,8 @@ random_undirected:
   hops: false
   storage: csv
   real: false
+random_dummy:
+  groups: false
+  hops: false
+  storage: csv
+  real: false

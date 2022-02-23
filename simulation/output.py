@@ -390,6 +390,14 @@ class MultiBatch(OutputBase):
             .apply(lambda x: x.iloc[0] / x.iloc[1])
             .reset_index()
         )
+        under, over = df[df["amount"] <= 1]["amount"], df[df["amount"] > 1]["amount"]
+        min_u, min_o = min(under), min(over)
+        delta_u, delta_o = max(under) - min_u, max(over) - min_o
+        df["amount"] = np.where(
+            df["amount"] <= 1,
+            (df["amount"] - min_u) / delta_u - 1,
+            (df["amount"] - min_o) / delta_o,
+        )
         return df
 
     def visualize_summary(self):

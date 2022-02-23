@@ -237,8 +237,7 @@ class Visualizer(BasicBlock):
                 ),
                 color=alt.Color(
                     "amount:Q",
-                    scale=alt.Scale(type="log"),
-                    title=f"{metric} ratio (log scale)",
+                    title=f"{metric} ratio (normalized)",
                 ),
                 tooltip=[alt.Tooltip("amount", title=f"ratio")],
             )
