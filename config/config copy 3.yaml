@@ -14,10 +14,10 @@ params:
   infection_model: VariantInfection
   variants: [slow, medium, fast]
   number_of_patient_zero: 1
-  D_min: [0, 25, 50]
-  P_max: 0.5
-  immunity: [0.0, 0.0, 0.0]
-  reinfect: 1
+  D_min: 0
+  P_max: [0.4, 0.5, 0.6]
+  immunity: [1.0, 1.0, 1.0]
+  reinfect: 0
 
 sensitivity:
   change: both # both, first, second, default

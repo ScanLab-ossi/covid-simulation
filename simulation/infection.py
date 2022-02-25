@@ -173,18 +173,16 @@ class VariantInfection(GroupInfection):
         return df
 
     def _cases(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["duration"] = (
-            df["duration"]
-            * df["infector"]
-            * df["variant"]
-            .astype(str)
-            .replace(
-                {k: v * 0.1 + 1 for k, v in self.variants.variant_to_param("j").items()}
-            )
+        df["duration"] = df["duration"] * df["variant"].astype(str).replace(
+            {k: v * 0.1 + 1 for k, v in self.variants.variant_to_param("j").items()}
         )
-        # TODO: differential D-min
+        diff_d_min = (
+            df["variant"]
+            .apply(lambda x: self.task.get("D_min", variant=x))
+            .astype("int")
+        )
         df["duration"] = np.where(
-            df["duration"].to_numpy() >= self.task.get("D_min"),
+            df["duration"].to_numpy() >= diff_d_min,
             df["duration"].to_numpy(),
             0.00001,
         )
