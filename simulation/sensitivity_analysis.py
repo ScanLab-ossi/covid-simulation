@@ -138,13 +138,13 @@ class SensitivityRunner(ConnectedBasicBlock):  # (Runner?)
         ]
         change = self.task["sensitivity"]["change"]
         if isinstance(baseline, list):
-            if change in ("first", "second"):
+            if change in ("rows", "columns"):
                 const = [baseline[(1 if "first" else 0)]] * len(range_)
-                if change == "first":
+                if change == "rows":
                     return list(zip(range_, const))
                 else:
                     return list(zip(const, range_))
-            elif change == "both":
+            elif change == "matrix":
                 return list(product(range_, range_))
             else:
                 raise

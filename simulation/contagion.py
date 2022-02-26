@@ -1,14 +1,12 @@
 import importlib
-from datetime import timedelta
 from typing import Dict, List, Union
 
 import pandas as pd
-from more_itertools import chunked
+import numpy as np
 
 from simulation.building_blocks import ConnectedBasicBlock, RandomBasicBlock
 from simulation.constants import *
 from simulation.dataset import Dataset
-from simulation.google_cloud import GoogleCloud
 from simulation.helpers import increment, timing
 from simulation.output import Batch, Output
 from simulation.state_transition import StateTransition
@@ -101,16 +99,17 @@ class CSVContagion(Contagion):
     ) -> pd.DataFrame:
         history = pd.Series(history, name="history", dtype="object")
         contagion_df = contagion_df.join(history, on="susceptible")
+        if history.empty:
+            return contagion_df
         contagion_df = contagion_df[
             contagion_df["history"].str.len() != len(self.variants)
         ].reset_index(drop=True)
-        # contagion_df.loc[
-        #     contagion_df["history"].isna(), ["history"]
-        # ] = contagion_df.loc[contagion_df["history"].isna(), "history"].apply(
-        #     lambda _: []
-        # )
-        contagion_df = contagion_df.explode("history")
-        contagion_df = contagion_df[contagion_df["variant"] != contagion_df["history"]]
+        contagion_df.loc[contagion_df["history"].isna(), ["history"]] = "none"
+        filter_ = [
+            not (var in hist)
+            for var, hist in zip(contagion_df["variant"], contagion_df["history"])
+        ]
+        contagion_df = contagion_df[pd.Series(filter_)].replace("none", value=np.nan)
         return contagion_df
 
     def contagion(

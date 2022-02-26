@@ -29,17 +29,15 @@ def main():
         if settings["UPLOAD"] and not settings["ITER_DATASET"]:
             dropbox.upload(task.path, task.id)
         dataset = Dataset(task["DATASET"], task=task, gcloud=gcloud)
-        if task["SENSITIVITY"]:
-            runner = SensitivityRunner(dataset, task)
-            result = runner.run()
-            result.export()
-            result.visualize_detailed()
-            result.visualize_summary()
-        else:
-            runner = ContagionRunner(dataset, task)
-            result = runner.run()
-            result.export()
-            result.visualize()
+        runner = (
+            SensitivityRunner(dataset, task)
+            if task["SENSITIVITY"]
+            else ContagionRunner(dataset, task)
+        )
+        result = runner.run()
+        result.export()
+        for how in task["visualize"]["how"]:
+            getattr(result, f"visualize_{how}")()
         if settings["UPLOAD"]:
             dropbox.write_results(task)
         if settings["ITER_DATASET"]:

@@ -154,9 +154,9 @@ class Visualizer(BasicBlock):
             alt.Chart(df)
             .mark_line()
             .encode(
-                alt.X("day"),
-                alt.Y("amount:Q", axis=alt.Axis(format="%"), title=None),
-                color=alt.Color("variant:N"),
+                alt.X("day", title="τ"),
+                alt.Y("amount:Q", axis=alt.Axis(format="%"), title="Total infection"),
+                color=alt.Color("variant:N", title="Variant"),
                 tooltip=["variant", alt.Tooltip("amount:Q", format="%"), "day"],
             )
             .properties(width=150, height=150)

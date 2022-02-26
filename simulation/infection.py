@@ -144,7 +144,7 @@ class VariantInfection(GroupInfection):
     def _mult(self, df: pd.DataFrame) -> pd.DataFrame:
         for p in ["P_max", "D_max"]:
             df[p] = df["variant"].astype(str).replace(self.variants.variant_to_param(p))
-        if self.task.get("reinfect") > 0:
+        if self.task.get("reinfect") > 0 and len(self.variants) == 2:
             immunity = {
                 k: round(1 - v, 4)
                 for k, v in self.variants.variant_to_param("immunity").items()
@@ -166,14 +166,15 @@ class VariantInfection(GroupInfection):
             )
             .unstack(level=1, fill_value=0)
         )
-        if self.task.get("reinfect") > 0:
+        # not a great solution
+        if self.task.get("reinfect") > 0 and len(self.variants) == 2:
             df = df.mul(history_col, axis="rows")
         for v in set(self.variants) - set(df.columns):
             df[v] = 0
         return df
 
     def _cases(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["duration"] = df["duration"] * df["variant"].astype(str).replace(
+        df.loc[:, "duration"] = df["duration"] * df["variant"].astype(str).replace(
             {k: v * 0.1 + 1 for k, v in self.variants.variant_to_param("j").items()}
         )
         diff_d_min = (

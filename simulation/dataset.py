@@ -80,7 +80,7 @@ class Dataset(object):
             try:
                 max_day = [
                     x["specific_day"]
-                    for x in self.task["sensitivity"]["metrics"]
+                    for x in self.task["visualize"]["metrics"]
                     if "specific_day" in x
                 ][0]
                 self.split = {k: v for k, v in self.split.items() if k <= max_day}

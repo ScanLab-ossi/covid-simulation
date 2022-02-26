@@ -134,12 +134,12 @@ class Output(BasicBlock):
             {"infected": infected, "daily_infected": daily_infected, "sick": sick}
         ).to_dict("index")
         for variant, states in summed.items():
-            if cumsum:  # FIXME: cumsum shouldnt be default nor specific!
-                states["daily_infected"] += (
-                    self.variant_summed[variant]
-                    .get(day - 1, {})
-                    .get("daily_infected", 0)
-                )
+            # if cumsum:  # FIXME: cumsum shouldnt be default nor specific!
+            #     states["daily_infected"] += (
+            #         self.variant_summed[variant]
+            #         .get(day - 1, {})
+            #         .get("daily_infected", 0)
+            #     )
             self.variant_summed[variant] |= {day: states}
 
     def value_counts(self, day: int):
@@ -226,16 +226,18 @@ class Batch(OutputBase):
                 concated_df, self.task["ITERATIONS"]
             )
 
-    def _variant_vis(self, df: pd.DataFrame, metric: str) -> alt.Chart:
+    def _variant_vis(self, df: pd.DataFrame, metric: Dict[str, str]) -> alt.Chart:
         """
         return: day | variant | state | amount
         """
+        if metric.get("cumsum", False):
+            df[metric["grouping"]] = df.groupby(level=-1)[metric["grouping"]].cumsum()
         df = (
             df.rename_axis(index=["day", "variant"])
             .reset_index()
             .melt(id_vars=["day", "variant"], var_name="state", value_name="amount")
         )
-        return self.visualizer.line(df, metric, save=True)
+        return self.visualizer.line(df, metric["grouping"], save=True)
 
     def _wave_vis(self, df):
         """
@@ -250,13 +252,12 @@ class Batch(OutputBase):
         df["day"] = df["day"].astype(int)
         return self.visualizer.stacked_bar(df)
 
-    def visualize(self):
+    def visualize_detailed(self):
         self.sum_batch()
         df = pd.DataFrame(self.mean_and_std["mean"])
-        # FIXME: this shouldnt be - sensitivty metrixcs are for sesitivity tests
-        for metric in self.task["sensitivity"]["metrics"]:
+        for metric in self.task["visualize"]["metrics"]:
             if self.variants:
-                self._variant_vis(df, metric["grouping"])
+                self._variant_vis(df, metric)
             else:
                 self._wave_vis(df)
 
@@ -297,7 +298,7 @@ class MultiBatch(OutputBase):
     def append_batch(self, batch: Batch, param: str, step: int | float):
         batch.sum_batch()
         results = []
-        for metric in self.task["sensitivity"]["metrics"]:
+        for metric in self.task["visualize"]["metrics"]:
             results.append(self.analysis.group_count(batch, **metric))
         results = pd.concat(results)
         results = results.assign(**{"step": [step] * len(results), "parameter": param})
@@ -365,7 +366,7 @@ class MultiBatch(OutputBase):
     def visualize_detailed(self):
         if self.variants:
             for param in self.batches.keys():
-                for m in self.task["sensitivity"]["metrics"]:
+                for m in self.task["visualize"]["metrics"]:
                     metric = m["grouping"]
                     df = self._prep_for_variant_vis(param)
                     self.ready_for_vis |= {f"{param}_{metric}_lines": df.to_dict()}
@@ -403,7 +404,7 @@ class MultiBatch(OutputBase):
     def visualize_summary(self):
         if self.variants:
             for param in self.batches.keys():
-                for m in self.task["sensitivity"]["metrics"]:
+                for m in self.task["visualize"]["metrics"]:
                     metric = m["grouping"]
                     df = self._prep_for_heatmap(param, metric)
                     self.ready_for_vis |= {f"{param}_{metric}_heatmap": df.to_dict()}

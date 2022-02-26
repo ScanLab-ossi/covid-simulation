@@ -34,9 +34,11 @@ class Task(UserDict):
             config = load(f, Loader=Loader)
             if not "default" in path.name:
                 self.poi = config
-        for key in ("meta", "params", "sensitivity", "paths", "output"):
+        for key in ("meta", "params", "sensitivity", "paths", "visualize"):
+            if not self.get("SENSITIVITY", False) and key == "sensitivity":
+                continue
             for k, v in config.get(key, {}).items():
-                if key in ("sensitivity", "paths", "output"):
+                if key in ("sensitivity", "paths", "visualize"):
                     self.setdefault(key, {})
                     if k == "ranges":
                         self["sensitivity"][k] = v | self["sensitivity"].get(k, {})
