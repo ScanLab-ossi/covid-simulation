@@ -97,25 +97,28 @@ class Visualizer(BasicBlock):
             day | amount | state
         """
         df = self._prep_for_stacked(df, include_green, simplified)
-        df.to_csv(OUTPUT_FOLDER / "df_in_vis.csv", index=False)
         domain = [self.states.color_to_state[c] for c in self.colors]
         chart = (
             alt.Chart(df)
             .mark_bar(size=15)
             .encode(
-                x=f"day:O",
+                x=alt.X(f"day:O", title="Time Window"),
                 y=alt.Y(
                     "amount:Q",
+                    title="Amount",
                     axis=alt.Axis(format="%", grid=False),
                     scale=alt.Scale(domain=(0, 1)),
                 ),
                 color=alt.Color(
                     "state",
+                    title="State",
                     scale=alt.Scale(domain=domain, range=list(self.colors.values())),
                 ),
                 order="order:O",
                 tooltip=["state", alt.Tooltip("amount:Q", format="%"), "day"],
             )
+            .configure_axis(labelFontSize=14, titleFontSize=16)
+            .configure_legend(labelFontSize=14, titleFontSize=16)
         )
         if not interactive and param:
             chart = (
@@ -126,6 +129,34 @@ class Visualizer(BasicBlock):
         if not include_green:
             self.colors["green"] = "#09ab3b"
         self._save_chart(chart, suffix=param)
+        return chart
+
+    def point_with_ci(self, df, save=True):
+        df = self._prep_for_stacked(df, include_green=True, simplified=True)
+        domain = [self.states.color_to_state[c] for c in self.colors]
+        x = alt.X("day:O", title="Time Window")
+        y = alt.Y("amount:Q", title="Amount")
+        color = alt.Color(
+            "state",
+            title="State",
+            scale=alt.Scale(domain=domain, range=list(self.colors.values())),
+        )
+        error_bars = (
+            alt.Chart(df).mark_errorbar(extent="ci").encode(x=x, y=y, color=color)
+        )
+        points = (
+            alt.Chart(df.groupby(["day", "state"], as_index=False).mean())
+            .mark_point()
+            .encode(x=x, y=y, color=color)
+        )
+        chart = (
+            (error_bars + points)
+            .configure_axis(labelFontSize=14, titleFontSize=16)
+            .configure_legend(labelFontSize=14, titleFontSize=16)
+        )
+
+        if save:
+            self._save_chart(chart, f"point_with_ci")
         return chart
 
     def _prep_for_line(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -150,18 +181,41 @@ class Visualizer(BasicBlock):
         df = self._prep_for_line(df)
         if metric:
             df = df[df["state"] == metric]
-        chart = (
-            alt.Chart(df)
+        line = (
+            alt.Chart()
+            .transform_aggregate(amount="mean(amount)", groupby=["day", "variant"])
             .mark_line()
             .encode(
-                alt.X("day", title="τ"),
-                alt.Y("amount:Q", axis=alt.Axis(format="%"), title="Total infection"),
+                x=alt.X("day", title="τ"),
+                y=alt.Y("amount:Q", axis=alt.Axis(format="%"), title="Total infection"),
                 color=alt.Color("variant:N", title="Variant"),
                 tooltip=["variant", alt.Tooltip("amount:Q", format="%"), "day"],
             )
             .properties(width=150, height=150)
             # .resolve_scale(x="independent")
         )
+        band = (
+            alt.Chart()
+            .mark_errorband(extent="ci")
+            .encode(
+                x=alt.X("day", title="τ"),
+                y=alt.Y("amount", title="Total infection"),
+                color="variant",
+            )
+        )
+        chart = alt.layer(line, band, data=df)
+        # chart = (
+        #     alt.Chart(df)
+        #     .mark_line()
+        #     .encode(
+        #         alt.X("day", title="τ"),
+        #         alt.Y("amount:Q", axis=alt.Axis(format="%"), title="Total infection"),
+        #         color=alt.Color("variant:N", title="Variant"),
+        #         tooltip=["variant", alt.Tooltip("amount:Q", format="%"), "day"],
+        #     )
+        #     .properties(width=150, height=150)
+        #     # .resolve_scale(x="independent")
+        # )
         if save:
             self._save_chart(chart, f"line_{metric}")
         return chart

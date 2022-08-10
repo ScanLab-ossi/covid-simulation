@@ -5,7 +5,7 @@ from simulation.dbox import Dropbox
 from simulation.google_cloud import GoogleCloud
 from simulation.sensitivity_analysis import SensitivityRunner
 from simulation.task import Task
-from simulation.output import IterBatch
+from simulation.output import IterBatch, MultiBatch
 
 
 def main():
@@ -35,7 +35,10 @@ def main():
             else ContagionRunner(dataset, task)
         )
         result = runner.run()
+        # result.get_all_data()
         result.export()
+        # result.export("metrics")
+        # result.export(("batches" if isinstance(result, MultiBatch) else "batch"))
         for how in task["visualize"]["how"]:
             getattr(result, f"visualize_{how}")()
         if settings["UPLOAD"]:

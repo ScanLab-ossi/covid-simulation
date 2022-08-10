@@ -1,35 +1,60 @@
 settings:
-  UPLOAD: true
+  UPLOAD: false
   VERBOSE: false
   ITER_DATASET: false
 
 meta:
   ITERATIONS: 200
-  DATASET: random_undirected_concated_1000_1
+  DATASET: copenhagen_agg
   SENSITIVITY: false
 
 params:
-  divide: 1
-  infection_model: VariantInfection
-  variants: [slow, medium, fast]
+  divide: 3
+  infection_model: GroupInfection
   number_of_patient_zero: 1
+  patient_zeroes_on_days: [0]
   D_min: 0
-  P_max: [0.1, 0.12, 0.14]
-  immunity: [0.0, 0.0, 0.0]
-  reinfect: 1
+  P_max: 0.5
 
 sensitivity:
-  change: columns # matrix, rows, columns, default
+  change: rows
   params:
-    - immunity
+    - D_min
+  # metrics:
+  # - grouping: sick
+  # - grouping: daily_infected
+  #   cumsum: true
   ranges:
-    immunity: { step: 1.0, min: 0, max: 1}
+    D_min: # 0, 1
+      step: 5
+      min: 5
+      max: 150 # this should be 1
+
+paths:
+  green:
+    duration:
+      - 5
+      - 1
+    children:
+      - blue
+  blue:
+    duration:
+      - 7
+      - 2
+    children:
+      - white
+  white: {}
 
 visualize:
   how:
     - detailed
     # - summary
   metrics:
-    - grouping: sick
+    # - grouping: sick
     - grouping: daily_infected
       cumsum: true
+    # - grouping: sick
+    # how: day
+    # - grouping: daily_infected
+    # - grouping: daily_infected
+    # how: day

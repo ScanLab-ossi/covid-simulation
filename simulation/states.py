@@ -17,6 +17,7 @@ class States:
             "daily_blue",
             "sick",
             "variant",
+            "r_0",
         }
         self.infectious_states = {"green", "purple_red", "purple_pink", "blue"}
         self.non_infectious_states = (
@@ -27,7 +28,7 @@ class States:
         self.states_with_duration = self.states - self.aggregate_states
         self.all = sorted(self.non_states | self.aggregate_states | self.states)
         self.color_to_state = {
-            "blue": "asymptomatic",
+            "blue": "infected",
             "pink": "mild symptoms, quarantined",
             "purple": "presymptomatic",
             "purple_pink": "pre mild symptoms",

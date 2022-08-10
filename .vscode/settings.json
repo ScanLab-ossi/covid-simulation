@@ -1,5 +1,5 @@
 {
-    "python.pythonPath": "/home/alexzabbey/.virtualenvs/ossi/bin/python",
+    "python.pythonPath": "/home/alexzabbey/.virtualenvs/covid/bin/python",
     "python.formatting.provider": "black",
     "python.analysis.extraPaths": [
         "./ossi/covid-simulation/",

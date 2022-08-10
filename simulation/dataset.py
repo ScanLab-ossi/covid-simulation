@@ -34,6 +34,7 @@ class Dataset(object):
         filename = f"{self.name}.csv"
         if self.storage == "csv":
             if not (DATA_FOLDER / filename).exists():
+                print("here")
                 self.gcloud.download(filename)
             data = pd.read_csv(
                 DATA_FOLDER / filename,

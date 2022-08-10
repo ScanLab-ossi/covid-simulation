@@ -75,7 +75,9 @@ class CSVContagion(Contagion):
             index: sick
             columns: infection_date | days_left | state | variant [| age]
         """
-        potential = self.dataset.ids[day]
+        potential = (
+            self.dataset.ids[day] if self.dataset.real else range(self.dataset.nodes)
+        )
         if sick:
             potential = list(set(potential) - set(sick))
         n_zero = min(
@@ -109,8 +111,9 @@ class CSVContagion(Contagion):
             not (var in hist)
             for var, hist in zip(contagion_df["variant"], contagion_df["history"])
         ]
-        contagion_df = contagion_df[pd.Series(filter_)].replace("none", value=np.nan)
-        return contagion_df
+        if len(filter_) != 0:
+            contagion_df = contagion_df[pd.Series(filter_)]
+        return contagion_df.replace("none", value=np.nan)
 
     def contagion(
         self,
@@ -278,4 +281,5 @@ class ContagionRunner(ConnectedBasicBlock):
                 if settings["VERBOSE"]:
                     print(f"did day {day}")
             batch.append_output(output)
+        batch.metrics = pd.DataFrame(batch.metrics)
         return batch

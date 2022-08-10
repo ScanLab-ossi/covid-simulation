@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ast import Break
 
 import gzip
 import json
@@ -16,9 +17,7 @@ from simulation.dataset import Dataset
 from simulation.helpers import timing
 from simulation.task import Task
 from simulation.visualizer import Visualizer
-
-if TYPE_CHECKING:
-    from sensitivity_analysis import Analysis
+from simulation.analysis import Analysis
 
 
 class OutputBase(BasicBlock):
@@ -39,20 +38,25 @@ class OutputBase(BasicBlock):
             if isinstance(d, dict):
                 if isinstance(self, MultiBatch):
                     for param, s in d.items():
-                        for step, output in s.items():
-                            d[param][step] = output.mean_and_std
-                with open(OUTPUT_FOLDER / f"{self.task.id}.json", "w") as fp:
-                    try:
-                        json.dump(d, fp)
-                    except TypeError:
-                        self._export_gzip(d, attr)
+                        for step, batch in s.items():
+                            d[param][step] = [output.variant_summed for output in batch]
+                self._export_gzip(d, attr)
+                # with open(OUTPUT_FOLDER / f"{self.task.id}.json", "w") as fp:
+                #     try:
+                #         json.dump(d, fp)
+                #     except TypeError:
+                #         self._export_gzip(d, attr)
             if isinstance(d, pd.DataFrame):
                 if table_format == "pickle":
                     self._export_gzip(d, attr)
                 elif table_format == "csv":
                     d.to_csv(
                         OUTPUT_FOLDER / f"{self.task.id}_{attr}.csv",
-                        index=(False if hasattr(self, "batches") else True),
+                        index=(
+                            False
+                            if (hasattr(self, "batches") or attr == "metrics")
+                            else True
+                        ),
                     )
 
     def load_pickle(self, file_path: Path) -> Batch | MultiBatch:
@@ -113,6 +117,12 @@ class Output(BasicBlock):
         self.summed[day] = dict(self.df["state"].value_counts())
         self.summed[day]["green"] = self.dataset.nodes - sum(self.summed[day].values())
         self.summed[day]["daily_infected"] = len(daily)
+        if self.summed[day].get("blue", False):
+            self.summed[day]["r_0"] = (
+                self.summed[day]["daily_infected"] / self.summed[day]["blue"]
+            )
+        else:  # FIXME
+            self.summed[day]["r_0"] = 0
         # notna_infectors = daily[daily["infector"].notna()]["infector"]
         # self.summed[day]["daily_infectors"] = (
         #     len(set.union(*notna_infectors)) if len(notna_infectors) > 0 else 0
@@ -134,12 +144,12 @@ class Output(BasicBlock):
             {"infected": infected, "daily_infected": daily_infected, "sick": sick}
         ).to_dict("index")
         for variant, states in summed.items():
-            # if cumsum:  # FIXME: cumsum shouldnt be default nor specific!
-            #     states["daily_infected"] += (
-            #         self.variant_summed[variant]
-            #         .get(day - 1, {})
-            #         .get("daily_infected", 0)
-            #     )
+            if cumsum:  # FIXME: cumsum shouldnt be default nor specific!
+                states["daily_infected"] += (
+                    self.variant_summed[variant]
+                    .get(day - 1, {})
+                    .get("daily_infected", 0)
+                )
             self.variant_summed[variant] |= {day: states}
 
     def value_counts(self, day: int):
@@ -179,8 +189,10 @@ class Batch(OutputBase):
 
     def __init__(self, dataset: Dataset, task: Task, init: dict | None = None):
         super().__init__(dataset=dataset, task=task)
+        self.analysis = Analysis(self.dataset, self.task)
         self.mean_and_std = init if init else {}
         self.batch = []
+        self.metrics = []
 
     def __iter__(self):
         self.n = 0
@@ -195,6 +207,13 @@ class Batch(OutputBase):
 
     def append_output(self, output: Output):
         self.batch.append(output)
+        df = pd.DataFrame(output.summed).T.fillna(0)
+        for metric in self.task["visualize"]["metrics"]:
+            count = self.analysis.count(df, **metric)
+            if "max_day_sick" in count.values():
+                r_0 = df.loc[: int(count["value"]), "r_0"].mean()
+                self.metrics.append({"metric": "r_0", "value": r_0})
+            self.metrics.append(count)
 
     def sum_batch(
         self,
@@ -230,36 +249,55 @@ class Batch(OutputBase):
         """
         return: day | variant | state | amount
         """
-        if metric.get("cumsum", False):
-            df[metric["grouping"]] = df.groupby(level=-1)[metric["grouping"]].cumsum()
-        df = (
-            df.rename_axis(index=["day", "variant"])
-            .reset_index()
-            .melt(id_vars=["day", "variant"], var_name="state", value_name="amount")
-        )
+        # if metric.get("cumsum", False):
+        #     df[metric["grouping"]] = df.groupby(level=-1)[metric["grouping"]].cumsum()
+        # df = (
+        #     df.rename_axis(index=["day", "variant"])
+        #     .reset_index()
+        #     .melt(id_vars=["day", "variant"], var_name="state", value_name="amount")
+        # )
         return self.visualizer.line(df, metric["grouping"], save=True)
 
-    def _wave_vis(self, df):
+    def _prep_for_wave_vis(self):
         """
         return: day | variant | state | amount
         """
+        df = pd.concat([pd.DataFrame(x.summed).T for x in self])
         df = (
-            df.drop(columns=self.states.non_states & set(df.columns))
+            df.fillna(0)
+            .drop(columns=self.states.non_states & set(df.columns))
             .reset_index()
             .rename(columns={"index": "day"})
             .melt(id_vars="day", var_name="state", value_name="amount")
         )
         df["day"] = df["day"].astype(int)
-        return self.visualizer.stacked_bar(df)
+        return df
 
     def visualize_detailed(self):
-        self.sum_batch()
-        df = pd.DataFrame(self.mean_and_std["mean"])
         for metric in self.task["visualize"]["metrics"]:
             if self.variants:
-                self._variant_vis(df, metric)
+                self._variant_vis(self.df, metric)
             else:
-                self._wave_vis(df)
+                # FIXME: blues disappear at a certain point
+                df = self._prep_for_wave_vis()
+                self.visualizer.stacked_bar(
+                    df.groupby(["day", "state"], as_index=False).mean()
+                )
+                df.to_csv("abc.csv")
+                self.visualizer.point_with_ci(df)
+
+    def get_all_data(self):
+        to_concat = []
+        for i, output in enumerate(self.batch):
+            for variant, summed in output.variant_summed.items():
+                to_concat.append(
+                    pd.DataFrame.from_dict(summed, orient="index")
+                    .reset_index()
+                    .rename(columns={"index": "day"})
+                    .melt(id_vars=["day"], value_name="amount", var_name="state")
+                    .assign(variant=variant, iteration=i)
+                )
+        self.df = pd.concat(to_concat)
 
 
 class MultiBatch(OutputBase):
@@ -293,7 +331,6 @@ class MultiBatch(OutputBase):
             columns=["value", "metric", "step", "parameter"] + self.variants.column
         )
         self.analysis = analysis
-        self.ready_for_vis = {}
 
     def append_batch(self, batch: Batch, param: str, step: int | float):
         batch.sum_batch()
@@ -344,44 +381,70 @@ class MultiBatch(OutputBase):
         df.to_csv(OUTPUT_FOLDER / "df_in_output.csv", index=False)
         return df
 
-    def _prep_for_variant_vis(self, param):
+    def get_all_data(self):
         to_concat = []
-        for step in self.batches[param].keys():
-            x = (
-                pd.DataFrame(self.batches[param][step].mean_and_std["mean"])
-                .rename_axis(index=["day", "variant"])
-                .reset_index()
+        for param, d in self.batches.items():
+            for step, v in d.items():
+                for i, output in enumerate(v):
+                    for variant, summed in output.variant_summed.items():
+                        to_concat.append(
+                            pd.DataFrame.from_dict(summed, orient="index")
+                            .reset_index()
+                            .rename(columns={"index": "day"})
+                            .melt(
+                                id_vars=["day"], value_name="amount", var_name="state"
+                            )
+                            .assign(
+                                param=param,
+                                variant=variant,
+                                iteration=i,
+                                step_0=step[0],
+                                step_1=step[1],
+                            )
+                        )
+        self.df = pd.concat(to_concat)
+
+    def format_variant_summed(d):
+        return (
+            pd.DataFrame(
+                {
+                    (outerKey, innerKey): values
+                    for outerKey, innerDict in d.items()
+                    for innerKey, values in innerDict.items()
+                }
             )
-            x[["step_0", "step_1"]] = step
-            to_concat.append(x)
-        df = pd.concat(to_concat).melt(
-            id_vars=["day", "step_0", "step_1", "variant"],
-            var_name="state",
-            value_name="amount",
+            .T.reset_index()
+            .melt(id_vars=["level_0", "level_1"])
         )
-        # df = df.drop(columns=self.states.non_states & set(df.columns))
-        df.to_csv(OUTPUT_FOLDER / "df_in_output.csv", index=False)
-        return df
+
+    # def get_all_data(self):
+    #     for param in self.batches.keys():
+    #         for m in self.task["visualize"]["metrics"]:
+    #             metric = m["grouping"]
+    #             l = []
+    #             for tup, batch in self.batches[param].items():
+    #                 pd.concat(
+    #                     self.format_variant_summed(output.variant_summed)
+    #                     for output in batch
+    #                 ).assign(**{"step": tup})
+    #             df = pd.concat(l)
 
     def visualize_detailed(self):
         if self.variants:
             for param in self.batches.keys():
                 for m in self.task["visualize"]["metrics"]:
                     metric = m["grouping"]
-                    df = self._prep_for_variant_vis(param)
-                    self.ready_for_vis |= {f"{param}_{metric}_lines": df.to_dict()}
-                    df.to_csv(OUTPUT_FOLDER / f"{self.task.id}_lines.csv", index=False)
-                    self.visualizer.facet_line(df, metric=metric, param=param)
+                    self.df.to_csv(
+                        OUTPUT_FOLDER / f"{self.task.id}_lines.csv", index=False
+                    )
+                    self.visualizer.facet_line(self.df, metric=metric, param=param)
         else:
             for param in self.batches.keys():
-                df = self._prep_for_vis(param)
-                self.ready_for_vis |= {f"{param}_stacked_bar": df.to_dict()}
-                self.visualizer.stacked_bar(df, param=param)
+                self.visualizer.stacked_bar(self.df, param=param)
 
     def _prep_for_heatmap(self, param: str, metric: str) -> pd.DataFrame:
-        df = self._prep_for_variant_vis(param)
         df = (
-            df[df["state"] == metric]
+            self.df[self.df["state"] == metric]
             .groupby(["step_0", "step_1", "variant"])
             .max()["amount"]
             .reset_index()
@@ -420,9 +483,9 @@ class MultiBatch(OutputBase):
                     OUTPUT_FOLDER / "summed_analysis.csv", index=False
                 )
                 self.visualizer.boxplots(self.summed_analysis)
-                self.ready_for_vis |= {
-                    f"{param}_boxplots": self.summed_analysis.to_dict()
-                }
+                # self.ready_for_vis |= {
+                #     f"{param}_boxplots": self.summed_analysis.to_dict()
+                # }
 
 
 class IterBatch:

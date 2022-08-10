@@ -153,8 +153,9 @@ class VariantInfection(GroupInfection):
                 df[["susceptible", "history"]]
                 .drop_duplicates("susceptible")
                 .set_index("susceptible")
+                .explode("history")
                 .replace(immunity)
-                .fillna(1)
+                .fillna(1.0)
                 .sort_index()
                 .to_numpy()
             )
@@ -167,10 +168,11 @@ class VariantInfection(GroupInfection):
             .unstack(level=1, fill_value=0)
         )
         # not a great solution
-        if self.task.get("reinfect") > 0 and len(self.variants) == 2:
-            df = df.mul(history_col, axis="rows")
         for v in set(self.variants) - set(df.columns):
             df[v] = 0
+        if self.task.get("reinfect") > 0 and len(self.variants) == 2:
+            df = df.mul(history_col, axis="rows")
+
         return df
 
     def _cases(self, df: pd.DataFrame) -> pd.DataFrame:
