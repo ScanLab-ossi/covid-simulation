@@ -37,14 +37,28 @@ class StateTransition(RandomBasicBlock):
                         path_dist = d["distribution"]
                     next_state = self.rng.choice(d["children"], 1, p=path_dist).item()
                     row["state"] = next_state
-                    duration = self.task["paths"][next_state].get("duration", 0)
-                    if duration == 0:
-                        row["days_left"] = 0
-                    else:
-                        if isinstance(duration, dict):
-                            row["days_left"] = self._get_age(d, "duration", row["age"])
-                        norm = self.rng.normal(*duration)
-                        row["days_left"] = int(np.maximum(np.around(norm), 1)) - 1
+                    row = self.get_duration(row, next_state)
+                    # duration = self.task["paths"][next_state].get("duration", 0)
+                    # if duration == 0:
+                    #     row["days_left"] = 0
+                    # else:
+                    #     if isinstance(duration, dict):
+                    #         row["days_left"] = self._get_age(d, "duration", row["age"])
+                    #     norm = self.rng.normal(*duration)
+                    #     row["days_left"] = int(np.maximum(np.around(norm), 1)) - 1
                 except KeyError:
                     return row
             return row
+
+    def get_duration(self, row, state=None):
+        d = self.task["paths"][row["state"]]
+        state = state if state else row["state"]
+        duration = self.task["paths"][state].get("duration", 0)
+        if duration == 0:
+            row["days_left"] = 0
+        else:
+            if isinstance(duration, dict):
+                row["days_left"] = self._get_age(d, "duration", row["age"])
+            norm = self.rng.normal(*duration)
+            row["days_left"] = int(np.maximum(np.around(norm), 1)) - 1
+        return row

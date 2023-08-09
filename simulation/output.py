@@ -386,21 +386,34 @@ class MultiBatch(OutputBase):
         for param, d in self.batches.items():
             for step, v in d.items():
                 for i, output in enumerate(v):
-                    for variant, summed in output.variant_summed.items():
+                    if self.variants:
+                        for variant, summed in output.variant_summed.items():
+                            to_concat.append(
+                                pd.DataFrame.from_dict(summed, orient="index")
+                                .reset_index()
+                                .rename(columns={"index": "day"})
+                                .melt(
+                                    id_vars=["day"],
+                                    value_name="amount",
+                                    var_name="state",
+                                )
+                                .assign(
+                                    param=param,
+                                    variant=variant,
+                                    iteration=i,
+                                    step_0=step[0],
+                                    step_1=step[1],
+                                )
+                            )
+                    else:
                         to_concat.append(
-                            pd.DataFrame.from_dict(summed, orient="index")
+                            pd.DataFrame.from_dict(output.summed, orient="index")
                             .reset_index()
                             .rename(columns={"index": "day"})
                             .melt(
                                 id_vars=["day"], value_name="amount", var_name="state"
                             )
-                            .assign(
-                                param=param,
-                                variant=variant,
-                                iteration=i,
-                                step_0=step[0],
-                                step_1=step[1],
-                            )
+                            .assign(param=param, iteration=i, step=step)
                         )
         self.df = pd.concat(to_concat)
 
@@ -440,7 +453,9 @@ class MultiBatch(OutputBase):
                     self.visualizer.facet_line(self.df, metric=metric, param=param)
         else:
             for param in self.batches.keys():
+                self.get_all_data()
                 self.visualizer.stacked_bar(self.df, param=param)
+                self.visualizer.point_with_ci(self.df)
 
     def _prep_for_heatmap(self, param: str, metric: str) -> pd.DataFrame:
         df = (

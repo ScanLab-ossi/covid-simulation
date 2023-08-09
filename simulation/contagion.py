@@ -66,7 +66,11 @@ class Contagion(RandomBasicBlock):
 
 class CSVContagion(Contagion):
     def pick_patient_zero(
-        self, variant: str = None, day: int = 0, sick: List[int] = []
+        self,
+        st: StateTransition,
+        variant: str = None,
+        day: int = 0,
+        sick: List[int] = [],
     ) -> pd.DataFrame:
         """
         Returns
@@ -83,12 +87,12 @@ class CSVContagion(Contagion):
         n_zero = min(
             self.task.get("number_of_patient_zero", variant=variant), len(potential)
         )
-        # TODO: days_left should be days in green if Exposed is wanted
         zeroes = pd.DataFrame(
             [[day, 0, "green"]] * n_zero,
             columns=["infection_date", "days_left", "state"],
             index=self.rng.choice(potential, n_zero, replace=False),
         )
+        zeroes = zeroes.apply(st.get_duration, axis=1)
         if self.variants:
             zeroes["variant"] = variant
             zeroes = zeroes.pipe(self.variants.categorify)
@@ -221,19 +225,22 @@ class ContagionRunner(ConnectedBasicBlock):
     """Runs one batch"""
 
     def _get_patient_zero(
-        self, day: int, output: Output, contagion: CSVContagion | GroupContagion
+        self,
+        day: int,
+        output: Output,
+        contagion: CSVContagion | GroupContagion,
+        st: StateTransition,
     ) -> Output:
         for variant in self.task.get("variants", alt=[None]):
             if day in self.task.get("patient_zeroes_on_days", variant=variant):
                 # TODO: do you need to explicitly loop for each variant? or can it all be done at once?
-                output.df = pd.concat(
-                    [
-                        output.df,
-                        contagion.pick_patient_zero(
-                            variant=variant, day=day, sick=output.df.index.tolist()
-                        ),
-                    ]
+                new = contagion.pick_patient_zero(
+                    st=st,
+                    variant=variant,
+                    day=day,
+                    sick=output.df.index.tolist(),
                 )
+                output.df = pd.concat([output.df, new])
         return output
 
     def _pick_contagion(
@@ -267,7 +274,7 @@ class ContagionRunner(ConnectedBasicBlock):
         for _ in range(self.task["ITERATIONS"]):
             output, st = Output(*dt), StateTransition(*dt)
             for day in range(max(self.dataset.split) + 1):
-                output = self._get_patient_zero(day, output, contagion)
+                output = self._get_patient_zero(day, output, contagion, st)
                 output.df = (
                     contagion.contagion(output.df, day, output.history)
                     .apply(st.move_one, axis=1)

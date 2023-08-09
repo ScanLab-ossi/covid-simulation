@@ -133,6 +133,7 @@ class Visualizer(BasicBlock):
 
     def point_with_ci(self, df, save=True):
         df = self._prep_for_stacked(df, include_green=True, simplified=True)
+        # df = df[df["state"] == "sick"]  # FIXME: remove
         domain = [self.states.color_to_state[c] for c in self.colors]
         x = alt.X("day:O", title="Time Window")
         y = alt.Y("amount:Q", title="Amount")
@@ -141,9 +142,11 @@ class Visualizer(BasicBlock):
             title="State",
             scale=alt.Scale(domain=domain, range=list(self.colors.values())),
         )
+        # color = alt.Color("step:N")  # FIXME: remove
         error_bars = (
             alt.Chart(df).mark_errorbar(extent="ci").encode(x=x, y=y, color=color)
         )
+        # FIXME: remove step
         points = (
             alt.Chart(df.groupby(["day", "state"], as_index=False).mean())
             .mark_point()

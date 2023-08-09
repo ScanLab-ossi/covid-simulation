@@ -11,7 +11,7 @@ meta:
 params:
   divide: 3
   infection_model: GroupInfection
-  number_of_patient_zero: 1
+  number_of_patient_zero: 6
   patient_zeroes_on_days: [0]
   D_min: 0
   P_max: 0.5
@@ -19,28 +19,28 @@ params:
 sensitivity:
   change: rows
   params:
-    - D_min
+    - divide
   # metrics:
   # - grouping: sick
   # - grouping: daily_infected
   #   cumsum: true
   ranges:
-    D_min: # 0, 1
-      step: 5
-      min: 5
-      max: 150 # this should be 1
+    divide:
+      step: 1
+      min: 1
+      max: 3
 
 paths:
   green:
     duration:
-      - 5
+      - 2
       - 1
     children:
       - blue
   blue:
     duration:
       - 7
-      - 2
+      - 5
     children:
       - white
   white: {}
@@ -50,11 +50,4 @@ visualize:
     - detailed
     # - summary
   metrics:
-    # - grouping: sick
-    - grouping: daily_infected
-      cumsum: true
-    # - grouping: sick
-    # how: day
-    # - grouping: daily_infected
-    # - grouping: daily_infected
-    # how: day
+    - grouping: sick
